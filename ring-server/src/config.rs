@@ -14,7 +14,7 @@ impl Default for Config {
         let data_dir = PathBuf::from(home).join(".ring");
         Config {
             port: 7420,
-            database_url: format!("sqlite:{}/data/ring.db", data_dir.display()),
+            database_url: format!("sqlite:{}/data/ring.db?create=true", data_dir.display()),
             data_dir,
             release_repo: "https://github.com/ring-project/ring".into(),
         }
