@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
 use crate::error::Result;
+use crate::models::tool_model::ToolDefinition;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LlmMessage {
@@ -54,6 +55,7 @@ pub trait LlmProvider: Send + Sync {
     async fn chat_stream(
         &self,
         messages: Vec<LlmMessage>,
+        tools: Option<Vec<ToolDefinition>>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>>;
 }
 
@@ -72,6 +74,7 @@ impl LlmProvider for MockLlmProvider {
     async fn chat_stream(
         &self,
         _messages: Vec<LlmMessage>,
+        _tools: Option<Vec<ToolDefinition>>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let events = self.events.clone();
         Ok(Box::pin(stream::iter(events)))
@@ -99,7 +102,7 @@ mod tests {
             },
         ];
         let provider = MockLlmProvider::new(events);
-        let stream = provider.chat_stream(vec![]).await.unwrap();
+        let stream = provider.chat_stream(vec![], None).await.unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
         assert_eq!(collected.len(), 2);
         assert!(matches!(&collected[0], LlmEvent::Text { content } if content == "hello"));
@@ -111,7 +114,7 @@ mod tests {
     #[tokio::test]
     async fn mock_provider_returns_empty_stream() {
         let provider = MockLlmProvider::new(vec![]);
-        let stream = provider.chat_stream(vec![]).await.unwrap();
+        let stream = provider.chat_stream(vec![], None).await.unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
         assert!(collected.is_empty());
     }
