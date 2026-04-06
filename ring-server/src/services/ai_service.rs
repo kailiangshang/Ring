@@ -282,6 +282,9 @@ mod tests {
         ) -> crate::error::Result<Vec<crate::models::conversation::Message>> {
             Ok(vec![])
         }
+        async fn update_ring_status(&self, _id: &str, _status: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
         async fn list_blueprint_templates(
             &self,
         ) -> crate::error::Result<Vec<crate::models::blueprint::BlueprintTemplate>> {

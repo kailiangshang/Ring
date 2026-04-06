@@ -2,6 +2,7 @@ use axum::routing::{get, post};
 use axum::Router;
 
 use crate::handlers::ai;
+use crate::handlers::blueprint;
 use crate::handlers::conversation;
 use crate::handlers::install;
 use crate::handlers::ring;
@@ -33,10 +34,17 @@ pub fn build_router(state: AppState) -> Router {
             get(conversation::get_messages).post(conversation::send_message),
         );
 
+    let blueprint_routes = Router::new()
+        .route("/templates", get(blueprint::list_templates))
+        .route("/chat", post(blueprint::blueprint_chat))
+        .route("/preview", post(blueprint::preview_blueprint))
+        .route("/confirm", post(blueprint::confirm_blueprint));
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
         .nest("/api/v1/rings/{ringId}/conversations", conversation_routes)
+        .nest("/api/v1/rings/{ringId}/blueprint", blueprint_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/join", get(install::join_page))
         .with_state(state)

@@ -475,6 +475,22 @@ impl Repository for SqliteRepository {
         Ok(rows.into_iter().map(|r| r.into_model()).collect())
     }
 
+    async fn update_ring_status(&self, id: &str, status: &str) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        let result = sqlx::query("UPDATE rings SET status = ?, updated_at = ? WHERE id = ?")
+            .bind(status)
+            .bind(&now)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+
+        if result.rows_affected() == 0 {
+            return Err(RingError::NotFound(format!("ring {}", id)));
+        }
+        Ok(())
+    }
+
     async fn list_blueprint_templates(&self) -> Result<Vec<BlueprintTemplate>> {
         let rows = sqlx::query_as::<_, BlueprintTemplateRow>(
             "SELECT id, name, description, graphs, is_system, created_by, created_at FROM blueprint_templates ORDER BY created_at ASC",

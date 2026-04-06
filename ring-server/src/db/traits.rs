@@ -55,6 +55,7 @@ pub trait Repository: Send + Sync {
         limit: i64,
         before_id: Option<&str>,
     ) -> Result<Vec<Message>>;
+    async fn update_ring_status(&self, id: &str, status: &str) -> Result<()>;
     async fn list_blueprint_templates(&self) -> Result<Vec<BlueprintTemplate>>;
     async fn create_blueprint_template(
         &self,
