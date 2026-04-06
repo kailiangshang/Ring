@@ -13,6 +13,7 @@ use crate::handlers::notification;
 use crate::handlers::ring;
 use crate::handlers::search;
 use crate::handlers::session;
+use crate::handlers::settings;
 use crate::handlers::setup;
 use crate::handlers::ws;
 use crate::state::AppState;
@@ -105,6 +106,11 @@ pub fn build_router(state: AppState) -> Router {
         .route("/", get(notification::list_notifications))
         .route("/{notificationId}", post(notification::mark_read));
 
+    let settings_routes = Router::new().route(
+        "/",
+        get(settings::get_settings).put(settings::update_settings),
+    );
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
@@ -117,6 +123,7 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/rings/{ringId}/archive", archive_routes)
         .nest("/api/v1/rings/{ringId}/git", git_routes)
         .nest("/api/v1/notifications", notification_routes)
+        .nest("/api/v1/settings", settings_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/api/v1/ws/{ringId}", get(ws::ws_handler))
         .route("/join", get(install::join_page))

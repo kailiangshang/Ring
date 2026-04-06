@@ -10,5 +10,6 @@ pub mod notification;
 pub mod ring;
 pub mod search;
 pub mod session;
+pub mod settings;
 pub mod setup;
 pub mod ws;
