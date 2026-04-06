@@ -320,6 +320,40 @@ mod tests {
         ) -> crate::error::Result<Vec<crate::models::graph_model::SearchResult>> {
             unimplemented!()
         }
+        async fn create_archive_record(
+            &self,
+            _id: &str,
+            _ring_id: &str,
+            _node_id: Option<&str>,
+            _conversation_id: Option<&str>,
+            _message_ids: &str,
+            _markdown_path: &str,
+            _archived_by: &str,
+            _git_commit_sha: Option<&str>,
+            _pr_status: Option<&str>,
+            _pr_url: Option<&str>,
+        ) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn list_archive_records_by_ring(
+            &self,
+            _ring_id: &str,
+        ) -> crate::error::Result<Vec<crate::models::git_model::ArchiveRecord>> {
+            unimplemented!()
+        }
+        async fn get_archive_record(
+            &self,
+            _id: &str,
+        ) -> crate::error::Result<Option<crate::models::git_model::ArchiveRecord>> {
+            unimplemented!()
+        }
+        async fn update_archive_pr_status(
+            &self,
+            _id: &str,
+            _pr_status: &str,
+        ) -> crate::error::Result<()> {
+            unimplemented!()
+        }
     }
 
     fn make_events() -> Vec<LlmEvent> {
