@@ -1,6 +1,8 @@
 use axum::routing::{get, post};
 use axum::Router;
 
+use crate::handlers::ai;
+use crate::handlers::conversation;
 use crate::handlers::install;
 use crate::handlers::ring;
 use crate::handlers::setup;
@@ -23,9 +25,19 @@ pub fn build_router(state: AppState) -> Router {
                 .delete(ring::delete_ring),
         );
 
+    let conversation_routes = Router::new()
+        .route("/", get(conversation::list).post(conversation::create))
+        .route("/{convId}", get(conversation::get))
+        .route(
+            "/{convId}/messages",
+            get(conversation::get_messages).post(conversation::send_message),
+        );
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
+        .nest("/api/v1/rings/{ringId}/conversations", conversation_routes)
+        .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/join", get(install::join_page))
         .with_state(state)
 }

@@ -2,6 +2,7 @@ use ring_server::config::Config;
 use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::routes::build_router;
+use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
 use ring_server::state::AppState;
 
 use std::sync::Arc;
@@ -31,11 +32,13 @@ async fn main() {
     let db = Arc::new(SqliteRepository::new(pool));
     let graph_store = Arc::new(RwLock::new(PetgraphStore::new()));
     let config = Arc::new(config);
+    let llm_provider: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(vec![]));
 
     let state = AppState {
         db,
         graph_store,
         config,
+        llm_provider,
     };
 
     let app = build_router(state);
