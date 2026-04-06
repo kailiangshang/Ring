@@ -4,7 +4,8 @@ use async_openai::types::chat::{
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
     ChatCompletionRequestUserMessageContent, ChatCompletionStreamOptions, ChatCompletionTool,
-    ChatCompletionTools, CreateChatCompletionRequest, FinishReason, FunctionObject,
+    ChatCompletionTools, CreateChatCompletionRequest,
+    FinishReason, FunctionObject,
 };
 use async_openai::Client as OpenAIClient;
 use async_trait::async_trait;

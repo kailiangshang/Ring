@@ -565,6 +565,67 @@ mod tests {
         async fn mark_notification_read(&self, _id: &str) -> crate::error::Result<()> {
             unimplemented!()
         }
+        async fn create_session(
+            &self,
+            _ring_id: &str,
+            _title: Option<&str>,
+            _scenario: &str,
+            _created_by: &str,
+            _archive_enabled: bool,
+        ) -> crate::error::Result<crate::models::session_model::Session> {
+            unimplemented!()
+        }
+        async fn get_session(&self, _id: &str) -> crate::error::Result<Option<crate::models::session_model::Session>> {
+            unimplemented!()
+        }
+        async fn list_sessions_by_ring(
+            &self,
+            _ring_id: &str,
+            _status: Option<&str>,
+        ) -> crate::error::Result<Vec<crate::models::session_model::Session>> {
+            unimplemented!()
+        }
+        async fn update_session_status(&self, _id: &str, _status: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn update_session_archive(&self, _id: &str, _enabled: bool) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn delete_session(&self, _id: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn create_session_member(
+            &self,
+            _session_id: &str,
+            _user_id: &str,
+            _role: &str,
+        ) -> crate::error::Result<crate::models::session_model::SessionMember> {
+            unimplemented!()
+        }
+        async fn list_session_members(&self, _session_id: &str) -> crate::error::Result<Vec<crate::models::session_model::SessionMember>> {
+            unimplemented!()
+        }
+        async fn leave_session_member(&self, _session_id: &str, _user_id: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn create_session_message(
+            &self,
+            _session_id: &str,
+            _sender_id: &str,
+            _role: &str,
+            _content: &str,
+            _seq_num: i64,
+        ) -> crate::error::Result<crate::models::session_model::SessionMessage> {
+            unimplemented!()
+        }
+        async fn get_session_messages(
+            &self,
+            _session_id: &str,
+            _after_seq: Option<i64>,
+            _limit: i64,
+        ) -> crate::error::Result<Vec<crate::models::session_model::SessionMessage>> {
+            unimplemented!()
+        }
     }
 
     fn make_test_ring(local_path: &std::path::Path) -> Ring {

@@ -110,7 +110,7 @@ async fn get_queue_returns_200() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let json = body_to_json(resp.into_body()).await;
-    assert!(json["current_review"].isNull());
+    assert!(json["current_review"].is_null());
     assert!(json["queue"].as_array().unwrap().is_empty());
 }
 
