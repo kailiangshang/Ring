@@ -2,6 +2,8 @@ pub mod config;
 pub mod db;
 pub mod error;
 pub mod graph;
+pub mod handlers;
 pub mod models;
+pub mod routes;
 pub mod services;
 pub mod state;

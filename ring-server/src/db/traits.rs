@@ -7,6 +7,7 @@ use crate::models::user::{NewUser, User};
 pub trait Repository: Send + Sync {
     async fn create_user(&self, new_user: NewUser) -> Result<User>;
     async fn get_user(&self, id: &str) -> Result<Option<User>>;
+    async fn list_all_users(&self) -> Result<Vec<User>>;
     async fn is_setup_completed(&self) -> Result<bool>;
     async fn complete_setup(&self, user_id: &str) -> Result<()>;
     async fn create_ring(&self, new_ring: NewRing) -> Result<Ring>;
@@ -27,4 +28,6 @@ pub trait Repository: Send + Sync {
         inviter_id: &str,
     ) -> Result<InviteToken>;
     async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>>;
+    async fn get_setting(&self, key: &str) -> Result<Option<String>>;
+    async fn set_setting(&self, key: &str, value: &str) -> Result<()>;
 }

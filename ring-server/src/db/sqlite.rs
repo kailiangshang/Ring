@@ -57,6 +57,27 @@ impl Repository for SqliteRepository {
         }))
     }
 
+    async fn list_all_users(&self) -> Result<Vec<User>> {
+        let rows = sqlx::query_as::<_, UserRow>(
+            "SELECT id, display_name, avatar_url, ip_address, setup_completed, created_at FROM users",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| User {
+                id: r.id,
+                display_name: r.display_name,
+                avatar_url: r.avatar_url,
+                ip_address: r.ip_address,
+                setup_completed: r.setup_completed,
+                created_at: r.created_at,
+            })
+            .collect())
+    }
+
     async fn is_setup_completed(&self) -> Result<bool> {
         let row: Option<(bool,)> = sqlx::query_as("SELECT setup_completed FROM users LIMIT 1")
             .fetch_optional(&self.pool)
@@ -246,6 +267,29 @@ impl Repository for SqliteRepository {
             revoked_at: None,
             created_at: now,
         })
+    }
+
+    async fn get_setting(&self, key: &str) -> Result<Option<String>> {
+        let row: Option<(String,)> = sqlx::query_as("SELECT value FROM settings WHERE key = ?")
+            .bind(key)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(row.map(|(v,)| v))
+    }
+
+    async fn set_setting(&self, key: &str, value: &str) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+        )
+        .bind(key)
+        .bind(value)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+        Ok(())
     }
 
     async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>> {
