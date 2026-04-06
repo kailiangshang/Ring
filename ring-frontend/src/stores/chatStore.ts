@@ -1,10 +1,11 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
 import { parseSseStream } from '../components/chat/SseParser'
-import type { Message, SseEvent } from '../types'
+import type { Message, SseEvent, ToolEvent } from '../types'
 
 interface ChatState {
   messages: Message[]
+  tool_events: ToolEvent[]
   is_streaming: boolean
   current_conversation_id: string | null
   error: string | null
@@ -17,6 +18,7 @@ interface ChatState {
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
+  tool_events: [],
   is_streaming: false,
   current_conversation_id: null,
   error: null,
@@ -84,6 +86,35 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }))
         } else if (event.type === 'error') {
           throw new Error(event.message || 'stream error')
+        } else if (event.type === 'tool_call') {
+          const tool_event: ToolEvent = {
+            id: `tool-${Date.now()}-${Math.random()}`,
+            type: 'tool_call',
+            tool_call_id: event.tool_call_id,
+            tool_name: event.tool,
+            input: event.input,
+            timestamp: Date.now(),
+          }
+          set((s) => ({ tool_events: [...s.tool_events, tool_event] }))
+        } else if (event.type === 'tool_result') {
+          const tool_event: ToolEvent = {
+            id: `tool-${Date.now()}-${Math.random()}`,
+            type: 'tool_result',
+            tool_call_id: event.tool_call_id,
+            tool_name: event.tool,
+            output: event.output,
+            success: event.success,
+            timestamp: Date.now(),
+          }
+          set((s) => ({ tool_events: [...s.tool_events, tool_event] }))
+        } else if (event.type === 'archive_suggestion') {
+          const tool_event: ToolEvent = {
+            id: `tool-${Date.now()}-${Math.random()}`,
+            type: 'archive_suggestion',
+            data: event.data,
+            timestamp: Date.now(),
+          }
+          set((s) => ({ tool_events: [...s.tool_events, tool_event] }))
         }
       }
 
@@ -99,6 +130,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   reset: () =>
     set({
       messages: [],
+      tool_events: [],
       is_streaming: false,
       current_conversation_id: null,
       error: null,

@@ -8,6 +8,8 @@ use ring_server::db::Repository;
 use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmEvent, LlmProvider, MockLlmProvider, TokenUsage};
+use ring_server::services::tool_engine::ToolRegistry;
+use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -39,6 +41,8 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepositor
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
     let app = build_router(state);
 

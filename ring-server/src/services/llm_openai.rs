@@ -3,15 +3,17 @@ use async_openai::types::chat::{
     ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
-    ChatCompletionRequestUserMessageContent, ChatCompletionStreamOptions,
-    CreateChatCompletionRequest, CreateChatCompletionStreamResponse, FinishReason,
+    ChatCompletionRequestUserMessageContent, ChatCompletionStreamOptions, ChatCompletionTool,
+    ChatCompletionTools, CreateChatCompletionRequest, FinishReason, FunctionObject,
 };
 use async_openai::Client as OpenAIClient;
 use async_trait::async_trait;
 use futures::stream::{Stream, StreamExt};
+use std::collections::HashMap;
 use std::pin::Pin;
 
 use crate::error::{Result, RingError};
+use crate::models::tool_model::ToolDefinition;
 use crate::services::llm_provider::{LlmEvent, LlmMessage, LlmProvider, TokenUsage};
 
 pub struct OpenAiProvider {
@@ -67,6 +69,7 @@ pub(crate) fn convert_messages(messages: &[LlmMessage]) -> Vec<ChatCompletionReq
         .collect()
 }
 
+#[cfg(test)]
 pub(crate) fn parse_stream_event(response: &CreateChatCompletionStreamResponse) -> Vec<LlmEvent> {
     let mut events = Vec::new();
 
@@ -100,11 +103,28 @@ impl LlmProvider for OpenAiProvider {
     async fn chat_stream(
         &self,
         messages: Vec<LlmMessage>,
+        tools: Option<Vec<ToolDefinition>>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let openai_messages = convert_messages(&messages);
+        let openai_tools = tools.map(|t| {
+            t.into_iter()
+                .map(|td| {
+                    ChatCompletionTools::Function(ChatCompletionTool {
+                        function: FunctionObject {
+                            name: td.name,
+                            description: Some(td.description),
+                            parameters: Some(td.parameters),
+                            strict: None,
+                        },
+                    })
+                })
+                .collect::<Vec<_>>()
+        });
+
         let request = CreateChatCompletionRequest {
             model: self.model.clone(),
             messages: openai_messages,
+            tools: openai_tools,
             stream: Some(true),
             stream_options: Some(ChatCompletionStreamOptions {
                 include_usage: Some(true),
@@ -120,16 +140,71 @@ impl LlmProvider for OpenAiProvider {
             .await
             .map_err(|e| RingError::Llm(e.to_string()))?;
 
-        let mapped = stream.flat_map(|result| {
-            let events = match result {
-                Ok(response) => parse_stream_event(&response),
-                Err(e) => vec![LlmEvent::Error {
-                    code: "stream_error".into(),
-                    message: e.to_string(),
-                }],
-            };
-            futures::stream::iter(events)
-        });
+        let tool_call_state: HashMap<u32, (String, String, String)> = HashMap::new();
+        let mapped = stream
+            .scan(tool_call_state, |state, result| {
+                let events = match result {
+                    Ok(response) => {
+                        let mut events = Vec::new();
+                        for choice in &response.choices {
+                            if let Some(ref tool_calls) = choice.delta.tool_calls {
+                                for tc in tool_calls {
+                                    let entry = state.entry(tc.index).or_insert_with(|| {
+                                        (String::new(), String::new(), String::new())
+                                    });
+                                    if let Some(ref id) = tc.id {
+                                        entry.0 = id.clone();
+                                    }
+                                    if let Some(ref func) = tc.function {
+                                        if let Some(ref name) = func.name {
+                                            entry.1 = name.clone();
+                                        }
+                                        if let Some(ref args) = func.arguments {
+                                            entry.2.push_str(args);
+                                        }
+                                    }
+                                }
+                            }
+                            if let Some(ref content) = choice.delta.content {
+                                if !content.is_empty() {
+                                    events.push(LlmEvent::Text {
+                                        content: content.clone(),
+                                    });
+                                }
+                            }
+                            if let Some(FinishReason::ToolCalls) = choice.finish_reason {
+                                for (_idx, (id, name, args)) in state.drain() {
+                                    let input = serde_json::from_str(&args)
+                                        .unwrap_or(serde_json::Value::Object(Default::default()));
+                                    events.push(LlmEvent::ToolCall {
+                                        tool_call_id: id,
+                                        tool: name,
+                                        input,
+                                    });
+                                }
+                            }
+                            if let Some(FinishReason::Stop) = choice.finish_reason {
+                                let token_usage = response.usage.as_ref().map(|u| TokenUsage {
+                                    prompt_tokens: u.prompt_tokens,
+                                    completion_tokens: u.completion_tokens,
+                                    total_tokens: u.total_tokens,
+                                });
+                                events.push(LlmEvent::Done {
+                                    message_id: Some(response.id.clone()),
+                                    token_usage,
+                                });
+                            }
+                        }
+                        events
+                    }
+                    Err(e) => vec![LlmEvent::Error {
+                        code: "stream_error".into(),
+                        message: e.to_string(),
+                    }],
+                };
+                std::future::ready(Some(events))
+            })
+            .flat_map(futures::stream::iter);
 
         Ok(Box::pin(mapped))
     }
@@ -138,6 +213,7 @@ impl LlmProvider for OpenAiProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_openai::types::chat::CreateChatCompletionStreamResponse;
 
     #[test]
     fn convert_messages_to_openai_format() {

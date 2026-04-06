@@ -1,23 +1,34 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::Stream;
+use futures::{Stream, StreamExt};
 
 use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
+use crate::models::tool_model::{ToolCallRequest, ToolDefinition};
 use crate::services::context_loader::{
     build_blueprint_prompt, build_group_ring_prompt, build_super_ring_prompt,
 };
 use crate::services::llm_provider::{LlmEvent, LlmMessage, LlmProvider};
+use crate::services::tool_engine::ToolDispatcher;
 
 pub struct AiService {
     db: Arc<dyn Repository>,
     llm: Arc<dyn LlmProvider>,
+    tool_dispatcher: Arc<ToolDispatcher>,
 }
 
 impl AiService {
-    pub fn new(db: Arc<dyn Repository>, llm: Arc<dyn LlmProvider>) -> Self {
-        AiService { db, llm }
+    pub fn new(
+        db: Arc<dyn Repository>,
+        llm: Arc<dyn LlmProvider>,
+        tool_dispatcher: Arc<ToolDispatcher>,
+    ) -> Self {
+        AiService {
+            db,
+            llm,
+            tool_dispatcher,
+        }
     }
 
     pub async fn super_ring_chat(
@@ -35,7 +46,7 @@ impl AiService {
                 content: message,
             },
         ];
-        self.llm.chat_stream(messages).await
+        self.llm.chat_stream(messages, None).await
     }
 
     pub async fn group_ring_chat(
@@ -82,7 +93,7 @@ impl AiService {
             });
         }
 
-        self.llm.chat_stream(messages).await
+        self.llm.chat_stream(messages, None).await
     }
 
     pub async fn blueprint_chat(
@@ -109,7 +120,109 @@ impl AiService {
                 content: message,
             },
         ];
-        self.llm.chat_stream(messages).await
+        self.llm.chat_stream(messages, None).await
+    }
+
+    pub async fn chat_with_tools(
+        &self,
+        messages: Vec<LlmMessage>,
+        tools: Vec<ToolDefinition>,
+    ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
+        let (tx, rx) = tokio::sync::mpsc::channel::<LlmEvent>(64);
+
+        let llm = self.llm.clone();
+        let dispatcher = self.tool_dispatcher.clone();
+
+        tokio::spawn(async move {
+            let mut current_messages = messages;
+            let max_rounds = 5;
+
+            for _round in 0..max_rounds {
+                let stream = match llm
+                    .chat_stream(current_messages.clone(), Some(tools.clone()))
+                    .await
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        let _ = tx
+                            .send(LlmEvent::Error {
+                                code: "llm_error".into(),
+                                message: e.to_string(),
+                            })
+                            .await;
+                        return;
+                    }
+                };
+
+                let mut tool_calls = Vec::new();
+                let mut stream = std::pin::pin!(stream);
+
+                while let Some(event) = stream.next().await {
+                    match &event {
+                        LlmEvent::ToolCall {
+                            tool_call_id,
+                            tool,
+                            input,
+                        } => {
+                            tool_calls.push((tool_call_id.clone(), tool.clone(), input.clone()));
+                        }
+                        LlmEvent::Done { .. } => {}
+                        _ => {}
+                    }
+                    if tx.send(event).await.is_err() {
+                        return;
+                    }
+                }
+
+                if tool_calls.is_empty() {
+                    return;
+                }
+
+                let mut tool_args_parts = Vec::new();
+                for (call_id, tool_name, input) in &tool_calls {
+                    tool_args_parts.push(format!(
+                        "Tool call: {} ({}) with {}",
+                        tool_name, call_id, input
+                    ));
+                }
+                current_messages.push(LlmMessage {
+                    role: "assistant".into(),
+                    content: tool_args_parts.join("\n"),
+                });
+
+                for (call_id, tool_name, input) in tool_calls {
+                    let request = ToolCallRequest {
+                        tool_call_id: call_id.clone(),
+                        tool_name: tool_name.clone(),
+                        input,
+                    };
+                    let result = dispatcher.dispatch(request).await;
+
+                    let result_event = LlmEvent::ToolResult {
+                        tool_call_id: result.tool_call_id.clone(),
+                        tool: result.tool_name.clone(),
+                        output: result.output.clone(),
+                    };
+                    if tx.send(result_event).await.is_err() {
+                        return;
+                    }
+
+                    current_messages.push(LlmMessage {
+                        role: "tool".into(),
+                        content: serde_json::to_string(&result.output).unwrap_or_default(),
+                    });
+                }
+            }
+
+            let _ = tx
+                .send(LlmEvent::Error {
+                    code: "max_tool_rounds".into(),
+                    message: "exceeded maximum tool call rounds".into(),
+                })
+                .await;
+        });
+
+        Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
     }
 }
 
@@ -117,6 +230,7 @@ impl AiService {
 mod tests {
     use super::*;
     use crate::services::llm_provider::{MockLlmProvider, TokenUsage};
+    use crate::services::tool_engine::ToolDispatcher;
     use futures::StreamExt;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
@@ -426,7 +540,10 @@ mod tests {
     async fn super_ring_chat_with_mock_returns_events() {
         let db = Arc::new(MockRepo::new());
         let llm = Arc::new(MockLlmProvider::new(make_events()));
-        let svc = AiService::new(db, llm);
+        let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
+            crate::services::tool_engine::ToolRegistry::new(),
+        )));
+        let svc = AiService::new(db, llm, dispatcher);
         let stream = svc.super_ring_chat("hi".into()).await.unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
         assert_eq!(collected.len(), 2);
@@ -439,7 +556,10 @@ mod tests {
         let db = Arc::new(MockRepo::new());
         let db_ptr = db.as_ref() as *const MockRepo;
         let llm = Arc::new(MockLlmProvider::new(make_events()));
-        let svc = AiService::new(db.clone(), llm);
+        let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
+            crate::services::tool_engine::ToolRegistry::new(),
+        )));
+        let svc = AiService::new(db.clone(), llm, dispatcher);
         let _stream = svc
             .group_ring_chat("ring-1", "conv-1", "hello".into())
             .await
@@ -456,7 +576,10 @@ mod tests {
     async fn ai_service_builds_correct_prompt() {
         let db = Arc::new(MockRepo::new());
         let llm = Arc::new(MockLlmProvider::new(make_events()));
-        let svc = AiService::new(db, llm);
+        let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
+            crate::services::tool_engine::ToolRegistry::new(),
+        )));
+        let svc = AiService::new(db, llm, dispatcher);
         let _stream = svc.super_ring_chat("test".into()).await.unwrap();
         let prompt = build_super_ring_prompt();
         assert!(prompt.contains("Super Ring"));

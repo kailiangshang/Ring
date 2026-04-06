@@ -4,6 +4,7 @@ use axum::Json;
 use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
+use std::sync::Arc;
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
@@ -11,6 +12,7 @@ use crate::error::RingError;
 use crate::graph::types::NewNode;
 use crate::models::blueprint::BlueprintTemplate;
 use crate::services::ai_service::AiService;
+use crate::services::tool_engine::ToolDispatcher;
 use crate::state::AppState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -97,7 +99,8 @@ pub async fn blueprint_chat(
         return Err(RingError::Validation("message must not be empty".into()));
     }
 
-    let ai = AiService::new(state.db.clone(), state.llm_provider.clone());
+    let dispatcher = Arc::new(ToolDispatcher::new(state.tool_registry.clone()));
+    let ai = AiService::new(state.db.clone(), state.llm_provider.clone(), dispatcher);
     let llm_stream = ai.blueprint_chat(&ring_id, req.message).await?;
 
     let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(32);

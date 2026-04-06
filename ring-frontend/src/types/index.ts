@@ -78,6 +78,24 @@ export interface SseEvent {
   result?: unknown
   graphs?: GraphDef[]
   message?: string
+  tool_call_id?: string
+  tool?: string
+  input?: unknown
+  output?: unknown
+  success?: boolean
+  data?: unknown
+}
+
+export interface ToolEvent {
+  id: string
+  type: 'tool_call' | 'tool_result' | 'archive_suggestion'
+  tool_call_id?: string
+  tool_name?: string
+  input?: unknown
+  output?: unknown
+  success?: boolean
+  data?: unknown
+  timestamp: number
 }
 
 export interface GraphDef {
@@ -252,4 +270,12 @@ export interface InviteRequest {
   role: string
   max_uses: number
   max_members?: number
+}
+
+export interface Settings {
+  llm_provider?: string
+  llm_model?: string
+  llm_api_key?: string
+  llm_base_url?: string
+  privacy_enabled?: string
 }

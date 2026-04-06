@@ -442,3 +442,14 @@ export async function delete_session(
     method: 'DELETE',
   })
 }
+
+export async function get_settings(): Promise<Record<string, string>> {
+  return request<Record<string, string>>('/settings')
+}
+
+export async function update_settings(settings: Record<string, string>): Promise<void> {
+  return request<void>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  })
+}

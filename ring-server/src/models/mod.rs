@@ -7,4 +7,5 @@ pub mod member;
 pub mod notification_model;
 pub mod ring;
 pub mod session_model;
+pub mod tool_model;
 pub mod user;

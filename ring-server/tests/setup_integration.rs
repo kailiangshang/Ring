@@ -7,6 +7,8 @@ use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
+use ring_server::services::tool_engine::ToolRegistry;
+use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -22,6 +24,8 @@ async fn create_test_app() -> Router {
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
     build_router(state)
 }
