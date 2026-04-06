@@ -10,6 +10,7 @@ import { PrDetail } from './pages/RingSpace/PrDetail'
 import { SuperRingChat } from './pages/RingHub/SuperRingChat'
 import { MemberList } from './components/member/MemberList'
 import { SessionView } from './components/session/SessionView'
+import { SettingsPage } from './pages/Settings/SettingsPage'
 import { get_setup_status } from './api/client'
 
 function SetupGuard({ children }: { children: React.ReactNode }) {
@@ -104,6 +105,14 @@ export default function App() {
           element={
             <SetupGuard>
               <SuperRingChat />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <SetupGuard>
+              <SettingsPage />
             </SetupGuard>
           }
         />

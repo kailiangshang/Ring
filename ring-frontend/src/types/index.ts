@@ -253,3 +253,11 @@ export interface InviteRequest {
   max_uses: number
   max_members?: number
 }
+
+export interface Settings {
+  llm_provider?: string
+  llm_model?: string
+  llm_api_key?: string
+  llm_base_url?: string
+  privacy_enabled?: string
+}
