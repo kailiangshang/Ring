@@ -14,6 +14,7 @@ pub mod permission_service;
 pub mod ring_service;
 pub mod search_service;
 pub mod session_service;
+pub mod tool_engine;
 pub mod ws_hub;
 
 pub use ai_service::AiService;
@@ -25,4 +26,5 @@ pub use notification_service::NotificationService;
 pub use permission_service::PermissionService;
 pub use ring_service::RingService;
 pub use session_service::SessionService;
+pub use tool_engine::{ToolDispatcher, ToolRegistry};
 pub use ws_hub::WsHub;

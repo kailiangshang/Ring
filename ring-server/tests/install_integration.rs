@@ -7,6 +7,8 @@ use ring_server::db::Repository;
 use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
+use ring_server::services::tool_engine::ToolRegistry;
+use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -28,6 +30,8 @@ async fn join_page_valid_token_returns_html() {
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
 
     let user = repo
@@ -90,6 +94,8 @@ async fn join_page_html_contains_ring_data() {
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
 
     let user = repo
@@ -148,6 +154,8 @@ async fn join_page_invalid_token_returns_404() {
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
     let app = build_router(state);
 
@@ -177,6 +185,8 @@ async fn join_page_missing_token_returns_400() {
         graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
         config: Arc::new(Config::default()),
         llm_provider: llm,
+        ws_hub: Arc::new(WsHub::new()),
+        tool_registry: Arc::new(ToolRegistry::new()),
     };
     let app = build_router(state);
 

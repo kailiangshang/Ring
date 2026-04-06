@@ -3,6 +3,7 @@ use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
+use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 
@@ -35,6 +36,7 @@ async fn main() {
     let config = Arc::new(config);
     let llm_provider: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(vec![]));
     let ws_hub = Arc::new(WsHub::new());
+    let tool_registry = Arc::new(ToolRegistry::new());
 
     let state = AppState {
         db,
@@ -42,6 +44,7 @@ async fn main() {
         config,
         llm_provider,
         ws_hub,
+        tool_registry,
     };
 
     let app = build_router(state);
