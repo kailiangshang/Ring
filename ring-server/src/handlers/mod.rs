@@ -1,6 +1,8 @@
 pub mod ai;
+pub mod archive;
 pub mod blueprint;
 pub mod conversation;
+pub mod git;
 pub mod graph;
 pub mod install;
 pub mod ring;
