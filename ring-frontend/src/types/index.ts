@@ -202,3 +202,54 @@ export interface CommitLogEntry {
   author: string
   date: string
 }
+
+export interface InviteToken {
+  token: string
+  token_type: string
+  role: string
+  max_uses: number
+  used_count: number
+  created_at: string
+}
+
+export interface Member {
+  id: string
+  ring_id: string
+  user_id: string
+  token_id: number
+  display_name: string
+  role: string
+  joined_at: string
+}
+
+export interface SessionData {
+  id: string
+  ring_id: string
+  title: string | null
+  scenario: string
+  created_by: string
+  archive_enabled: boolean
+  status: string
+  members: SessionMemberData[]
+  created_at: string
+}
+
+export interface SessionMemberData {
+  user_id: string
+  role: string
+  status: string
+}
+
+export interface CreateSessionRequest {
+  title?: string
+  scenario: string
+  archive_enabled?: boolean
+  invite_member_ids?: string[]
+}
+
+export interface InviteRequest {
+  token_type: string
+  role: string
+  max_uses: number
+  max_members?: number
+}

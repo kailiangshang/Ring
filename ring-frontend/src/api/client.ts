@@ -22,6 +22,11 @@ import type {
   PrListItem,
   PrDetail,
   CommitLogEntry,
+  Member,
+  SessionData,
+  CreateSessionRequest,
+  InviteRequest,
+  InviteToken,
 } from '../types'
 
 const BASE_URL = '/api/v1'
@@ -309,4 +314,131 @@ export async function get_commit_log(
     `/rings/${ring_id}/git/commits${limit ? `?limit=${limit}` : ''}`,
   )
   return data.commits
+}
+
+export async function list_members(ring_id: string): Promise<Member[]> {
+  const data = await request<{ members: Member[] }>(`/rings/${ring_id}/members`)
+  return data.members
+}
+
+export async function generate_invite(
+  ring_id: string,
+  req: InviteRequest,
+): Promise<InviteToken> {
+  return request<InviteToken>(`/rings/${ring_id}/invites`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function update_member_role(
+  ring_id: string,
+  member_id: string,
+  role: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/members/${member_id}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  })
+}
+
+export async function remove_member(
+  ring_id: string,
+  member_id: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/members/${member_id}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function join_ring(
+  token: string,
+  display_name: string,
+): Promise<Member> {
+  return request<Member>(`/rings/join?token=${token}`, {
+    method: 'POST',
+    body: JSON.stringify({ display_name }),
+  })
+}
+
+export async function create_session(
+  ring_id: string,
+  req: CreateSessionRequest,
+): Promise<SessionData> {
+  return request<SessionData>(`/rings/${ring_id}/sessions`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function list_sessions(
+  ring_id: string,
+  status?: string,
+): Promise<SessionData[]> {
+  const data = await request<{ sessions: SessionData[] }>(
+    `/rings/${ring_id}/sessions${status ? `?status=${status}` : ''}`,
+  )
+  return data.sessions
+}
+
+export async function get_session(
+  ring_id: string,
+  session_id: string,
+): Promise<SessionData> {
+  return request<SessionData>(`/rings/${ring_id}/sessions/${session_id}`)
+}
+
+export async function close_session(
+  ring_id: string,
+  session_id: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/sessions/${session_id}/close`, {
+    method: 'POST',
+  })
+}
+
+export async function leave_session(
+  ring_id: string,
+  session_id: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/sessions/${session_id}/leave`, {
+    method: 'POST',
+  })
+}
+
+export async function toggle_session_archive(
+  ring_id: string,
+  session_id: string,
+  enabled: boolean,
+): Promise<void> {
+  return request<void>(
+    `/rings/${ring_id}/sessions/${session_id}/archive-toggle`,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ archive_enabled: enabled }),
+    },
+  )
+}
+
+export async function invite_to_session(
+  ring_id: string,
+  session_id: string,
+  member_ids: string[],
+): Promise<void> {
+  return request<void>(
+    `/rings/${ring_id}/sessions/${session_id}/invite`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ member_ids }),
+    },
+  )
+}
+
+export async function delete_session(
+  ring_id: string,
+  session_id: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/sessions/${session_id}`, {
+    method: 'DELETE',
+  })
 }

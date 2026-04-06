@@ -8,6 +8,8 @@ import { GraphView } from './pages/RingSpace/GraphView'
 import { PrList } from './pages/RingSpace/PrList'
 import { PrDetail } from './pages/RingSpace/PrDetail'
 import { SuperRingChat } from './pages/RingHub/SuperRingChat'
+import { MemberList } from './components/member/MemberList'
+import { SessionView } from './components/session/SessionView'
 import { get_setup_status } from './api/client'
 
 function SetupGuard({ children }: { children: React.ReactNode }) {
@@ -78,6 +80,22 @@ export default function App() {
           element={
             <SetupGuard>
               <PrDetail />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/members"
+          element={
+            <SetupGuard>
+              <MemberList />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/sessions"
+          element={
+            <SetupGuard>
+              <SessionView />
             </SetupGuard>
           }
         />
