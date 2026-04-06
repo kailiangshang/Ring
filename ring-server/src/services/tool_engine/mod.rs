@@ -1,8 +1,10 @@
 pub mod dispatcher;
 pub mod registry;
+pub mod tools;
 
 pub use dispatcher::ToolDispatcher;
 pub use registry::ToolRegistry;
+pub use tools::{MarkdownGenTool, PrivacyFilterTool, SearchTool, TextCleanTool, WebScrapeTool};
 
 use crate::error::Result;
 use crate::models::tool_model::ToolDefinition;
