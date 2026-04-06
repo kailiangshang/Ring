@@ -30,4 +30,5 @@ pub trait Repository: Send + Sync {
     async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>>;
     async fn get_setting(&self, key: &str) -> Result<Option<String>>;
     async fn set_setting(&self, key: &str, value: &str) -> Result<()>;
+    async fn count_members_by_ring(&self, ring_id: &str) -> Result<i64>;
 }

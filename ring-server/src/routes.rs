@@ -1,6 +1,7 @@
 use axum::routing::{get, post};
 use axum::Router;
 
+use crate::handlers::install;
 use crate::handlers::ring;
 use crate::handlers::setup;
 use crate::state::AppState;
@@ -25,5 +26,6 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
+        .route("/join", get(install::join_page))
         .with_state(state)
 }

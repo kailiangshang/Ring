@@ -292,6 +292,15 @@ impl Repository for SqliteRepository {
         Ok(())
     }
 
+    async fn count_members_by_ring(&self, ring_id: &str) -> Result<i64> {
+        let row: Option<(i64,)> = sqlx::query_as("SELECT COUNT(*) FROM members WHERE ring_id = ?")
+            .bind(ring_id)
+            .fetch_optional(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(row.map(|(c,)| c).unwrap_or(0))
+    }
+
     async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>> {
         let row = sqlx::query_as::<_, InviteTokenRow>(
             "SELECT id, ring_id, token, token_type, role, inviter_id, max_uses, use_count, max_members, expires_at, used_at, revoked_at, created_at FROM invite_tokens WHERE token = ?",
