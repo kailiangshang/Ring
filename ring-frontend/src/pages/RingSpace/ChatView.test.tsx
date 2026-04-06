@@ -22,6 +22,7 @@ vi.mock('../../stores/chatStore', () => ({
         created_at: '2026-04-06T00:00:01Z',
       },
     ],
+    tool_events: [],
     is_streaming: false,
     error: null,
     current_conversation_id: 'c1',

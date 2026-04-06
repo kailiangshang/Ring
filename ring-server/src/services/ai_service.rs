@@ -528,7 +528,10 @@ mod tests {
         ) -> crate::error::Result<crate::models::session_model::Session> {
             unimplemented!()
         }
-        async fn get_session(&self, _id: &str) -> crate::error::Result<Option<crate::models::session_model::Session>> {
+        async fn get_session(
+            &self,
+            _id: &str,
+        ) -> crate::error::Result<Option<crate::models::session_model::Session>> {
             unimplemented!()
         }
         async fn list_sessions_by_ring(
@@ -538,10 +541,18 @@ mod tests {
         ) -> crate::error::Result<Vec<crate::models::session_model::Session>> {
             unimplemented!()
         }
-        async fn update_session_status(&self, _id: &str, _status: &str) -> crate::error::Result<()> {
+        async fn update_session_status(
+            &self,
+            _id: &str,
+            _status: &str,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
-        async fn update_session_archive(&self, _id: &str, _enabled: bool) -> crate::error::Result<()> {
+        async fn update_session_archive(
+            &self,
+            _id: &str,
+            _enabled: bool,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
         async fn delete_session(&self, _id: &str) -> crate::error::Result<()> {
@@ -555,10 +566,17 @@ mod tests {
         ) -> crate::error::Result<crate::models::session_model::SessionMember> {
             unimplemented!()
         }
-        async fn list_session_members(&self, _session_id: &str) -> crate::error::Result<Vec<crate::models::session_model::SessionMember>> {
+        async fn list_session_members(
+            &self,
+            _session_id: &str,
+        ) -> crate::error::Result<Vec<crate::models::session_model::SessionMember>> {
             unimplemented!()
         }
-        async fn leave_session_member(&self, _session_id: &str, _user_id: &str) -> crate::error::Result<()> {
+        async fn leave_session_member(
+            &self,
+            _session_id: &str,
+            _user_id: &str,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
         async fn create_session_message(

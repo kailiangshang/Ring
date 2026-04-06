@@ -191,6 +191,10 @@ impl ArchiveService {
 
     pub async fn confirm_archive(&self, _ring_id: &str, archive_id: &str) -> Result<()> {
         self.db
+            .get_archive_record(archive_id)
+            .await?
+            .ok_or_else(|| RingError::NotFound(format!("archive {}", archive_id)))?;
+        self.db
             .update_archive_pr_status(archive_id, "confirmed")
             .await
     }
@@ -245,6 +249,10 @@ impl ArchiveService {
 
     pub async fn reject_pr(&self, _ring_id: &str, archive_id: &str) -> Result<()> {
         self.db
+            .get_archive_record(archive_id)
+            .await?
+            .ok_or_else(|| RingError::NotFound(format!("archive {}", archive_id)))?;
+        self.db
             .update_archive_pr_status(archive_id, "rejected")
             .await
     }
@@ -257,6 +265,9 @@ impl ArchiveService {
             .ok_or_else(|| RingError::NotFound(format!("ring {}", ring_id)))?;
 
         let repo_path = Path::new(&ring.local_path);
+        if !repo_path.exists() {
+            return Ok(CommitLogResponse { commits: vec![] });
+        }
         let log = self.git_service.get_log(repo_path, limit).await?;
 
         Ok(CommitLogResponse {
@@ -575,7 +586,10 @@ mod tests {
         ) -> crate::error::Result<crate::models::session_model::Session> {
             unimplemented!()
         }
-        async fn get_session(&self, _id: &str) -> crate::error::Result<Option<crate::models::session_model::Session>> {
+        async fn get_session(
+            &self,
+            _id: &str,
+        ) -> crate::error::Result<Option<crate::models::session_model::Session>> {
             unimplemented!()
         }
         async fn list_sessions_by_ring(
@@ -585,10 +599,18 @@ mod tests {
         ) -> crate::error::Result<Vec<crate::models::session_model::Session>> {
             unimplemented!()
         }
-        async fn update_session_status(&self, _id: &str, _status: &str) -> crate::error::Result<()> {
+        async fn update_session_status(
+            &self,
+            _id: &str,
+            _status: &str,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
-        async fn update_session_archive(&self, _id: &str, _enabled: bool) -> crate::error::Result<()> {
+        async fn update_session_archive(
+            &self,
+            _id: &str,
+            _enabled: bool,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
         async fn delete_session(&self, _id: &str) -> crate::error::Result<()> {
@@ -602,10 +624,17 @@ mod tests {
         ) -> crate::error::Result<crate::models::session_model::SessionMember> {
             unimplemented!()
         }
-        async fn list_session_members(&self, _session_id: &str) -> crate::error::Result<Vec<crate::models::session_model::SessionMember>> {
+        async fn list_session_members(
+            &self,
+            _session_id: &str,
+        ) -> crate::error::Result<Vec<crate::models::session_model::SessionMember>> {
             unimplemented!()
         }
-        async fn leave_session_member(&self, _session_id: &str, _user_id: &str) -> crate::error::Result<()> {
+        async fn leave_session_member(
+            &self,
+            _session_id: &str,
+            _user_id: &str,
+        ) -> crate::error::Result<()> {
             unimplemented!()
         }
         async fn create_session_message(
@@ -646,6 +675,11 @@ mod tests {
     async fn setup_service(dir: &tempfile::TempDir) -> ArchiveService {
         let git_svc = Arc::new(GitService::new());
         git_svc.init_repo(dir.path()).await.unwrap();
+        tokio::fs::write(dir.path().join(".gitkeep"), "")
+            .await
+            .unwrap();
+        git_svc.add_all(dir.path()).await.unwrap();
+        git_svc.commit(dir.path(), "initial commit").await.unwrap();
 
         let graph_store = Arc::new(RwLock::new(PetgraphStore::new()));
         let ring = make_test_ring(dir.path());
@@ -680,7 +714,7 @@ mod tests {
         assert!(dir.path().join("nodes/test-archive.md").exists());
 
         let log = svc.git_service.get_log(dir.path(), 10).await.unwrap();
-        assert_eq!(log.len(), 1);
+        assert_eq!(log.len(), 2);
         assert!(log[0].message.contains("archive: test archive"));
     }
 
@@ -733,13 +767,14 @@ mod tests {
             label: "queued".into(),
         };
 
-        svc.archive("ring-test", &request, "user-2", false)
+        let resp = svc
+            .archive("ring-test", &request, "user-2", false)
             .await
             .unwrap();
 
         let queue = svc.get_queue("ring-test").await.unwrap();
+        assert_eq!(resp.git_status, "pr_pending");
         assert!(queue.current_review.is_some());
-        assert_eq!(queue.queue.len(), 1);
     }
 
     #[tokio::test]

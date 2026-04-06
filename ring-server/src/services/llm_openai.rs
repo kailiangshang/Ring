@@ -1,11 +1,12 @@
 use async_openai::config::OpenAIConfig;
+#[cfg(test)]
+use async_openai::types::chat::CreateChatCompletionStreamResponse;
 use async_openai::types::chat::{
     ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
     ChatCompletionRequestUserMessageContent, ChatCompletionStreamOptions, ChatCompletionTool,
-    ChatCompletionTools, CreateChatCompletionRequest,
-    FinishReason, FunctionObject,
+    ChatCompletionTools, CreateChatCompletionRequest, FinishReason, FunctionObject,
 };
 use async_openai::Client as OpenAIClient;
 use async_trait::async_trait;
