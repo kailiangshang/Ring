@@ -43,3 +43,62 @@ export interface CreateRingRequest {
   description?: string
   role_description?: string
 }
+
+export interface Conversation {
+  id: string
+  ring_id: string
+  title: string
+  context_mode: string
+  created_at: string
+}
+
+export interface Message {
+  id: string
+  conversation_id: string
+  role: 'user' | 'assistant'
+  content: string
+  sender_id: string
+  created_at: string
+}
+
+export type SseEventType =
+  | 'text'
+  | 'tool_call'
+  | 'tool_result'
+  | 'archive_suggestion'
+  | 'blueprint_proposal'
+  | 'done'
+  | 'error'
+
+export interface SseEvent {
+  type: SseEventType
+  content?: string
+  tool_name?: string
+  tool_args?: Record<string, unknown>
+  result?: unknown
+  graphs?: GraphDef[]
+  message?: string
+}
+
+export interface GraphDef {
+  name: string
+  graph_type: string
+  categories: string[]
+}
+
+export interface BlueprintTemplate {
+  id: string
+  name: string
+  description: string
+  graphs: GraphDef[]
+}
+
+export interface PreviewResponse {
+  graphs: GraphDef[]
+  preview: string
+}
+
+export interface ConfirmResponse {
+  success: boolean
+  message: string
+}

@@ -6,6 +6,11 @@ import type {
   Ring,
   RingListItem,
   CreateRingRequest,
+  Conversation,
+  Message,
+  BlueprintTemplate,
+  PreviewResponse,
+  ConfirmResponse,
 } from '../types'
 
 const BASE_URL = '/api/v1'
@@ -73,4 +78,89 @@ export async function get_ring(id: string): Promise<Ring> {
 
 export async function delete_ring(id: string): Promise<void> {
   return request<void>(`/rings/${id}`, { method: 'DELETE' })
+}
+
+export async function list_conversations(ring_id: string): Promise<Conversation[]> {
+  const data = await request<{ conversations: Conversation[] }>(`/rings/${ring_id}/conversations`)
+  return data.conversations
+}
+
+export async function create_conversation(
+  ring_id: string,
+  title: string,
+): Promise<Conversation> {
+  return request<Conversation>(`/rings/${ring_id}/conversations`, {
+    method: 'POST',
+    body: JSON.stringify({ title }),
+  })
+}
+
+export async function get_messages(
+  ring_id: string,
+  conv_id: string,
+): Promise<Message[]> {
+  const data = await request<{ messages: Message[] }>(
+    `/rings/${ring_id}/conversations/${conv_id}/messages`,
+  )
+  return data.messages
+}
+
+export function send_message(
+  ring_id: string,
+  conv_id: string,
+  content: string,
+): Promise<Response> {
+  return fetch(`${BASE_URL}/rings/${ring_id}/conversations/${conv_id}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content }),
+  })
+}
+
+export function super_ring_chat(message: string): Promise<Response> {
+  return fetch(`${BASE_URL}/super-ring/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+}
+
+export async function list_blueprint_templates(
+  ring_id: string,
+): Promise<BlueprintTemplate[]> {
+  const data = await request<{ templates: BlueprintTemplate[] }>(
+    `/rings/${ring_id}/blueprint/templates`,
+  )
+  return data.templates
+}
+
+export function blueprint_chat(
+  ring_id: string,
+  message: string,
+): Promise<Response> {
+  return fetch(`${BASE_URL}/rings/${ring_id}/blueprint/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  })
+}
+
+export async function blueprint_preview(
+  ring_id: string,
+  graphs: unknown[],
+): Promise<PreviewResponse> {
+  return request<PreviewResponse>(`/rings/${ring_id}/blueprint/preview`, {
+    method: 'POST',
+    body: JSON.stringify({ graphs }),
+  })
+}
+
+export async function blueprint_confirm(
+  ring_id: string,
+  graphs: unknown[],
+): Promise<ConfirmResponse> {
+  return request<ConfirmResponse>(`/rings/${ring_id}/blueprint/confirm`, {
+    method: 'POST',
+    body: JSON.stringify({ graphs }),
+  })
 }

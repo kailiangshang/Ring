@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { SetupWizard } from './pages/Setup/SetupWizard'
 import { RingHub } from './pages/RingHub/RingHub'
+import { ChatView } from './pages/RingSpace/ChatView'
+import { BlueprintWizard } from './pages/RingSpace/BlueprintWizard'
+import { SuperRingChat } from './pages/RingHub/SuperRingChat'
 import { get_setup_status } from './api/client'
 
 function SetupGuard({ children }: { children: React.ReactNode }) {
@@ -35,7 +38,30 @@ export default function App() {
             </SetupGuard>
           }
         />
-        <Route path="/ring/:ringId" element={<SetupGuard><RingHub /></SetupGuard>} />
+        <Route
+          path="/ring/:ringId"
+          element={
+            <SetupGuard>
+              <ChatView />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/blueprint"
+          element={
+            <SetupGuard>
+              <BlueprintWizard />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/super-ring"
+          element={
+            <SetupGuard>
+              <SuperRingChat />
+            </SetupGuard>
+          }
+        />
       </Routes>
     </BrowserRouter>
   )
