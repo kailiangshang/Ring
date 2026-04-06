@@ -6,4 +6,5 @@ pub mod invite;
 pub mod member;
 pub mod notification_model;
 pub mod ring;
+pub mod session_model;
 pub mod user;

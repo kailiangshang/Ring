@@ -1,4 +1,4 @@
-use axum::routing::{delete, get, post};
+use axum::routing::{delete, get, post, put};
 use axum::Router;
 
 use crate::handlers::ai;
@@ -8,9 +8,13 @@ use crate::handlers::conversation;
 use crate::handlers::git;
 use crate::handlers::graph;
 use crate::handlers::install;
+use crate::handlers::member;
+use crate::handlers::notification;
 use crate::handlers::ring;
 use crate::handlers::search;
+use crate::handlers::session;
 use crate::handlers::setup;
+use crate::handlers::ws;
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -22,6 +26,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/complete", post(setup::complete));
 
     let ring_routes = Router::new()
+        .route("/join", post(member::join_ring))
         .route("/", get(ring::list_rings).post(ring::create_ring))
         .route(
             "/{ringId}",
@@ -29,6 +34,27 @@ pub fn build_router(state: AppState) -> Router {
                 .put(ring::update_ring)
                 .delete(ring::delete_ring),
         );
+
+    let member_routes = Router::new()
+        .route("/", get(member::list_members))
+        .route("/invites", post(member::generate_invite))
+        .route("/{memberId}/role", put(member::update_role))
+        .route("/{memberId}", delete(member::remove_member));
+
+    let session_routes = Router::new()
+        .route(
+            "/",
+            post(session::create_session).get(session::list_sessions),
+        )
+        .route(
+            "/{sessionId}",
+            get(session::get_session).delete(session::delete_session),
+        )
+        .route("/{sessionId}/close", post(session::close_session))
+        .route("/{sessionId}/leave", post(session::leave_session))
+        .route("/{sessionId}/archive-toggle", put(session::toggle_archive))
+        .route("/{sessionId}/invite", post(session::invite_member))
+        .route("/{sessionId}/messages", get(session::get_messages));
 
     let conversation_routes = Router::new()
         .route("/", get(conversation::list).post(conversation::create))
@@ -75,16 +101,24 @@ pub fn build_router(state: AppState) -> Router {
         .route("/prs/{prId}/reject", post(git::reject_pr))
         .route("/commits", get(git::get_commit_log));
 
+    let notification_routes = Router::new()
+        .route("/", get(notification::list_notifications))
+        .route("/{notificationId}", post(notification::mark_read));
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
+        .nest("/api/v1/rings/{ringId}/members", member_routes)
+        .nest("/api/v1/rings/{ringId}/sessions", session_routes)
         .nest("/api/v1/rings/{ringId}/conversations", conversation_routes)
         .nest("/api/v1/rings/{ringId}/blueprint", blueprint_routes)
         .nest("/api/v1/rings/{ringId}/graphs", graph_routes)
         .nest("/api/v1/rings/{ringId}/search", search_routes)
         .nest("/api/v1/rings/{ringId}/archive", archive_routes)
         .nest("/api/v1/rings/{ringId}/git", git_routes)
+        .nest("/api/v1/notifications", notification_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
+        .route("/api/v1/ws/{ringId}", get(ws::ws_handler))
         .route("/join", get(install::join_page))
         .with_state(state)
 }
