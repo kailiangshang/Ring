@@ -1,4 +1,6 @@
 use crate::error::Result;
+use crate::models::blueprint::BlueprintTemplate;
+use crate::models::conversation::{Conversation, Message};
 use crate::models::invite::InviteToken;
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
@@ -31,4 +33,35 @@ pub trait Repository: Send + Sync {
     async fn get_setting(&self, key: &str) -> Result<Option<String>>;
     async fn set_setting(&self, key: &str, value: &str) -> Result<()>;
     async fn count_members_by_ring(&self, ring_id: &str) -> Result<i64>;
+    async fn create_conversation(
+        &self,
+        ring_id: &str,
+        title: Option<String>,
+        context_mode: &str,
+        created_by: &str,
+    ) -> Result<Conversation>;
+    async fn list_conversations(&self, ring_id: &str) -> Result<Vec<Conversation>>;
+    async fn get_conversation(&self, id: &str) -> Result<Option<Conversation>>;
+    async fn create_message(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        content: &str,
+        sender_id: Option<&str>,
+    ) -> Result<Message>;
+    async fn get_messages(
+        &self,
+        conversation_id: &str,
+        limit: i64,
+        before_id: Option<&str>,
+    ) -> Result<Vec<Message>>;
+    async fn list_blueprint_templates(&self) -> Result<Vec<BlueprintTemplate>>;
+    async fn create_blueprint_template(
+        &self,
+        id: &str,
+        name: &str,
+        description: Option<&str>,
+        graphs_json: &str,
+        is_system: bool,
+    ) -> Result<BlueprintTemplate>;
 }

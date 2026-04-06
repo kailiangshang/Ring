@@ -1,5 +1,7 @@
 use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
+use crate::models::blueprint::BlueprintTemplate;
+use crate::models::conversation::{Conversation, Message};
 use crate::models::invite::InviteToken;
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
@@ -326,6 +328,197 @@ impl Repository for SqliteRepository {
             created_at: r.created_at,
         }))
     }
+
+    async fn create_conversation(
+        &self,
+        ring_id: &str,
+        title: Option<String>,
+        context_mode: &str,
+        created_by: &str,
+    ) -> Result<Conversation> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        sqlx::query(
+            "INSERT INTO conversations (id, ring_id, title, mode, context_mode, created_by, created_at, updated_at) VALUES (?, ?, ?, 'chat', ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(ring_id)
+        .bind(&title)
+        .bind(context_mode)
+        .bind(created_by)
+        .bind(&now)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(Conversation {
+            id,
+            ring_id: ring_id.to_string(),
+            title,
+            mode: "chat".into(),
+            context_mode: context_mode.to_string(),
+            token_count: 0,
+            token_limit: 100000,
+            auto_compact: false,
+            summary: None,
+            compacted_at: None,
+            created_by: created_by.to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+
+    async fn list_conversations(&self, ring_id: &str) -> Result<Vec<Conversation>> {
+        let rows = sqlx::query_as::<_, ConversationRow>(
+            "SELECT id, ring_id, title, mode, context_mode, token_count, token_limit, auto_compact, summary, compacted_at, created_by, created_at, updated_at FROM conversations WHERE ring_id = ? ORDER BY created_at DESC",
+        )
+        .bind(ring_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(rows.into_iter().map(|r| r.into_model()).collect())
+    }
+
+    async fn get_conversation(&self, id: &str) -> Result<Option<Conversation>> {
+        let row = sqlx::query_as::<_, ConversationRow>(
+            "SELECT id, ring_id, title, mode, context_mode, token_count, token_limit, auto_compact, summary, compacted_at, created_by, created_at, updated_at FROM conversations WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(row.map(|r| r.into_model()))
+    }
+
+    async fn create_message(
+        &self,
+        conversation_id: &str,
+        role: &str,
+        content: &str,
+        sender_id: Option<&str>,
+    ) -> Result<Message> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        sqlx::query(
+            "INSERT INTO messages (id, conversation_id, role, content, sender_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(conversation_id)
+        .bind(role)
+        .bind(content)
+        .bind(sender_id)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(Message {
+            id,
+            conversation_id: conversation_id.to_string(),
+            role: role.to_string(),
+            content: content.to_string(),
+            sender_id: sender_id.map(|s| s.to_string()),
+            tool_calls: None,
+            archived: false,
+            created_at: now,
+        })
+    }
+
+    async fn get_messages(
+        &self,
+        conversation_id: &str,
+        limit: i64,
+        before_id: Option<&str>,
+    ) -> Result<Vec<Message>> {
+        let rows = match before_id {
+            Some(bid) => {
+                let before_created = sqlx::query_as::<_, (String,)>(
+                    "SELECT created_at FROM messages WHERE id = ?",
+                )
+                .bind(bid)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(RingError::Database)?;
+
+                match before_created {
+                    Some((ts,)) => {
+                        sqlx::query_as::<_, MessageRow>(
+                            "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",
+                        )
+                        .bind(conversation_id)
+                        .bind(&ts)
+                        .bind(limit)
+                        .fetch_all(&self.pool)
+                        .await
+                        .map_err(RingError::Database)?
+                    }
+                    None => vec![],
+                }
+            }
+            None => {
+                sqlx::query_as::<_, MessageRow>(
+                    "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",
+                )
+                .bind(conversation_id)
+                .bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(RingError::Database)?
+            }
+        };
+
+        Ok(rows.into_iter().map(|r| r.into_model()).collect())
+    }
+
+    async fn list_blueprint_templates(&self) -> Result<Vec<BlueprintTemplate>> {
+        let rows = sqlx::query_as::<_, BlueprintTemplateRow>(
+            "SELECT id, name, description, graphs, is_system, created_by, created_at FROM blueprint_templates ORDER BY created_at ASC",
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(rows.into_iter().map(|r| r.into_model()).collect())
+    }
+
+    async fn create_blueprint_template(
+        &self,
+        id: &str,
+        name: &str,
+        description: Option<&str>,
+        graphs_json: &str,
+        is_system: bool,
+    ) -> Result<BlueprintTemplate> {
+        let now = chrono::Utc::now().to_rfc3339();
+
+        sqlx::query(
+            "INSERT INTO blueprint_templates (id, name, description, graphs, is_system, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        )
+        .bind(id)
+        .bind(name)
+        .bind(description)
+        .bind(graphs_json)
+        .bind(is_system)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(BlueprintTemplate {
+            id: id.to_string(),
+            name: name.to_string(),
+            description: description.map(|s| s.to_string()),
+            graphs: graphs_json.to_string(),
+            is_system,
+            created_by: None,
+            created_at: now,
+        })
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -367,6 +560,95 @@ struct InviteTokenRow {
     used_at: Option<String>,
     revoked_at: Option<String>,
     created_at: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct ConversationRow {
+    id: String,
+    ring_id: String,
+    title: Option<String>,
+    mode: String,
+    context_mode: String,
+    token_count: i64,
+    token_limit: i64,
+    auto_compact: bool,
+    summary: Option<String>,
+    compacted_at: Option<String>,
+    created_by: String,
+    created_at: String,
+    updated_at: String,
+}
+
+impl ConversationRow {
+    fn into_model(self) -> Conversation {
+        Conversation {
+            id: self.id,
+            ring_id: self.ring_id,
+            title: self.title,
+            mode: self.mode,
+            context_mode: self.context_mode,
+            token_count: self.token_count,
+            token_limit: self.token_limit,
+            auto_compact: self.auto_compact,
+            summary: self.summary,
+            compacted_at: self.compacted_at,
+            created_by: self.created_by,
+            created_at: self.created_at,
+            updated_at: self.updated_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct MessageRow {
+    id: String,
+    conversation_id: String,
+    role: String,
+    content: String,
+    sender_id: Option<String>,
+    tool_calls: Option<String>,
+    archived: bool,
+    created_at: String,
+}
+
+impl MessageRow {
+    fn into_model(self) -> Message {
+        Message {
+            id: self.id,
+            conversation_id: self.conversation_id,
+            role: self.role,
+            content: self.content,
+            sender_id: self.sender_id,
+            tool_calls: self.tool_calls,
+            archived: self.archived,
+            created_at: self.created_at,
+        }
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct BlueprintTemplateRow {
+    id: String,
+    name: String,
+    description: Option<String>,
+    graphs: String,
+    is_system: bool,
+    created_by: Option<String>,
+    created_at: String,
+}
+
+impl BlueprintTemplateRow {
+    fn into_model(self) -> BlueprintTemplate {
+        BlueprintTemplate {
+            id: self.id,
+            name: self.name,
+            description: self.description,
+            graphs: self.graphs,
+            is_system: self.is_system,
+            created_by: self.created_by,
+            created_at: self.created_at,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -509,5 +791,149 @@ mod tests {
 
         let rings = repo.list_rings_by_user(&user.id).await.unwrap();
         assert!(rings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn create_and_list_conversations() {
+        let repo = setup_test_db().await;
+        let user = repo
+            .create_user(NewUser {
+                display_name: "张三".into(),
+            })
+            .await
+            .unwrap();
+        let ring = repo
+            .create_ring(NewRing {
+                name: "test-ring".into(),
+                description: None,
+                creator_id: user.id.clone(),
+                gitlab_repo: "auto_create".into(),
+                namespace: None,
+                role_description: "专家".into(),
+            })
+            .await
+            .unwrap();
+
+        let conv = repo
+            .create_conversation(&ring.id, Some("my chat".into()), "storage", &user.id)
+            .await
+            .unwrap();
+        assert_eq!(conv.title, Some("my chat".into()));
+        assert_eq!(conv.context_mode, "storage");
+        assert_eq!(conv.mode, "chat");
+
+        let fetched = repo.get_conversation(&conv.id).await.unwrap().unwrap();
+        assert_eq!(fetched.id, conv.id);
+
+        let list = repo.list_conversations(&ring.id).await.unwrap();
+        assert_eq!(list.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn create_and_get_messages() {
+        let repo = setup_test_db().await;
+        let user = repo
+            .create_user(NewUser {
+                display_name: "张三".into(),
+            })
+            .await
+            .unwrap();
+        let ring = repo
+            .create_ring(NewRing {
+                name: "test-ring".into(),
+                description: None,
+                creator_id: user.id.clone(),
+                gitlab_repo: "auto_create".into(),
+                namespace: None,
+                role_description: "专家".into(),
+            })
+            .await
+            .unwrap();
+        let conv = repo
+            .create_conversation(&ring.id, None, "storage", &user.id)
+            .await
+            .unwrap();
+
+        let msg = repo
+            .create_message(&conv.id, "user", "hello", Some(&user.id))
+            .await
+            .unwrap();
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.content, "hello");
+        assert_eq!(msg.sender_id, Some(user.id.clone()));
+
+        let msgs = repo.get_messages(&conv.id, 50, None).await.unwrap();
+        assert_eq!(msgs.len(), 1);
+        assert_eq!(msgs[0].content, "hello");
+    }
+
+    #[tokio::test]
+    async fn get_messages_with_limit() {
+        let repo = setup_test_db().await;
+        let user = repo
+            .create_user(NewUser {
+                display_name: "张三".into(),
+            })
+            .await
+            .unwrap();
+        let ring = repo
+            .create_ring(NewRing {
+                name: "test-ring".into(),
+                description: None,
+                creator_id: user.id.clone(),
+                gitlab_repo: "auto_create".into(),
+                namespace: None,
+                role_description: "专家".into(),
+            })
+            .await
+            .unwrap();
+        let conv = repo
+            .create_conversation(&ring.id, None, "storage", &user.id)
+            .await
+            .unwrap();
+
+        for i in 0..5 {
+            repo.create_message(&conv.id, "user", &format!("msg {}", i), Some(&user.id))
+                .await
+                .unwrap();
+        }
+
+        let msgs = repo.get_messages(&conv.id, 3, None).await.unwrap();
+        assert_eq!(msgs.len(), 3);
+
+        let msgs_before = repo
+            .get_messages(&conv.id, 10, Some(&msgs[2].id))
+            .await
+            .unwrap();
+        assert_eq!(msgs_before.len(), 2);
+    }
+
+    #[tokio::test]
+    async fn list_blueprint_templates_empty() {
+        let repo = setup_test_db().await;
+        let templates = repo.list_blueprint_templates().await.unwrap();
+        assert!(templates.is_empty());
+    }
+
+    #[tokio::test]
+    async fn create_and_list_blueprint_templates() {
+        let repo = setup_test_db().await;
+
+        let bt = repo
+            .create_blueprint_template(
+                "bp-1",
+                "knowledge-graph",
+                Some("standard knowledge graph"),
+                r#"[{"name":"concepts","graph_type":"knowledge"}]"#,
+                true,
+            )
+            .await
+            .unwrap();
+        assert_eq!(bt.name, "knowledge-graph");
+        assert!(bt.is_system);
+
+        let templates = repo.list_blueprint_templates().await.unwrap();
+        assert_eq!(templates.len(), 1);
+        assert_eq!(templates[0].id, "bp-1");
     }
 }
