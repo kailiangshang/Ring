@@ -1,12 +1,14 @@
 use crate::error::Result;
 use crate::models::blueprint::BlueprintTemplate;
 use crate::models::conversation::{Conversation, Message};
+use crate::models::git_model::ArchiveRecord;
 use crate::models::graph_model::SearchResult;
 use crate::models::invite::InviteToken;
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
 
 #[async_trait::async_trait]
+#[allow(clippy::too_many_arguments)]
 pub trait Repository: Send + Sync {
     async fn create_user(&self, new_user: NewUser) -> Result<User>;
     async fn get_user(&self, id: &str) -> Result<Option<User>>;
@@ -80,4 +82,20 @@ pub trait Repository: Send + Sync {
         graph_ids: Option<Vec<String>>,
         limit: i64,
     ) -> Result<Vec<SearchResult>>;
+    async fn create_archive_record(
+        &self,
+        id: &str,
+        ring_id: &str,
+        node_id: Option<&str>,
+        conversation_id: Option<&str>,
+        message_ids: &str,
+        markdown_path: &str,
+        archived_by: &str,
+        git_commit_sha: Option<&str>,
+        pr_status: Option<&str>,
+        pr_url: Option<&str>,
+    ) -> Result<()>;
+    async fn list_archive_records_by_ring(&self, ring_id: &str) -> Result<Vec<ArchiveRecord>>;
+    async fn get_archive_record(&self, id: &str) -> Result<Option<ArchiveRecord>>;
+    async fn update_archive_pr_status(&self, id: &str, pr_status: &str) -> Result<()>;
 }

@@ -5,6 +5,8 @@ import { RingHub } from './pages/RingHub/RingHub'
 import { ChatView } from './pages/RingSpace/ChatView'
 import { BlueprintWizard } from './pages/RingSpace/BlueprintWizard'
 import { GraphView } from './pages/RingSpace/GraphView'
+import { PrList } from './pages/RingSpace/PrList'
+import { PrDetail } from './pages/RingSpace/PrDetail'
 import { SuperRingChat } from './pages/RingHub/SuperRingChat'
 import { get_setup_status } from './api/client'
 
@@ -60,6 +62,22 @@ export default function App() {
           element={
             <SetupGuard>
               <GraphView />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/prs"
+          element={
+            <SetupGuard>
+              <PrList />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/prs/:prId"
+          element={
+            <SetupGuard>
+              <PrDetail />
             </SetupGuard>
           }
         />

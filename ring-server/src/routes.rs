@@ -2,8 +2,10 @@ use axum::routing::{delete, get, post};
 use axum::Router;
 
 use crate::handlers::ai;
+use crate::handlers::archive;
 use crate::handlers::blueprint;
 use crate::handlers::conversation;
+use crate::handlers::git;
 use crate::handlers::graph;
 use crate::handlers::install;
 use crate::handlers::ring;
@@ -61,6 +63,18 @@ pub fn build_router(state: AppState) -> Router {
 
     let search_routes = Router::new().route("/", post(search::search_nodes));
 
+    let archive_routes = Router::new()
+        .route("/", post(archive::archive))
+        .route("/queue", get(archive::get_queue))
+        .route("/{archiveId}/confirm", post(archive::confirm_archive));
+
+    let git_routes = Router::new()
+        .route("/prs", get(git::list_prs))
+        .route("/prs/{prId}/diff", get(git::get_pr_diff))
+        .route("/prs/{prId}/merge", post(git::merge_pr))
+        .route("/prs/{prId}/reject", post(git::reject_pr))
+        .route("/commits", get(git::get_commit_log));
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
@@ -68,6 +82,8 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/rings/{ringId}/blueprint", blueprint_routes)
         .nest("/api/v1/rings/{ringId}/graphs", graph_routes)
         .nest("/api/v1/rings/{ringId}/search", search_routes)
+        .nest("/api/v1/rings/{ringId}/archive", archive_routes)
+        .nest("/api/v1/rings/{ringId}/git", git_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/join", get(install::join_page))
         .with_state(state)
