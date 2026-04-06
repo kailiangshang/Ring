@@ -11,6 +11,11 @@ import type {
   BlueprintTemplate,
   PreviewResponse,
   ConfirmResponse,
+  GraphDetail,
+  GraphNode,
+  GraphEdge,
+  NodeContent,
+  SearchResult,
 } from '../types'
 
 const BASE_URL = '/api/v1'
@@ -162,5 +167,70 @@ export async function blueprint_confirm(
   return request<ConfirmResponse>(`/rings/${ring_id}/blueprint/confirm`, {
     method: 'POST',
     body: JSON.stringify({ graphs }),
+  })
+}
+
+export async function list_graphs(ring_id: string): Promise<string[]> {
+  return request<string[]>(`/rings/${ring_id}/graphs`)
+}
+
+export async function get_graph(ring_id: string, graph_id: string): Promise<GraphDetail> {
+  return request<GraphDetail>(`/rings/${ring_id}/graphs/${graph_id}`)
+}
+
+export async function create_node(
+  ring_id: string,
+  graph_id: string,
+  req: { label: string; node_type: string; parent_id?: string; description?: string },
+): Promise<GraphNode> {
+  return request<GraphNode>(`/rings/${ring_id}/graphs/${graph_id}/nodes`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function update_node(
+  ring_id: string,
+  graph_id: string,
+  node_id: string,
+  req: { label?: string; description?: string; node_type?: string },
+): Promise<GraphNode> {
+  return request<GraphNode>(`/rings/${ring_id}/graphs/${graph_id}/nodes/${node_id}`, {
+    method: 'PUT',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function delete_node(ring_id: string, graph_id: string, node_id: string): Promise<void> {
+  return request<void>(`/rings/${ring_id}/graphs/${graph_id}/nodes/${node_id}`, { method: 'DELETE' })
+}
+
+export async function get_node_content(ring_id: string, graph_id: string, node_id: string): Promise<NodeContent> {
+  return request<NodeContent>(`/rings/${ring_id}/graphs/${graph_id}/nodes/${node_id}/content`)
+}
+
+export async function create_edge(
+  ring_id: string,
+  graph_id: string,
+  req: { source_id: string; target_id: string; relation: string; label?: string },
+): Promise<GraphEdge> {
+  return request<GraphEdge>(`/rings/${ring_id}/graphs/${graph_id}/edges`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function delete_edge(ring_id: string, graph_id: string, edge_id: string): Promise<void> {
+  return request<void>(`/rings/${ring_id}/graphs/${graph_id}/edges/${edge_id}`, { method: 'DELETE' })
+}
+
+export async function search_nodes(
+  ring_id: string,
+  query: string,
+  graph_ids?: string[],
+): Promise<{ results: SearchResult[]; total: number }> {
+  return request(`/rings/${ring_id}/search`, {
+    method: 'POST',
+    body: JSON.stringify({ query, graph_ids, limit: 20 }),
   })
 }
