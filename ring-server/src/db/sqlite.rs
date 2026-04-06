@@ -2,6 +2,7 @@ use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
 use crate::models::blueprint::BlueprintTemplate;
 use crate::models::conversation::{Conversation, Message};
+use crate::models::graph_model::SearchResult;
 use crate::models::invite::InviteToken;
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
@@ -535,6 +536,96 @@ impl Repository for SqliteRepository {
             created_at: now,
         })
     }
+
+    async fn index_node_search(
+        &self,
+        node_id: &str,
+        graph_id: &str,
+        label: &str,
+        content: &str,
+    ) -> Result<()> {
+        let jieba = jieba_rs::Jieba::new();
+        let tok_label = jieba.cut(label, true).join(" ");
+        let tok_content = jieba.cut(content, true).join(" ");
+        sqlx::query(
+            "INSERT INTO nodes_search(node_id, graph_id, label, content) VALUES(?, ?, ?, ?)",
+        )
+        .bind(node_id)
+        .bind(graph_id)
+        .bind(&tok_label)
+        .bind(&tok_content)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn delete_node_search(&self, node_id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM nodes_search WHERE node_id = ?")
+            .bind(node_id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn search_nodes_fts(
+        &self,
+        query: &str,
+        graph_ids: Option<Vec<String>>,
+        limit: i64,
+    ) -> Result<Vec<SearchResult>> {
+        let jieba = jieba_rs::Jieba::new();
+        let tok_query = jieba.cut(query, true).join(" ");
+        let match_expr = tok_query
+            .split_whitespace()
+            .map(|w| format!("\"{}\"", w))
+            .collect::<Vec<_>>()
+            .join(" OR ");
+
+        if match_expr.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let results = if let Some(ref gids) = graph_ids {
+            let placeholders = gids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+            let sql = format!(
+                "SELECT node_id, graph_id, label, snippet(nodes_search, 1, '<mark>', '</mark>', '...', 32) as snippet, rank FROM nodes_search WHERE (label MATCH ? OR content MATCH ?) AND graph_id IN ({}) ORDER BY rank LIMIT ?",
+                placeholders
+            );
+            let mut q = sqlx::query_as::<_, SearchResultRow>(&sql)
+                .bind(&match_expr)
+                .bind(&match_expr);
+            for gid in gids {
+                q = q.bind(gid);
+            }
+            q.bind(limit)
+                .fetch_all(&self.pool)
+                .await
+                .map_err(RingError::Database)?
+        } else {
+            sqlx::query_as::<_, SearchResultRow>(
+                "SELECT node_id, graph_id, label, snippet(nodes_search, 1, '<mark>', '</mark>', '...', 32) as snippet, rank FROM nodes_search WHERE label MATCH ? OR content MATCH ? ORDER BY rank LIMIT ?",
+            )
+            .bind(&match_expr)
+            .bind(&match_expr)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        };
+
+        Ok(results
+            .into_iter()
+            .map(|r| SearchResult {
+                node_id: r.node_id,
+                graph_id: r.graph_id,
+                label: r.label,
+                snippet: r.snippet,
+                rank: r.rank,
+            })
+            .collect())
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -665,6 +756,15 @@ impl BlueprintTemplateRow {
             created_at: self.created_at,
         }
     }
+}
+
+#[derive(sqlx::FromRow)]
+struct SearchResultRow {
+    node_id: String,
+    graph_id: String,
+    label: String,
+    snippet: String,
+    rank: f64,
 }
 
 #[cfg(test)]

@@ -90,3 +90,25 @@ pub struct NodeContentResponse {
     pub content: Option<String>,
     pub last_modified: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub node_id: String,
+    pub graph_id: String,
+    pub label: String,
+    pub snippet: String,
+    pub rank: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchRequest {
+    pub query: String,
+    pub graph_ids: Option<Vec<String>>,
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResponse {
+    pub results: Vec<SearchResult>,
+    pub total: usize,
+}

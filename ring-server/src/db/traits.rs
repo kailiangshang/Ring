@@ -1,6 +1,7 @@
 use crate::error::Result;
 use crate::models::blueprint::BlueprintTemplate;
 use crate::models::conversation::{Conversation, Message};
+use crate::models::graph_model::SearchResult;
 use crate::models::invite::InviteToken;
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
@@ -65,4 +66,18 @@ pub trait Repository: Send + Sync {
         graphs_json: &str,
         is_system: bool,
     ) -> Result<BlueprintTemplate>;
+    async fn index_node_search(
+        &self,
+        node_id: &str,
+        graph_id: &str,
+        label: &str,
+        content: &str,
+    ) -> Result<()>;
+    async fn delete_node_search(&self, node_id: &str) -> Result<()>;
+    async fn search_nodes_fts(
+        &self,
+        query: &str,
+        graph_ids: Option<Vec<String>>,
+        limit: i64,
+    ) -> Result<Vec<SearchResult>>;
 }

@@ -5,6 +5,7 @@ pub mod llm_anthropic;
 pub mod llm_openai;
 pub mod llm_provider;
 pub mod ring_service;
+pub mod search_service;
 
 pub use ai_service::AiService;
 pub use graph_service::GraphService;
