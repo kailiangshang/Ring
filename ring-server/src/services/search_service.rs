@@ -76,7 +76,10 @@ mod tests {
             .await
             .unwrap();
 
-        let results = svc.search_nodes("nonexistent_term_xyz", None, 10).await.unwrap();
+        let results = svc
+            .search_nodes("nonexistent_term_xyz", None, 10)
+            .await
+            .unwrap();
         assert!(results.is_empty());
     }
 

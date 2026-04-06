@@ -23,8 +23,16 @@ pub async fn get_graph(
 ) -> Result<Json<GraphDetailResponse>, RingError> {
     let store = state.graph_store.read().await;
     let graph_data = store.export_graph_json(&graph_id).await?;
-    let nodes: Vec<NodeResponse> = graph_data.nodes.into_iter().map(NodeResponse::from).collect();
-    let edges: Vec<EdgeResponse> = graph_data.edges.into_iter().map(EdgeResponse::from).collect();
+    let nodes: Vec<NodeResponse> = graph_data
+        .nodes
+        .into_iter()
+        .map(NodeResponse::from)
+        .collect();
+    let edges: Vec<EdgeResponse> = graph_data
+        .edges
+        .into_iter()
+        .map(EdgeResponse::from)
+        .collect();
     Ok(Json(GraphDetailResponse {
         graph_id,
         nodes,

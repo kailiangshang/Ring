@@ -16,11 +16,7 @@ impl GraphService {
         GraphService { store }
     }
 
-    pub async fn create_node(
-        &self,
-        graph_id: &str,
-        req: CreateNodeRequest,
-    ) -> Result<NodeData> {
+    pub async fn create_node(&self, graph_id: &str, req: CreateNodeRequest) -> Result<NodeData> {
         if req.label.trim().is_empty() {
             return Err(RingError::Validation("label must not be empty".into()));
         }

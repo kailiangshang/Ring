@@ -256,10 +256,7 @@ async fn import_replaces_existing_data() {
         edges: vec![],
     };
 
-    store
-        .import_graph_json("graph-1", &new_data)
-        .await
-        .unwrap();
+    store.import_graph_json("graph-1", &new_data).await.unwrap();
 
     let exported = store.export_graph_json("graph-1").await.unwrap();
     assert_eq!(exported.nodes.len(), 1);

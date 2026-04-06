@@ -465,10 +465,8 @@ async fn get_root_nodes_via_graph_detail() {
         .unwrap();
     let json = body_to_json(resp.into_body()).await;
     let nodes = json["nodes"].as_array().unwrap();
-    let roots: Vec<&serde_json::Value> = nodes
-        .iter()
-        .filter(|n| n["parent_id"].is_null())
-        .collect();
+    let roots: Vec<&serde_json::Value> =
+        nodes.iter().filter(|n| n["parent_id"].is_null()).collect();
     assert_eq!(roots.len(), 1);
     assert_eq!(roots[0]["label"], "Root");
 }
