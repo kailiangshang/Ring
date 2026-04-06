@@ -300,6 +300,26 @@ mod tests {
         ) -> crate::error::Result<crate::models::blueprint::BlueprintTemplate> {
             unimplemented!()
         }
+        async fn index_node_search(
+            &self,
+            _node_id: &str,
+            _graph_id: &str,
+            _label: &str,
+            _content: &str,
+        ) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn delete_node_search(&self, _node_id: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn search_nodes_fts(
+            &self,
+            _query: &str,
+            _graph_ids: Option<Vec<String>>,
+            _limit: i64,
+        ) -> crate::error::Result<Vec<crate::models::graph_model::SearchResult>> {
+            unimplemented!()
+        }
     }
 
     fn make_events() -> Vec<LlmEvent> {

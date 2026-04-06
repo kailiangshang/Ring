@@ -102,3 +102,46 @@ export interface ConfirmResponse {
   success: boolean
   message: string
 }
+
+export interface GraphNode {
+  id: string
+  label: string
+  node_type: string
+  parent_id: string | null
+  description: string | null
+  graph_id: string
+  markdown_path: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface GraphEdge {
+  id: string
+  source_id: string
+  target_id: string
+  relation: string
+  label: string | null
+  graph_id: string
+}
+
+export interface GraphDetail {
+  graph_id: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+export interface NodeContent {
+  node_id: string
+  label: string
+  markdown_path: string | null
+  content: string | null
+  last_modified: string
+}
+
+export interface SearchResult {
+  node_id: string
+  graph_id: string
+  label: string
+  snippet: string
+  rank: number
+}

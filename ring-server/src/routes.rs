@@ -1,11 +1,13 @@
-use axum::routing::{get, post};
+use axum::routing::{delete, get, post};
 use axum::Router;
 
 use crate::handlers::ai;
 use crate::handlers::blueprint;
 use crate::handlers::conversation;
+use crate::handlers::graph;
 use crate::handlers::install;
 use crate::handlers::ring;
+use crate::handlers::search;
 use crate::handlers::setup;
 use crate::state::AppState;
 
@@ -40,11 +42,32 @@ pub fn build_router(state: AppState) -> Router {
         .route("/preview", post(blueprint::preview_blueprint))
         .route("/confirm", post(blueprint::confirm_blueprint));
 
+    let graph_routes = Router::new()
+        .route("/", get(graph::list_graphs))
+        .route("/{graphId}", get(graph::get_graph))
+        .route("/{graphId}/nodes", post(graph::create_node))
+        .route(
+            "/{graphId}/nodes/{nodeId}",
+            get(graph::get_node)
+                .put(graph::update_node)
+                .delete(graph::delete_node),
+        )
+        .route(
+            "/{graphId}/nodes/{nodeId}/content",
+            get(graph::get_node_content),
+        )
+        .route("/{graphId}/edges", post(graph::create_edge))
+        .route("/{graphId}/edges/{edgeId}", delete(graph::delete_edge));
+
+    let search_routes = Router::new().route("/", post(search::search_nodes));
+
     Router::new()
         .nest("/api/v1/setup", setup_routes)
         .nest("/api/v1/rings", ring_routes)
         .nest("/api/v1/rings/{ringId}/conversations", conversation_routes)
         .nest("/api/v1/rings/{ringId}/blueprint", blueprint_routes)
+        .nest("/api/v1/rings/{ringId}/graphs", graph_routes)
+        .nest("/api/v1/rings/{ringId}/search", search_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/join", get(install::join_page))
         .with_state(state)

@@ -84,6 +84,7 @@ impl PetgraphStore {
         node_id: &str,
         label: Option<String>,
         description: Option<String>,
+        node_type: Option<String>,
     ) -> Result<NodeData> {
         let mut inner = self.inner.write().await;
         let idx = inner
@@ -105,6 +106,9 @@ impl PetgraphStore {
         }
         if let Some(d) = description {
             node.description = Some(d);
+        }
+        if let Some(t) = node_type {
+            node.node_type = t;
         }
         node.updated_at = Utc::now().to_rfc3339();
 

@@ -4,6 +4,7 @@ import { SetupWizard } from './pages/Setup/SetupWizard'
 import { RingHub } from './pages/RingHub/RingHub'
 import { ChatView } from './pages/RingSpace/ChatView'
 import { BlueprintWizard } from './pages/RingSpace/BlueprintWizard'
+import { GraphView } from './pages/RingSpace/GraphView'
 import { SuperRingChat } from './pages/RingHub/SuperRingChat'
 import { get_setup_status } from './api/client'
 
@@ -51,6 +52,14 @@ export default function App() {
           element={
             <SetupGuard>
               <BlueprintWizard />
+            </SetupGuard>
+          }
+        />
+        <Route
+          path="/ring/:ringId/graph"
+          element={
+            <SetupGuard>
+              <GraphView />
             </SetupGuard>
           }
         />
