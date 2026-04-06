@@ -5,6 +5,8 @@ use crate::models::conversation::{Conversation, Message};
 use crate::models::git_model::ArchiveRecord;
 use crate::models::graph_model::SearchResult;
 use crate::models::invite::InviteToken;
+use crate::models::member::{Member, NewMember};
+use crate::models::notification_model::{NewNotification, Notification};
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
 use sqlx::SqlitePool;
@@ -691,6 +693,218 @@ impl Repository for SqliteRepository {
             .map_err(RingError::Database)?;
         Ok(())
     }
+
+    async fn create_member(&self, new_member: NewMember) -> Result<Member> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let token_id: (i64,) =
+            sqlx::query_as("SELECT COALESCE(MAX(token_id), 0) + 1 FROM members WHERE ring_id = ?")
+                .bind(&new_member.ring_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(RingError::Database)?;
+
+        sqlx::query(
+            "INSERT INTO members (id, ring_id, user_id, token_id, display_name, role, joined_at) VALUES (?, ?, ?, ?, ?, COALESCE(?, 'member'), ?)",
+        )
+        .bind(&id)
+        .bind(&new_member.ring_id)
+        .bind(&new_member.user_id)
+        .bind(token_id.0)
+        .bind(&new_member.display_name)
+        .bind(&new_member.role)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(Member {
+            id,
+            ring_id: new_member.ring_id,
+            user_id: new_member.user_id,
+            token_id: token_id.0,
+            display_name: new_member.display_name,
+            role: new_member.role.unwrap_or_else(|| "member".into()),
+            joined_at: now,
+        })
+    }
+
+    async fn get_member(&self, id: &str) -> Result<Option<Member>> {
+        let row = sqlx::query_as::<_, MemberRow>(
+            "SELECT id, ring_id, user_id, token_id, display_name, role, joined_at FROM members WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(row.map(|r| Member {
+            id: r.id,
+            ring_id: r.ring_id,
+            user_id: r.user_id,
+            token_id: r.token_id,
+            display_name: r.display_name,
+            role: r.role,
+            joined_at: r.joined_at,
+        }))
+    }
+
+    async fn list_members_by_ring(&self, ring_id: &str) -> Result<Vec<Member>> {
+        let rows = sqlx::query_as::<_, MemberRow>(
+            "SELECT id, ring_id, user_id, token_id, display_name, role, joined_at FROM members WHERE ring_id = ? ORDER BY joined_at",
+        )
+        .bind(ring_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Member {
+                id: r.id,
+                ring_id: r.ring_id,
+                user_id: r.user_id,
+                token_id: r.token_id,
+                display_name: r.display_name,
+                role: r.role,
+                joined_at: r.joined_at,
+            })
+            .collect())
+    }
+
+    async fn get_member_by_user_and_ring(
+        &self,
+        user_id: &str,
+        ring_id: &str,
+    ) -> Result<Option<Member>> {
+        let row = sqlx::query_as::<_, MemberRow>(
+            "SELECT id, ring_id, user_id, token_id, display_name, role, joined_at FROM members WHERE user_id = ? AND ring_id = ?",
+        )
+        .bind(user_id)
+        .bind(ring_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(row.map(|r| Member {
+            id: r.id,
+            ring_id: r.ring_id,
+            user_id: r.user_id,
+            token_id: r.token_id,
+            display_name: r.display_name,
+            role: r.role,
+            joined_at: r.joined_at,
+        }))
+    }
+
+    async fn update_member_role(&self, id: &str, role: &str) -> Result<()> {
+        sqlx::query("UPDATE members SET role = ? WHERE id = ?")
+            .bind(role)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn delete_member(&self, id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM members WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn get_next_token_id(&self, ring_id: &str) -> Result<i64> {
+        let row: (i64,) =
+            sqlx::query_as("SELECT COALESCE(MAX(token_id), 0) + 1 FROM members WHERE ring_id = ?")
+                .bind(ring_id)
+                .fetch_one(&self.pool)
+                .await
+                .map_err(RingError::Database)?;
+        Ok(row.0)
+    }
+
+    async fn create_notification(&self, n: NewNotification) -> Result<Notification> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+
+        sqlx::query(
+            "INSERT INTO notifications (id, ring_id, user_id, type, title, body, related_id, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?)",
+        )
+        .bind(&id)
+        .bind(&n.ring_id)
+        .bind(&n.user_id)
+        .bind(&n.n_type)
+        .bind(&n.title)
+        .bind(&n.body)
+        .bind(&n.related_id)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(Notification {
+            id,
+            ring_id: n.ring_id,
+            user_id: n.user_id,
+            r#type: n.n_type,
+            title: n.title,
+            body: n.body,
+            related_id: n.related_id,
+            is_read: false,
+            created_at: now,
+        })
+    }
+
+    async fn list_notifications_by_user(
+        &self,
+        user_id: &str,
+        unread_only: bool,
+    ) -> Result<Vec<Notification>> {
+        let rows = if unread_only {
+            sqlx::query_as::<_, NotificationRow>(
+                "SELECT id, ring_id, user_id, type, title, body, related_id, is_read, created_at FROM notifications WHERE user_id = ? AND is_read = FALSE ORDER BY created_at DESC",
+            )
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        } else {
+            sqlx::query_as::<_, NotificationRow>(
+                "SELECT id, ring_id, user_id, type, title, body, related_id, is_read, created_at FROM notifications WHERE user_id = ? ORDER BY created_at DESC",
+            )
+            .bind(user_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Notification {
+                id: r.id,
+                ring_id: r.ring_id,
+                user_id: r.user_id,
+                r#type: r.type_field,
+                title: r.title,
+                body: r.body,
+                related_id: r.related_id,
+                is_read: r.is_read,
+                created_at: r.created_at,
+            })
+            .collect())
+    }
+
+    async fn mark_notification_read(&self, id: &str) -> Result<()> {
+        sqlx::query("UPDATE notifications SET is_read = TRUE WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -830,6 +1044,31 @@ struct SearchResultRow {
     label: String,
     snippet: String,
     rank: f64,
+}
+
+#[derive(sqlx::FromRow)]
+struct MemberRow {
+    id: String,
+    ring_id: String,
+    user_id: String,
+    token_id: i64,
+    display_name: String,
+    role: String,
+    joined_at: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct NotificationRow {
+    id: String,
+    ring_id: String,
+    user_id: String,
+    #[sqlx(rename = "type")]
+    type_field: String,
+    title: String,
+    body: Option<String>,
+    related_id: Option<String>,
+    is_read: bool,
+    created_at: String,
 }
 
 #[cfg(test)]

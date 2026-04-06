@@ -515,6 +515,56 @@ mod tests {
             }
             Ok(())
         }
+        async fn create_member(
+            &self,
+            _new_member: crate::models::member::NewMember,
+        ) -> crate::error::Result<crate::models::member::Member> {
+            unimplemented!()
+        }
+        async fn get_member(
+            &self,
+            _id: &str,
+        ) -> crate::error::Result<Option<crate::models::member::Member>> {
+            unimplemented!()
+        }
+        async fn list_members_by_ring(
+            &self,
+            _ring_id: &str,
+        ) -> crate::error::Result<Vec<crate::models::member::Member>> {
+            unimplemented!()
+        }
+        async fn get_member_by_user_and_ring(
+            &self,
+            _user_id: &str,
+            _ring_id: &str,
+        ) -> crate::error::Result<Option<crate::models::member::Member>> {
+            unimplemented!()
+        }
+        async fn update_member_role(&self, _id: &str, _role: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn delete_member(&self, _id: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
+        async fn get_next_token_id(&self, _ring_id: &str) -> crate::error::Result<i64> {
+            unimplemented!()
+        }
+        async fn create_notification(
+            &self,
+            _n: crate::models::notification_model::NewNotification,
+        ) -> crate::error::Result<crate::models::notification_model::Notification> {
+            unimplemented!()
+        }
+        async fn list_notifications_by_user(
+            &self,
+            _user_id: &str,
+            _unread_only: bool,
+        ) -> crate::error::Result<Vec<crate::models::notification_model::Notification>> {
+            unimplemented!()
+        }
+        async fn mark_notification_read(&self, _id: &str) -> crate::error::Result<()> {
+            unimplemented!()
+        }
     }
 
     fn make_test_ring(local_path: &std::path::Path) -> Ring {

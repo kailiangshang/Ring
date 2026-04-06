@@ -4,6 +4,8 @@ use crate::models::conversation::{Conversation, Message};
 use crate::models::git_model::ArchiveRecord;
 use crate::models::graph_model::SearchResult;
 use crate::models::invite::InviteToken;
+use crate::models::member::{Member, NewMember};
+use crate::models::notification_model::{NewNotification, Notification};
 use crate::models::ring::{NewRing, Ring};
 use crate::models::user::{NewUser, User};
 
@@ -98,4 +100,22 @@ pub trait Repository: Send + Sync {
     async fn list_archive_records_by_ring(&self, ring_id: &str) -> Result<Vec<ArchiveRecord>>;
     async fn get_archive_record(&self, id: &str) -> Result<Option<ArchiveRecord>>;
     async fn update_archive_pr_status(&self, id: &str, pr_status: &str) -> Result<()>;
+    async fn create_member(&self, new_member: NewMember) -> Result<Member>;
+    async fn get_member(&self, id: &str) -> Result<Option<Member>>;
+    async fn list_members_by_ring(&self, ring_id: &str) -> Result<Vec<Member>>;
+    async fn get_member_by_user_and_ring(
+        &self,
+        user_id: &str,
+        ring_id: &str,
+    ) -> Result<Option<Member>>;
+    async fn update_member_role(&self, id: &str, role: &str) -> Result<()>;
+    async fn delete_member(&self, id: &str) -> Result<()>;
+    async fn get_next_token_id(&self, ring_id: &str) -> Result<i64>;
+    async fn create_notification(&self, n: NewNotification) -> Result<Notification>;
+    async fn list_notifications_by_user(
+        &self,
+        user_id: &str,
+        unread_only: bool,
+    ) -> Result<Vec<Notification>>;
+    async fn mark_notification_read(&self, id: &str) -> Result<()>;
 }
