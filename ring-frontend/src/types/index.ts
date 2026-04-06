@@ -145,3 +145,60 @@ export interface SearchResult {
   snippet: string
   rank: number
 }
+
+export interface ArchiveRequest {
+  message_ids: string[]
+  conversation_id: string
+  graph_id: string
+  target_node_id?: string
+  label: string
+}
+
+export interface ArchiveResponse {
+  archive_id: string
+  markdown_path: string
+  git_status: string
+  pr_url: string | null
+  queue_position: number | null
+}
+
+export interface ArchiveQueueResponse {
+  current_review: QueueItem | null
+  queue: QueueItem[]
+}
+
+export interface QueueItem {
+  pr_id: number
+  author: string
+  title: string
+  position: number
+}
+
+export interface PrListItem {
+  pr_id: number
+  title: string
+  author: string
+  state: string
+}
+
+export interface PrDetail {
+  pr_id: number
+  title: string
+  author: string
+  changes: FileChange[]
+}
+
+export interface FileChange {
+  file: string
+  status: string
+  additions: number
+  deletions: number
+  diff: string
+}
+
+export interface CommitLogEntry {
+  id: string
+  message: string
+  author: string
+  date: string
+}

@@ -16,6 +16,12 @@ import type {
   GraphEdge,
   NodeContent,
   SearchResult,
+  ArchiveRequest,
+  ArchiveResponse,
+  ArchiveQueueResponse,
+  PrListItem,
+  PrDetail,
+  CommitLogEntry,
 } from '../types'
 
 const BASE_URL = '/api/v1'
@@ -233,4 +239,74 @@ export async function search_nodes(
     method: 'POST',
     body: JSON.stringify({ query, graph_ids, limit: 20 }),
   })
+}
+
+export async function archive_content(
+  ring_id: string,
+  req: ArchiveRequest,
+): Promise<ArchiveResponse> {
+  return request<ArchiveResponse>(`/rings/${ring_id}/archive`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+}
+
+export async function get_archive_queue(
+  ring_id: string,
+): Promise<ArchiveQueueResponse> {
+  return request<ArchiveQueueResponse>(`/rings/${ring_id}/archive/queue`)
+}
+
+export async function confirm_archive(
+  ring_id: string,
+  archive_id: string,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/archive/${archive_id}/confirm`, {
+    method: 'POST',
+  })
+}
+
+export async function list_prs(
+  ring_id: string,
+  state?: string,
+): Promise<PrListItem[]> {
+  const data = await request<{ prs: PrListItem[] }>(
+    `/rings/${ring_id}/git/prs${state ? `?state=${state}` : ''}`,
+  )
+  return data.prs
+}
+
+export async function get_pr_diff(
+  ring_id: string,
+  pr_id: number,
+): Promise<PrDetail> {
+  return request<PrDetail>(`/rings/${ring_id}/git/prs/${pr_id}/diff`)
+}
+
+export async function merge_pr(
+  ring_id: string,
+  pr_id: number,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/git/prs/${pr_id}/merge`, {
+    method: 'POST',
+  })
+}
+
+export async function reject_pr(
+  ring_id: string,
+  pr_id: number,
+): Promise<void> {
+  return request<void>(`/rings/${ring_id}/git/prs/${pr_id}/reject`, {
+    method: 'POST',
+  })
+}
+
+export async function get_commit_log(
+  ring_id: string,
+  limit?: number,
+): Promise<CommitLogEntry[]> {
+  const data = await request<{ commits: CommitLogEntry[] }>(
+    `/rings/${ring_id}/git/commits${limit ? `?limit=${limit}` : ''}`,
+  )
+  return data.commits
 }
