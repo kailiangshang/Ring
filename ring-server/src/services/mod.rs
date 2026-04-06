@@ -8,6 +8,8 @@ pub mod graph_service;
 pub mod llm_anthropic;
 pub mod llm_openai;
 pub mod llm_provider;
+pub mod member_service;
+pub mod permission_service;
 pub mod ring_service;
 pub mod search_service;
 
@@ -15,4 +17,6 @@ pub use ai_service::AiService;
 pub use archive_service::ArchiveService;
 pub use graph_service::GraphService;
 pub use llm_provider::LlmProvider;
+pub use member_service::MemberService;
+pub use permission_service::PermissionService;
 pub use ring_service::RingService;
