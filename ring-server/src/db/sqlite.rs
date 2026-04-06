@@ -8,6 +8,7 @@ use crate::models::invite::InviteToken;
 use crate::models::member::{Member, NewMember};
 use crate::models::notification_model::{NewNotification, Notification};
 use crate::models::ring::{NewRing, Ring};
+use crate::models::session_model::{Session, SessionMember, SessionMessage};
 use crate::models::user::{NewUser, User};
 use sqlx::SqlitePool;
 
@@ -905,6 +906,293 @@ impl Repository for SqliteRepository {
             .map_err(RingError::Database)?;
         Ok(())
     }
+
+    async fn create_session(
+        &self,
+        ring_id: &str,
+        title: Option<&str>,
+        scenario: &str,
+        created_by: &str,
+        archive_enabled: bool,
+    ) -> Result<Session> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO sessions (id, ring_id, title, scenario, created_by, archive_enabled, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)",
+        )
+        .bind(&id)
+        .bind(ring_id)
+        .bind(title)
+        .bind(scenario)
+        .bind(created_by)
+        .bind(archive_enabled)
+        .bind(&now)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(Session {
+            id,
+            ring_id: ring_id.to_string(),
+            title: title.map(|s| s.to_string()),
+            scenario: scenario.to_string(),
+            created_by: created_by.to_string(),
+            archive_enabled,
+            status: "active".to_string(),
+            created_at: now.clone(),
+            updated_at: now,
+        })
+    }
+
+    async fn get_session(&self, id: &str) -> Result<Option<Session>> {
+        let row = sqlx::query_as::<_, SessionRow>(
+            "SELECT id, ring_id, title, scenario, created_by, archive_enabled, status, created_at, updated_at FROM sessions WHERE id = ?",
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(row.map(|r| Session {
+            id: r.id,
+            ring_id: r.ring_id,
+            title: r.title,
+            scenario: r.scenario,
+            created_by: r.created_by,
+            archive_enabled: r.archive_enabled,
+            status: r.status,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        }))
+    }
+
+    async fn list_sessions_by_ring(
+        &self,
+        ring_id: &str,
+        status: Option<&str>,
+    ) -> Result<Vec<Session>> {
+        let rows = if let Some(s) = status {
+            sqlx::query_as::<_, SessionRow>(
+                "SELECT id, ring_id, title, scenario, created_by, archive_enabled, status, created_at, updated_at FROM sessions WHERE ring_id = ? AND status = ? ORDER BY created_at DESC",
+            )
+            .bind(ring_id)
+            .bind(s)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        } else {
+            sqlx::query_as::<_, SessionRow>(
+                "SELECT id, ring_id, title, scenario, created_by, archive_enabled, status, created_at, updated_at FROM sessions WHERE ring_id = ? ORDER BY created_at DESC",
+            )
+            .bind(ring_id)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|r| Session {
+                id: r.id,
+                ring_id: r.ring_id,
+                title: r.title,
+                scenario: r.scenario,
+                created_by: r.created_by,
+                archive_enabled: r.archive_enabled,
+                status: r.status,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            })
+            .collect())
+    }
+
+    async fn update_session_status(&self, id: &str, status: &str) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query("UPDATE sessions SET status = ?, updated_at = ? WHERE id = ?")
+            .bind(status)
+            .bind(&now)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn update_session_archive(&self, id: &str, enabled: bool) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query("UPDATE sessions SET archive_enabled = ?, updated_at = ? WHERE id = ?")
+            .bind(enabled)
+            .bind(&now)
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn delete_session(&self, id: &str) -> Result<()> {
+        sqlx::query("DELETE FROM session_messages WHERE session_id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        sqlx::query("DELETE FROM session_members WHERE session_id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        sqlx::query("DELETE FROM sessions WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await
+            .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn create_session_member(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        role: &str,
+    ) -> Result<SessionMember> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO session_members (id, session_id, user_id, role, status, joined_at) VALUES (?, ?, ?, ?, 'active', ?)",
+        )
+        .bind(&id)
+        .bind(session_id)
+        .bind(user_id)
+        .bind(role)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(SessionMember {
+            id,
+            session_id: session_id.to_string(),
+            user_id: user_id.to_string(),
+            role: role.to_string(),
+            status: "active".to_string(),
+            joined_at: now,
+            left_at: None,
+        })
+    }
+
+    async fn list_session_members(&self, session_id: &str) -> Result<Vec<SessionMember>> {
+        let rows = sqlx::query_as::<_, SessionMemberRow>(
+            "SELECT id, session_id, user_id, role, status, joined_at, left_at FROM session_members WHERE session_id = ? AND status = 'active'",
+        )
+        .bind(session_id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(rows
+            .into_iter()
+            .map(|r| SessionMember {
+                id: r.id,
+                session_id: r.session_id,
+                user_id: r.user_id,
+                role: r.role,
+                status: r.status,
+                joined_at: r.joined_at,
+                left_at: r.left_at,
+            })
+            .collect())
+    }
+
+    async fn leave_session_member(&self, session_id: &str, user_id: &str) -> Result<()> {
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query(
+            "UPDATE session_members SET status = 'left', left_at = ? WHERE session_id = ? AND user_id = ?",
+        )
+        .bind(&now)
+        .bind(session_id)
+        .bind(user_id)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+        Ok(())
+    }
+
+    async fn create_session_message(
+        &self,
+        session_id: &str,
+        sender_id: &str,
+        role: &str,
+        content: &str,
+        seq_num: i64,
+    ) -> Result<SessionMessage> {
+        let id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        sqlx::query(
+            "INSERT INTO session_messages (id, session_id, sender_id, role, content, seq_num, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        )
+        .bind(&id)
+        .bind(session_id)
+        .bind(sender_id)
+        .bind(role)
+        .bind(content)
+        .bind(seq_num)
+        .bind(&now)
+        .execute(&self.pool)
+        .await
+        .map_err(RingError::Database)?;
+
+        Ok(SessionMessage {
+            id,
+            session_id: session_id.to_string(),
+            sender_id: sender_id.to_string(),
+            role: role.to_string(),
+            content: content.to_string(),
+            seq_num,
+            created_at: now,
+        })
+    }
+
+    async fn get_session_messages(
+        &self,
+        session_id: &str,
+        after_seq: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<SessionMessage>> {
+        let rows = if let Some(seq) = after_seq {
+            sqlx::query_as::<_, SessionMessageRow>(
+                "SELECT id, session_id, sender_id, role, content, seq_num, created_at FROM session_messages WHERE session_id = ? AND seq_num > ? ORDER BY seq_num ASC LIMIT ?",
+            )
+            .bind(session_id)
+            .bind(seq)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        } else {
+            sqlx::query_as::<_, SessionMessageRow>(
+                "SELECT id, session_id, sender_id, role, content, seq_num, created_at FROM session_messages WHERE session_id = ? ORDER BY seq_num ASC LIMIT ?",
+            )
+            .bind(session_id)
+            .bind(limit)
+            .fetch_all(&self.pool)
+            .await
+            .map_err(RingError::Database)?
+        };
+
+        Ok(rows
+            .into_iter()
+            .map(|r| SessionMessage {
+                id: r.id,
+                session_id: r.session_id,
+                sender_id: r.sender_id,
+                role: r.role,
+                content: r.content,
+                seq_num: r.seq_num,
+                created_at: r.created_at,
+            })
+            .collect())
+    }
 }
 
 #[derive(sqlx::FromRow)]
@@ -1068,6 +1356,41 @@ struct NotificationRow {
     body: Option<String>,
     related_id: Option<String>,
     is_read: bool,
+    created_at: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct SessionRow {
+    id: String,
+    ring_id: String,
+    title: Option<String>,
+    scenario: String,
+    created_by: String,
+    archive_enabled: bool,
+    status: String,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct SessionMemberRow {
+    id: String,
+    session_id: String,
+    user_id: String,
+    role: String,
+    status: String,
+    joined_at: String,
+    left_at: Option<String>,
+}
+
+#[derive(sqlx::FromRow)]
+struct SessionMessageRow {
+    id: String,
+    session_id: String,
+    sender_id: String,
+    role: String,
+    content: String,
+    seq_num: i64,
     created_at: String,
 }
 

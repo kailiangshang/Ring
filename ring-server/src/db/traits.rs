@@ -7,6 +7,7 @@ use crate::models::invite::InviteToken;
 use crate::models::member::{Member, NewMember};
 use crate::models::notification_model::{NewNotification, Notification};
 use crate::models::ring::{NewRing, Ring};
+use crate::models::session_model::{Session, SessionMember, SessionMessage};
 use crate::models::user::{NewUser, User};
 
 #[async_trait::async_trait]
@@ -118,4 +119,43 @@ pub trait Repository: Send + Sync {
         unread_only: bool,
     ) -> Result<Vec<Notification>>;
     async fn mark_notification_read(&self, id: &str) -> Result<()>;
+    async fn create_session(
+        &self,
+        ring_id: &str,
+        title: Option<&str>,
+        scenario: &str,
+        created_by: &str,
+        archive_enabled: bool,
+    ) -> Result<Session>;
+    async fn get_session(&self, id: &str) -> Result<Option<Session>>;
+    async fn list_sessions_by_ring(
+        &self,
+        ring_id: &str,
+        status: Option<&str>,
+    ) -> Result<Vec<Session>>;
+    async fn update_session_status(&self, id: &str, status: &str) -> Result<()>;
+    async fn update_session_archive(&self, id: &str, enabled: bool) -> Result<()>;
+    async fn delete_session(&self, id: &str) -> Result<()>;
+    async fn create_session_member(
+        &self,
+        session_id: &str,
+        user_id: &str,
+        role: &str,
+    ) -> Result<SessionMember>;
+    async fn list_session_members(&self, session_id: &str) -> Result<Vec<SessionMember>>;
+    async fn leave_session_member(&self, session_id: &str, user_id: &str) -> Result<()>;
+    async fn create_session_message(
+        &self,
+        session_id: &str,
+        sender_id: &str,
+        role: &str,
+        content: &str,
+        seq_num: i64,
+    ) -> Result<SessionMessage>;
+    async fn get_session_messages(
+        &self,
+        session_id: &str,
+        after_seq: Option<i64>,
+        limit: i64,
+    ) -> Result<Vec<SessionMessage>>;
 }
