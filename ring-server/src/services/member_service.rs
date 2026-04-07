@@ -20,7 +20,7 @@ impl MemberService {
         ring_id: &str,
         inviter_id: &str,
         token_type: &str,
-        _role: &str,
+        role: &str,
         _max_uses: i64,
         max_members: Option<i64>,
         _expires_in_seconds: i64,
@@ -41,7 +41,7 @@ impl MemberService {
         }
         let token_bytes = uuid::Uuid::new_v4().to_string();
         self.db
-            .create_invite_token(ring_id, &token_bytes, token_type, inviter_id)
+            .create_invite_token(ring_id, &token_bytes, token_type, role, inviter_id)
             .await
     }
 
@@ -239,6 +239,7 @@ mod tests {
             ring_id: &str,
             token: &str,
             token_type: &str,
+            role: &str,
             inviter_id: &str,
         ) -> crate::error::Result<crate::models::invite::InviteToken> {
             let now = chrono::Utc::now().to_rfc3339();
@@ -248,7 +249,7 @@ mod tests {
                 ring_id: ring_id.to_string(),
                 token: token.to_string(),
                 token_type: token_type.to_string(),
-                role: "member".into(),
+                role: role.to_string(),
                 inviter_id: inviter_id.to_string(),
                 max_uses: 1,
                 use_count: 0,

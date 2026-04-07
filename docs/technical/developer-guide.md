@@ -9,95 +9,99 @@
 ```
 ring-server/
 ├── Cargo.toml
+├── migrations/
+│   └── 001_initial.sql
 ├── src/
-│   ├── main.rs                    # 入口：启动 Axum、初始化 DB、启动服务
-│   ├── config.rs                  # 配置管理（端口、数据目录、LLM 配置）
-│   ├── error.rs                   # 统一错误类型
-│   ├── state.rs                   # Axum AppState
-│   ├── routes.rs                  # 路由注册
+│   ├── main.rs
+│   ├── lib.rs
+│   ├── config.rs
+│   ├── error.rs
+│   ├── state.rs
+│   ├── routes.rs
 │   │
-│   ├── db/                        # 数据层
-│   │   ├── mod.rs                 # Repository trait + SqliteRepository
-│   │   ├── traits/                # 子 trait
-│   │   │   ├── ring_repo.rs
-│   │   │   ├── member_repo.rs
-│   │   │   ├── user_repo.rs
-│   │   │   ├── conversation_repo.rs
-│   │   │   ├── message_repo.rs
-│   │   │   ├── archive_repo.rs
-│   │   │   ├── session_repo.rs
-│   │   │   ├── session_message_repo.rs
-│   │   │   ├── invite_token_repo.rs
-│   │   │   ├── notification_repo.rs
-│   │   │   ├── settings_repo.rs
-│   │   │   └── blueprint_repo.rs
-│   │   ├── sqlite/               # SQLite 实现
-│   │   │   ├── mod.rs
-│   │   │   ├── ring_repo.rs
-│   │   │   └── ...
-│   │   └── migrations/
-│   │       └── 001_initial.sql
-│   │
-│   ├── graph/                     # 图数据层
-│   │   ├── mod.rs                 # GraphStore trait + PetgraphStore
-│   │   ├── types.rs               # NodeData, EdgeData, NewNode, etc.
-│   │   ├── petgraph_store.rs      # petgraph 实现
-│   │   └── sync.rs                # graph.json 导入导出
-│   │
-│   ├── handlers/                  # HTTP handlers（只做参数解析 + 调 service + 返回响应）
+│   ├── handlers/
 │   │   ├── mod.rs
 │   │   ├── setup.rs
-│   │   ├── install.rs             # 安装导航页（公共，嵌入 HTML 模板渲染）
+│   │   ├── install.rs             # 安装导航页（嵌入 HTML 模板渲染）
 │   │   ├── ring.rs
-│   │   ├── blueprint.rs
-│   │   ├── conversation.rs
+│   │   ├── chat.rs
 │   │   ├── graph.rs
 │   │   ├── archive.rs
 │   │   ├── git.rs
 │   │   ├── member.rs
 │   │   ├── session.rs
 │   │   ├── notification.rs
-│   │   ├── export.rs
 │   │   ├── search.rs
 │   │   ├── ai.rs
-│   │   └── settings.rs
+│   │   ├── blueprint.rs
+│   │   ├── settings.rs
+│   │   ├── sse_helpers.rs
+│   │   └── ws.rs
 │   │
-│   ├── services/                  # 业务逻辑层（所有业务逻辑在此）
+│   ├── services/
 │   │   ├── mod.rs
-│   │   ├── ring_service.rs
 │   │   ├── ai_service.rs
+│   │   ├── archive_service.rs
+│   │   ├── context_loader.rs
+│   │   ├── credential_service.rs
+│   │   ├── git_service.rs
+│   │   ├── gitlab_service.rs
+│   │   ├── graph_service.rs
 │   │   ├── llm_provider.rs        # LlmProvider trait
 │   │   ├── llm_openai.rs          # async-openai 适配
 │   │   ├── llm_anthropic.rs       # Anthropic 适配
-│   │   ├── context_loader.rs      # .ring/ 文档加载
-│   │   ├── graph_service.rs
-│   │   ├── git_service.rs
-│   │   ├── gitlab_service.rs
-│   │   ├── archive_service.rs
-│   │   ├── permission_service.rs
-│   │   ├── blueprint_service.rs
-│   │   ├── session_service.rs
+│   │   ├── member_service.rs
 │   │   ├── notification_service.rs
+│   │   ├── permission_service.rs
+│   │   ├── ring_service.rs
 │   │   ├── search_service.rs
-│   │   └── export_service.rs
+│   │   ├── session_service.rs
+│   │   ├── settings_service.rs
+│   │   ├── tool_engine.rs         # ToolRegistry + ToolDispatcher
+│   │   ├── trigger_service.rs
+│   │   ├── workflow_service.rs
+│   │   └── ws_hub.rs
 │   │
-│   ├── models/                    # 数据模型
+│   ├── models/
 │   │   ├── mod.rs
 │   │   ├── ring.rs
 │   │   ├── user.rs
 │   │   ├── member.rs
-│   │   ├── graph.rs
-│   │   ├── conversation.rs
-│   │   ├── message.rs
-│   │   ├── session.rs
-│   │   ├── archive.rs
 │   │   ├── invite.rs
-│   │   └── notification.rs
+│   │   ├── graph_model.rs
+│   │   ├── conversation.rs
+│   │   ├── git_model.rs
+│   │   ├── blueprint.rs
+│   │   ├── notification_model.rs
+│   │   ├── session_model.rs
+│   │   └── tool_model.rs
 │   │
-│   └── ws/                        # WebSocket
+│   ├── db/
+│   │   ├── mod.rs
+│   │   ├── traits.rs              # 单一 Repository trait（所有方法）
+│   │   └── sqlite/
+│   │       ├── mod.rs
+│   │       ├── user_repo.rs
+│   │       ├── ring_repo.rs
+│   │       ├── conversation_repo.rs
+│   │       ├── member_repo.rs
+│   │       ├── session_repo.rs
+│   │       ├── settings_repo.rs
+│   │       ├── blueprint_repo.rs
+│   │       ├── archive_repo.rs
+│   │       ├── notification_repo.rs
+│   │       ├── search_repo.rs
+│   │       └── tests.rs
+│   │
+│   ├── graph/
+│   │   ├── mod.rs
+│   │   ├── store_trait.rs         # GraphStore trait
+│   │   ├── petgraph_store.rs      # petgraph 实现
+│   │   └── types.rs               # NodeData, EdgeData, NewNode, etc.
+│   │
+│   └── middleware/
 │       ├── mod.rs
-│       ├── hub.rs
-│       └── session_hub.rs
+│       └── auth.rs
 ```
 
 ### 用户数据目录
@@ -151,19 +155,19 @@ tower = "0.5"
 tower-http = { version = "0.6", features = ["cors", "fs"] }
 
 # Database
-sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "migrate"] }
 
 # Graph
 petgraph = { version = "0.8", features = ["serde-1"] }
 
 # Git
-git2 = "0.20"
+git2 = { version = "0.20", features = ["vendored-openssl"] }
 
 # HTTP client (GitLab API + Anthropic LLM)
 reqwest = { version = "0.12", features = ["json", "stream"] }
 
 # LLM
-async-openai = "0.34"
+async-openai = { version = "0.34", features = ["chat-completion"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
@@ -186,12 +190,26 @@ jieba-rs = "0.8"
 # Crypto (credential encryption)
 aes-gcm = "0.10"
 base64 = "0.22"
+sha2 = "0.10"
+hmac = "0.12"
+getrandom = "0.2"
 
 # SSE streaming
 futures = "0.3"
+http-body-util = "0.1"
+
+# Utilities
+async-trait = "0.1"
+chrono = "0.4"
+tokio-stream = "0.1"
+
+# Tools
+scraper = "0.21"
+regex = "1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["test-util"] }
+tempfile = "3"
 ```
 
 ---
@@ -420,7 +438,7 @@ pub enum RingError {
     #[error("git error: {0}")]
     Git(#[from] git2::Error),
 
-    #[error("database error: {0}")]
+    #[error("database error")]
     Database(#[from] sqlx::Error),
 
     #[error("llm error: {0}")]
@@ -459,32 +477,40 @@ pub type Result<T> = std::result::Result<T, RingError>;
 
 ```rust
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
+use crate::config::Config;
+use crate::db::traits::Repository;
+use crate::graph::store_trait::GraphStore;
+use crate::services::llm_provider::LlmProvider;
+use crate::services::tool_engine::ToolRegistry;
+use crate::services::ws_hub::WsHub;
+
+#[derive(Clone)]
 pub struct AppState {
     pub db: Arc<dyn Repository>,
-    pub graph_store: Arc<RwLock<dyn GraphStore>>,
-    pub git_service: Arc<dyn GitService>,
-    pub llm_provider: Arc<dyn LlmProvider>,
+    pub graph_store: Arc<dyn GraphStore>,
     pub config: Arc<Config>,
+    pub llm_provider: Arc<dyn LlmProvider>,
     pub ws_hub: Arc<WsHub>,
-    pub session_hub: Arc<SessionHub>,
+    pub tool_registry: Arc<ToolRegistry>,
 }
 ```
 
-`Config` 中包含 `release_repo` 字段（GitHub 仓库地址，用于拼接下载链接）：
+`Config`：
 
 ```rust
+use std::path::PathBuf;
+
+#[derive(Debug, Clone)]
 pub struct Config {
     pub port: u16,
     pub data_dir: PathBuf,
-    pub release_repo: String,  // "https://github.com/{owner}/ring"
-    pub llm: LlmConfig,
-    pub gitlab: GitlabConfig,
+    pub release_repo: String,
+    pub database_url: String,
 }
 ```
 
-`graph_store` 用 `RwLock` 是因为 petgraph 是同步库，写操作需要独占锁。其他 service 用 `Arc` 即可（内部自己管理并发）。
+`graph_store` 不用 `RwLock` 包裹——`GraphStore` trait 内部管理并发。`ToolRegistry` 管理 LLM tool 调用注册与分发。`WsHub` 管理 WebSocket 连接广播。
 
 ---
 
@@ -492,84 +518,108 @@ pub struct Config {
 
 ```rust
 pub fn build_router(state: AppState) -> Router {
-    let public = Router::new()
-        .route("/join", get(member::join_page))
-        .with_state(Arc::new(state));
+    let setup_routes = Router::new()
+        .route("/status", get(setup::get_status))
+        .route("/username", post(setup::set_username))
+        .route("/llm", post(setup::set_llm))
+        .route("/gitlab", post(setup::set_gitlab))
+        .route("/complete", post(setup::complete));
 
-    let api_v1 = Router::new()
-        .route("/setup/status", get(setup::get_status))
-        .route("/setup/username", post(setup::set_username))
-        .route("/setup/llm", post(setup::set_llm))
-        .route("/setup/gitlab", post(setup::set_gitlab))
-        .route("/setup/complete", post(setup::complete))
-        .route("/rings", get(ring::list_rings).post(ring::create_ring))
-        .route("/rings/{ringId}", get(ring::get_ring).put(ring::update_ring).delete(ring::delete_ring))
-        .route("/rings/{ringId}/blueprint/templates", get(blueprint::list_templates))
-        .route("/rings/{ringId}/blueprint/chat", post(blueprint::blueprint_chat))
-        .route("/rings/{ringId}/blueprint/preview", post(blueprint::preview_blueprint))
-        .route("/rings/{ringId}/blueprint/confirm", post(blueprint::confirm_blueprint))
-        .route("/rings/{ringId}/conversations", get(conversation::list).post(conversation::create))
-        .route("/rings/{ringId}/conversations/{convId}", get(conversation::get))
-        .route("/rings/{ringId}/conversations/{convId}/messages", post(conversation::send_message).get(conversation::get_messages))
-        .route("/rings/{ringId}/conversations/{convId}/compact", post(conversation::compact))
-        .route("/rings/{ringId}/conversations/{convId}/token-stats", get(conversation::token_stats))
-        .route("/rings/{ringId}/conversations/{convId}/export", post(conversation::export_conv))
-        .route("/rings/{ringId}/graphs", get(graph::list_graphs))
-        .route("/rings/{ringId}/graphs/{graphId}", get(graph::get_graph))
-        .route("/rings/{ringId}/graphs/{graphId}/nodes", post(graph::create_node))
-        .route("/rings/{ringId}/graphs/{graphId}/nodes/{nodeId}", get(graph::get_node).put(graph::update_node).delete(graph::delete_node))
-        .route("/rings/{ringId}/graphs/{graphId}/nodes/{nodeId}/content", get(graph::get_node_content))
-        .route("/rings/{ringId}/graphs/{graphId}/edges", post(graph::create_edge))
-        .route("/rings/{ringId}/graphs/{graphId}/edges/{edgeId}", delete(graph::delete_edge))
-        .route("/rings/{ringId}/search", post(search::search))
-        .route("/rings/{ringId}/search/global", post(search::global_search))
-        .route("/rings/{ringId}/archive", post(archive::archive))
-        .route("/rings/{ringId}/archive/{archiveId}/confirm", post(archive::confirm_archive))
-        .route("/rings/{ringId}/archive/queue", get(archive::get_queue))
-        .route("/rings/{ringId}/prs", get(git::list_prs))
-        .route("/rings/{ringId}/prs/{prId}/diff", get(git::get_pr_diff))
-        .route("/rings/{ringId}/prs/{prId}/merge", post(git::merge_pr))
-        .route("/rings/{ringId}/prs/{prId}/reject", post(git::reject_pr))
-        .route("/rings/{ringId}/commits", get(git::list_commits))
-        .route("/rings/{ringId}/invites", post(member::create_invite))
-        .route("/rings/join", post(member::join_ring))
-        .route("/rings/join/apply", post(member::apply_join))
-        .route("/rings/{ringId}/join-requests/{requestId}/approve", post(member::approve_request))
-        .route("/rings/{ringId}/join-requests/{requestId}/reject", post(member::reject_request))
-        .route("/rings/{ringId}/members", get(member::list_members))
-        .route("/rings/{ringId}/members/{memberId}/role", put(member::update_role))
-        .route("/rings/{ringId}/members/{memberId}", delete(member::remove_member))
-        .route("/rings/{ringId}/sessions", get(session::list_sessions).post(session::create_session))
-        .route("/rings/{ringId}/sessions/{sessionId}", get(session::get_session).delete(session::delete_session))
-        .route("/rings/{ringId}/sessions/{sessionId}/invite", post(session::invite_to_session))
-        .route("/rings/{ringId}/sessions/{sessionId}/messages", get(session::get_messages).post(session::send_message))
-        .route("/rings/{ringId}/sessions/{sessionId}/archive-toggle", put(session::toggle_archive))
-        .route("/rings/{ringId}/sessions/{sessionId}/archive", post(session::archive_session))
-        .route("/rings/{ringId}/sessions/{sessionId}/leave", post(session::leave_session))
-        .route("/rings/{ringId}/sessions/{sessionId}/close", post(session::close_session))
-        .route("/rings/{ringId}/notifications", get(notification::list_notifications))
-        .route("/rings/{ringId}/notifications/{notificationId}/read", put(notification::mark_read))
-        .route("/rings/{ringId}/exports/graph-image", post(export::export_graph_image))
-        .route("/rings/{ringId}/exports/markdown/{nodeId}", get(export::export_markdown))
-        .route("/rings/{ringId}/exports/conversation", post(export::export_conversation))
-        .route("/rings/{ringId}/exports/report", post(export::export_report))
-        .route("/rings/{ringId}/exports/session", post(export::export_session))
-        .route("/rings/{ringId}/exports/backup", post(export::export_backup))
-        .route("/rings/{ringId}/exports/graph-json/{graphId}", get(export::export_graph_json))
-        .route("/super-ring/chat", post(ai::super_ring_chat))
-        .route("/super-ring/analyze", post(ai::super_ring_analyze))
-        .route("/super-ring/summarize", post(ai::super_ring_summarize))
-        .route("/super-ring/merge-suggest", post(ai::super_ring_merge_suggest))
-        .route("/settings", get(settings::get_settings).put(settings::update_settings))
-        .route("/ws", get(ws::ws_handler))
-        .route("/ws/sessions/{sessionId}", get(ws::session_ws_handler))
-        .with_state(Arc::new(state));
+    let ring_routes = Router::new()
+        .route("/join", post(member::join_ring))
+        .route("/", get(ring::list_rings).post(ring::create_ring))
+        .route(
+            "/{ringId}",
+            get(ring::get_ring)
+                .put(ring::update_ring)
+                .delete(ring::delete_ring),
+        );
+
+    let member_routes = Router::new()
+        .route("/", get(member::list_members))
+        .route("/invites", post(member::generate_invite))
+        .route("/{memberId}/role", put(member::update_role))
+        .route("/{memberId}", delete(member::remove_member));
+
+    let session_routes = Router::new()
+        .route("/", post(session::create_session).get(session::list_sessions))
+        .route("/{sessionId}", get(session::get_session).delete(session::delete_session))
+        .route("/{sessionId}/close", post(session::close_session))
+        .route("/{sessionId}/leave", post(session::leave_session))
+        .route("/{sessionId}/archive-toggle", put(session::toggle_archive))
+        .route("/{sessionId}/invite", post(session::invite_member))
+        .route("/{sessionId}/messages", get(session::get_messages));
+
+    let conversation_routes = Router::new()
+        .route("/", get(conversation::list).post(conversation::create))
+        .route("/{convId}", get(conversation::get))
+        .route("/{convId}/messages", get(conversation::get_messages).post(conversation::send_message));
+
+    let blueprint_routes = Router::new()
+        .route("/templates", get(blueprint::list_templates))
+        .route("/chat", post(blueprint::blueprint_chat))
+        .route("/preview", post(blueprint::preview_blueprint))
+        .route("/confirm", post(blueprint::confirm_blueprint));
+
+    let graph_routes = Router::new()
+        .route("/", get(graph::list_graphs))
+        .route("/{graphId}", get(graph::get_graph))
+        .route("/{graphId}/nodes", post(graph::create_node))
+        .route("/{graphId}/nodes/{nodeId}", get(graph::get_node).put(graph::update_node).delete(graph::delete_node))
+        .route("/{graphId}/nodes/{nodeId}/content", get(graph::get_node_content))
+        .route("/{graphId}/edges", post(graph::create_edge))
+        .route("/{graphId}/edges/{edgeId}", delete(graph::delete_edge));
+
+    let search_routes = Router::new().route("/", post(search::search_nodes));
+
+    let archive_routes = Router::new()
+        .route("/", post(archive::archive))
+        .route("/queue", get(archive::get_queue))
+        .route("/{archiveId}/confirm", post(archive::confirm_archive));
+
+    let git_routes = Router::new()
+        .route("/prs", get(git::list_prs))
+        .route("/prs/{prId}/merge", post(git::merge_pr))
+        .route("/prs/{prId}/reject", post(git::reject_pr))
+        .route("/commits", get(git::get_commit_log));
+
+    let notification_routes = Router::new()
+        .route("/", get(notification::list_notifications))
+        .route("/{notificationId}", post(notification::mark_read));
+
+    let settings_routes = Router::new()
+        .route("/", get(settings::get_settings).put(settings::update_settings));
+
+    let protected = Router::new()
+        .nest("/api/v1/rings", ring_routes)
+        .nest("/api/v1/rings/{ringId}/members", member_routes)
+        .nest("/api/v1/rings/{ringId}/sessions", session_routes)
+        .nest("/api/v1/rings/{ringId}/conversations", conversation_routes)
+        .nest("/api/v1/rings/{ringId}/blueprint", blueprint_routes)
+        .nest("/api/v1/rings/{ringId}/graphs", graph_routes)
+        .nest("/api/v1/rings/{ringId}/search", search_routes)
+        .nest("/api/v1/rings/{ringId}/archive", archive_routes)
+        .nest("/api/v1/rings/{ringId}/git", git_routes)
+        .nest("/api/v1/notifications", notification_routes)
+        .nest("/api/v1/settings", settings_routes)
+        .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
+        .route("/api/v1/ws/{ringId}", get(ws::ws_handler))
+        .layer(middleware::from_fn(auth_middleware));
 
     Router::new()
-        .merge(public)
-        .nest("/api/v1", api_v1)
+        .nest("/api/v1/setup", setup_routes)
+        .route("/join", get(install::join_page))
+        .merge(protected)
+        .with_state(state)
+        .layer(CorsLayer::permissive())
 }
 ```
+
+### 路由分层说明
+
+- `/api/v1/setup/*` — 公开路由，无需认证
+- `/join` — 公开路由，安装导航页
+- 其他所有 `/api/v1/*` 路由受 `auth_middleware` 保护
 
 ---
 
@@ -635,13 +685,19 @@ ring-frontend/src/
 |------|------|------|
 | `/setup` | SetupWizard | 未 setup |
 | `/` | RingHub | 已 setup |
-| `/ring/{ringId}` | RingSpace.Layout | 已 setup + Ring 成员 |
-| `/ring/{ringId}/blueprint` | BlueprintWizard | Ring 创建者 |
-| `/join?token=xxx` | JoinPage（本地）| 持有有效 token |
+| `/ring/:ringId` | ChatView | 已 setup + Ring 成员 |
+| `/ring/:ringId/blueprint` | BlueprintWizard | Ring 创建者 |
+| `/ring/:ringId/graph` | GraphView | 已 setup + Ring 成员 |
+| `/ring/:ringId/prs` | PrList | 已 setup + Ring 成员 |
+| `/ring/:ringId/prs/:prId` | PrDetail | 已 setup + Ring 成员 |
+| `/ring/:ringId/members` | MemberList | 已 setup + Ring 成员 |
+| `/ring/:ringId/sessions` | SessionView | 已 setup + Ring 成员 |
+| `/super-ring` | SuperRingChat | 已 setup |
+| `/settings` | SettingsPage | 已 setup |
 
-> `/join` 页面有两种来源：
-> 1. **远程**：`http://{creatorIP}:7420/join?token=xxx` → 创建者 ring-server 返回独立 HTML 安装导航页（不经过 React）
-> 2. **本地**：`http://localhost:7420/join?token=xxx&creator_ip={IP}` → 本地 ring-server 返回 React 前端的 JoinPage
+> `/join` 页面由后端 `handlers::install::join_page` 处理：
+> 1. **远程**：`http://{creatorIP}:7420/join?token=xxx` → 创建者 ring-server 返回独立 HTML 安装导航页（`include_str!` 嵌入，不经过 React）
+> 2. **本地**：`http://localhost:7420/join?token=xxx&creator_ip={IP}` → 本地 ring-server 同样返回安装导航页，已安装用户可继续加入流程
 
 ---
 

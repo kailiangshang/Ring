@@ -12,6 +12,7 @@ import { MemberList } from './components/member/MemberList'
 import { SessionView } from './components/session/SessionView'
 import { SettingsPage } from './pages/Settings/SettingsPage'
 import { get_setup_status } from './api/client'
+import { Toast } from './components/Toast'
 
 function SetupGuard({ children }: { children: React.ReactNode }) {
   const [checking, set_checking] = useState(true)
@@ -26,7 +27,7 @@ function SetupGuard({ children }: { children: React.ReactNode }) {
       .catch(() => set_checking(false))
   }, [])
 
-  if (checking) return <p>Loading...</p>
+  if (checking) return <div className="spinner-container"><div className="spinner" /></div>
   if (!completed) return <Navigate to="/setup" replace />
   return <>{children}</>
 }
@@ -34,6 +35,7 @@ function SetupGuard({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <Toast />
       <Routes>
         <Route path="/setup" element={<SetupWizard />} />
         <Route
@@ -116,6 +118,7 @@ export default function App() {
             </SetupGuard>
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )

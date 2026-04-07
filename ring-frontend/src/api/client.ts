@@ -29,6 +29,8 @@ import type {
   InviteToken,
 } from '../types'
 
+import { toast_error } from '../components/Toast'
+
 const BASE_URL = '/api/v1'
 
 async function request<T>(
@@ -41,7 +43,9 @@ async function request<T>(
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error(body.error || `request failed: ${res.status}`)
+    const msg = body.error || `request failed: ${res.status}`
+    toast_error(msg)
+    throw new Error(msg)
   }
   if (res.status === 204) return undefined as T
   return res.json()

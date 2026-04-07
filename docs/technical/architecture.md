@@ -159,60 +159,74 @@ src/
 关系型数据库访问通过 **Repository trait** 抽象，业务层不直接依赖具体数据库实现：
 
 ```rust
-trait Repository: Send + Sync {
-    fn rings(&self) -> &dyn RingRepository;
-    fn members(&self) -> &dyn MemberRepository;
-    fn conversations(&self) -> &dyn ConversationRepository;
-    fn messages(&self) -> &dyn MessageRepository;
-    fn archive_records(&self) -> &dyn ArchiveRecordRepository;
-    fn settings(&self) -> &dyn SettingsRepository;
-    fn invite_tokens(&self) -> &dyn InviteTokenRepository;
-    fn blueprints(&self) -> &dyn BlueprintRepository;
-    fn sessions(&self) -> &dyn SessionRepository;
-    fn session_members(&self) -> &dyn SessionMemberRepository;
-    fn session_messages(&self) -> &dyn SessionMessageRepository;
-}
-
-// 每个 Repository 有独立的 trait
-trait RingRepository {
-    async fn create(&self, ring: NewRing) -> Result<Ring>;
-    async fn get_by_id(&self, id: &str) -> Result<Option<Ring>>;
-    async fn list_by_user(&self, user_id: &str) -> Result<Vec<Ring>>;
-    async fn update(&self, id: &str, ring: UpdateRing) -> Result<Ring>;
-    async fn delete(&self, id: &str) -> Result<()>;
+#[async_trait::async_trait]
+pub trait Repository: Send + Sync {
+    async fn create_user(&self, new_user: NewUser) -> Result<User>;
+    async fn get_user(&self, id: &str) -> Result<Option<User>>;
+    async fn list_all_users(&self) -> Result<Vec<User>>;
+    async fn is_setup_completed(&self) -> Result<bool>;
+    async fn complete_setup(&self, user_id: &str) -> Result<()>;
+    async fn create_ring(&self, new_ring: NewRing) -> Result<Ring>;
+    async fn get_ring(&self, id: &str) -> Result<Option<Ring>>;
+    async fn list_rings_by_user(&self, user_id: &str) -> Result<Vec<Ring>>;
+    async fn update_ring(&self, id: &str, name: Option<String>, description: Option<String>) -> Result<Ring>;
+    async fn delete_ring(&self, id: &str) -> Result<()>;
+    async fn create_invite_token(/* ... */) -> Result<InviteToken>;
+    async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>>;
+    async fn get_setting(&self, key: &str) -> Result<Option<String>>;
+    async fn set_setting(&self, key: &str, value: &str) -> Result<()>;
+    async fn create_conversation(/* ... */) -> Result<Conversation>;
+    async fn list_conversations(&self, ring_id: &str) -> Result<Vec<Conversation>>;
+    async fn get_conversation(&self, id: &str) -> Result<Option<Conversation>>;
+    async fn create_message(/* ... */) -> Result<Message>;
+    async fn get_messages(&self, conversation_id: &str, limit: i64, before_id: Option<&str>) -> Result<Vec<Message>>;
+    async fn create_member(&self, new_member: NewMember) -> Result<Member>;
+    async fn get_member(&self, id: &str) -> Result<Option<Member>>;
+    async fn list_members_by_ring(&self, ring_id: &str) -> Result<Vec<Member>>;
+    async fn create_session(/* ... */) -> Result<Session>;
+    async fn create_session_member(/* ... */) -> Result<SessionMember>;
+    async fn create_session_message(/* ... */) -> Result<SessionMessage>;
+    async fn create_archive_record(/* ... */) -> Result<()>;
+    async fn create_notification(&self, n: NewNotification) -> Result<Notification>;
+    async fn search_nodes_fts(&self, query: &str, graph_ids: Option<Vec<String>>, limit: i64) -> Result<Vec<SearchResult>>;
 }
 ```
 
-当前实现：`SqliteRepository`（基于 `sqlx`）。未来可新增 `PostgresRepository`、`MysqlRepository` 等，只需实现 trait，业务层无需改动。
+所有方法定义在单个 `Repository` trait 上，不拆分子 trait。当前实现：`SqliteRepository`（基于 `sqlx`）。未来可新增 `PostgresRepository`、`MysqlRepository` 等，只需实现 trait，业务层无需改动。
 
 图数据通过 **GraphStore trait** 抽象访问，当前基于 petgraph 内存图实现：
 
 ```rust
-trait GraphStore: Send + Sync {
-    async fn create_node(&self, graph_id: &str, node: NewNode) -> Result<Node>;
-    async fn get_node(&self, graph_id: &str, node_id: &str) -> Result<Option<Node>>;
-    async fn update_node(&self, graph_id: &str, node_id: &str, update: UpdateNode) -> Result<Node>;
+#[async_trait::async_trait]
+pub trait GraphStore: Send + Sync {
+    async fn create_node(&self, graph_id: &str, input: NewNode) -> Result<NodeData>;
+    async fn get_node(&self, graph_id: &str, node_id: &str) -> Result<Option<NodeData>>;
+    async fn update_node(&self, graph_id: &str, node_id: &str, label: Option<String>, description: Option<String>, node_type: Option<String>) -> Result<NodeData>;
     async fn delete_node(&self, graph_id: &str, node_id: &str) -> Result<()>;
-    async fn create_edge(&self, graph_id: &str, edge: NewEdge) -> Result<Edge>;
+    async fn create_edge(&self, graph_id: &str, input: NewEdge) -> Result<EdgeData>;
     async fn delete_edge(&self, graph_id: &str, edge_id: &str) -> Result<()>;
-    async fn get_children(&self, graph_id: &str, parent_id: &str) -> Result<Vec<Node>>;
-    async fn get_neighbors(&self, graph_id: &str, node_id: &str) -> Result<Vec<(Node, Edge)>>;
+    async fn get_children(&self, graph_id: &str, parent_id: &str) -> Result<Vec<NodeData>>;
+    async fn list_graph_ids(&self) -> Vec<String>;
     async fn import_graph_json(&self, graph_id: &str, data: &GraphJson) -> Result<()>;
     async fn export_graph_json(&self, graph_id: &str) -> Result<GraphJson>;
 }
 ```
 
-当前实现：`PetgraphStore`（基于 `petgraph::stable_graph::StableDiGraph` + 二级索引）。图数据存内存，graph.json 持久化到 Git 仓库。Ring 启动时从 graph.json 全量导入，写入时同步导出。
+当前实现：`PetgraphStore`（基于 `petgraph::stable_graph::StableDiGraph` + 二级索引 `node_id_to_index` / `graph_id_to_nodes`）。图数据存内存，graph.json 持久化到 Git 仓库。Ring 启动时从 graph.json 全量导入，写入时同步导出。
 
 ### 3.3 模块划分
 
 ```
-src/
-├── main.rs                   # 入口，启动 Axum 服务
-├── config.rs                 # 配置管理
-│
-├── handlers/                 # HTTP 请求处理器
-│   ├── install.rs            # 安装导航页（公共 HTML，嵌入二进制）
+ring-server/src/
+├── main.rs
+├── config.rs
+├── error.rs
+├── state.rs
+├── routes.rs
+├── lib.rs
+├── handlers/
+│   ├── mod.rs
+│   ├── setup.rs              # 安装/初始化
 │   ├── ring.rs               # Ring CRUD
 │   ├── chat.rs               # 对话相关
 │   ├── graph.rs              # 图谱操作
@@ -221,73 +235,74 @@ src/
 │   ├── member.rs             # 成员管理
 │   ├── session.rs            # Session 多人讨论管理
 │   ├── notification.rs       # 通知相关（WebSocket 推送 + 离线缓存）
-│   ├── export.rs             # 导出相关（图谱、Markdown、对话、报告等）
+│   ├── search.rs             # 全文搜索
 │   ├── ai.rs                 # AI 对话
-│   └── settings.rs           # 全局设置
+│   ├── settings.rs           # 全局设置
+│   └── blueprint.rs          # 蓝图构建
 │
 ├── services/                 # 业务逻辑层
-│   ├── ring_service.rs       # Ring 管理
+│   ├── mod.rs
 │   ├── ai_service.rs         # AI 调度器（Super Ring + Group Ring + Session Ring）
-│   ├── context_loader.rs     # .ring/ 文档按需加载（核心层始终加载，扩展层按场景加载）
-│   ├── llm_provider.rs       # LLM 适配层（async-openai + Anthropic 适配）
-│   ├── llm_openai.rs         # OpenAI / Ollama 适配（async-openai）
-│   └── llm_anthropic.rs      # Anthropic 适配（reqwest + 自定义序列化）
-│   ├── graph_service.rs      # 图谱管理（petgraph 内存图 + graph.json 导入导出）
-│   ├── git_service.rs        # Git 操作封装（git2 + 凭证管理）
-│   ├── gitlab_service.rs     # GitLab API 集成
 │   ├── archive_service.rs    # 归档流程
-│   ├── permission_service.rs # 权限校验
-│   ├── blueprint_service.rs  # 蓝图构建
-│   ├── sync_service.rs       # graph.json ↔ petgraph 内存图同步
-│   ├── session_service.rs    # Session 多人讨论管理（创建、邀请、归档开关）
+│   ├── context_loader.rs     # .ring/ 文档按需加载（核心层始终加载，扩展层按场景加载）
+│   ├── credential_service.rs # 凭证管理
+│   ├── git_service.rs        # Git 操作封装（git2）
+│   ├── gitlab_service.rs     # GitLab API 集成
+│   ├── graph_service.rs      # 图谱管理（petgraph 内存图 + graph.json 导入导出）
+│   ├── llm_anthropic.rs      # Anthropic 适配（reqwest + 自定义序列化）
+│   ├── llm_openai.rs         # OpenAI / Ollama 适配（async-openai）
+│   ├── llm_provider.rs       # LLM 适配层（LlmProvider trait）
+│   ├── member_service.rs     # 成员管理
 │   ├── notification_service.rs # 通知服务（WebSocket 推送 + 离线缓存）
-│   ├── export_service.rs     # 导出服务（7 种格式：图谱、Markdown、对话、报告、Session、备份、JSON）
-│   └── tool_engine.rs        # 原子工具引擎
-│
-├── tools/                    # 原子工具实现
-│   ├── file_parser.rs        # 文件解析（PDF/Markdown/Docx）
-│   ├── text_cleaner.rs       # 文本清洗
-│   ├── extractor.rs          # 结构化提取（LLM 调用）
-│   ├── search.rs             # 全文搜索
-│   ├── web_scraper.rs        # 网页爬取
-│   ├── graph_generator.rs    # 知识图谱生成
-│   ├── markdown_gen.rs       # Markdown 生成
-│   ├── privacy_filter.rs     # 隐私过滤
-│   └── git_ops.rs            # Git 操作
+│   ├── permission_service.rs # 权限校验
+│   ├── ring_service.rs       # Ring 管理
+│   ├── search_service.rs     # 全文搜索
+│   ├── session_service.rs    # Session 多人讨论管理
+│   ├── settings_service.rs   # 设置管理
+│   ├── tool_engine.rs        # 原子工具引擎
+│   ├── trigger_service.rs    # 触发器服务
+│   ├── workflow_service.rs   # 工作流服务
+│   └── ws_hub.rs             # WebSocket Hub（连接管理 + 消息广播）
 │
 ├── models/                   # 数据模型
+│   ├── mod.rs
 │   ├── ring.rs
-│   ├── graph.rs
+│   ├── user.rs
 │   ├── member.rs
-│   ├── message.rs
-│   ├── session.rs            # Session / SessionMember / SessionMessage
-│   └── archive.rs
+│   ├── invite.rs
+│   ├── graph_model.rs
+│   ├── conversation.rs
+│   ├── git_model.rs
+│   ├── blueprint.rs
+│   ├── notification_model.rs
+│   ├── session_model.rs
+│   └── tool_model.rs
 │
 ├── db/                       # 数据库抽象层 + 实现
-│   ├── mod.rs                # Repository trait 定义
-│   ├── traits/               # 各子 Repository trait
-│   │   ├── ring_repo.rs
-│   │   ├── member_repo.rs
-│   │   ├── message_repo.rs
-│   │   ├── archive_repo.rs
-│   │   ├── settings_repo.rs
-│   │   ├── invite_repo.rs
-│   │   └── blueprint_repo.rs
-│   ├── sqlite/               # SQLite 实现（当前默认）
-│   │   ├── mod.rs            # SqliteRepository 实现
-│   │   ├── ring_repo.rs
-│   │   ├── member_repo.rs
-│   │   └── ...
-│   ├── migrations/           # SQLite 迁移脚本
-│   └── graph/                # 图数据存储
-│       ├── mod.rs            # GraphStore trait 定义
-│       ├── petgraph_store.rs # petgraph 内存图实现（当前默认）
-│       └── sync.rs           # graph.json ↔ 内存图同步
+│   ├── mod.rs
+│   ├── traits.rs             # Repository trait 定义（单一 trait，所有方法）
+│   └── sqlite/               # SQLite 实现（当前默认）
+│       ├── mod.rs            # SqliteRepository 实现
+│       ├── user_repo.rs
+│       ├── ring_repo.rs
+│       ├── conversation_repo.rs
+│       ├── member_repo.rs
+│       ├── session_repo.rs
+│       ├── settings_repo.rs
+│       ├── blueprint_repo.rs
+│       ├── archive_repo.rs
+│       ├── notification_repo.rs
+│       ├── search_repo.rs
+│       └── tests.rs
 │
-└── ws/                       # WebSocket 处理
+├── graph/                    # 图数据存储
+│   ├── mod.rs
+│   ├── store_trait.rs        # GraphStore trait 定义
+│   └── petgraph_store.rs     # petgraph 内存图实现（当前默认）
+│
+└── middleware/                # 中间件
     ├── mod.rs
-    ├── hub.rs                # WebSocket 连接管理（Ring 级通知）
-    └── session_hub.rs        # Session WebSocket hub（多人讨论消息中转、离线缓存）
+    └── auth.rs               # 认证中间件
 ```
 
 ---
@@ -299,9 +314,6 @@ src/
 AI 调度器管理三个层级的 AI 实例，严格分层：Super Ring → Group Ring → Session Ring。
 
 **自成长设计理念**：Ring 不为特定角色硬编码功能。AI prompt 是角色适配层，蓝图是知识结构适配层，行为反馈是持续优化层。同一个 Ring 框架，通过不同 prompt 和蓝图配置，适配行政、技术、管理等不同场景。
-
-```
-AI 调度器
 
 ```
 AI 调度器
@@ -454,6 +466,7 @@ Git 服务
 ```
 用户 A 的机器（创建者）
 ├── Ring 后端服务（Axum，端口 7420）
+├── AppState { db: Arc<dyn Repository>, graph_store: Arc<dyn GraphStore>, config, llm_provider, ws_hub: Arc<WsHub>, tool_registry }
 ├── SQLite 数据库（本地，Ring 元数据）
 ├── petgraph 内存图（Ring 启动时从 graph.json 加载）
 ├── Git 本地仓库（每个 Ring 一个独立仓库）
@@ -461,6 +474,7 @@ Git 服务
 
 用户 B 的机器（成员）
 ├── Ring 后端服务（Axum，端口 7420）
+├── AppState（同创建者结构）
 ├── SQLite 数据库（本地，Ring 元数据）
 ├── petgraph 内存图（从 GitLab clone 后加载 graph.json）
 ├── Git 本地仓库（clone 自 GitLab，每个 Ring 一个）

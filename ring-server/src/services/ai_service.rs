@@ -315,6 +315,7 @@ mod tests {
             _ring_id: &str,
             _token: &str,
             _token_type: &str,
+            _role: &str,
             _inviter_id: &str,
         ) -> crate::error::Result<crate::models::invite::InviteToken> {
             unimplemented!()

@@ -76,8 +76,8 @@ impl CredentialService {
     }
 
     fn pbkdf2_hmac_sha256(password: &[u8], salt: &[u8]) -> [u8; 32] {
-        let mut mac = <HmacSha256 as Mac>::new_from_slice(password)
-            .expect("HMAC accepts any key size");
+        let mut mac =
+            <HmacSha256 as Mac>::new_from_slice(password).expect("HMAC accepts any key size");
         mac.update(salt);
         mac.update(&1u32.to_be_bytes());
         let u_init = mac.finalize().into_bytes();
@@ -86,8 +86,8 @@ impl CredentialService {
         let mut u = u_init;
 
         for _ in 1..KEY_DERIVATION_ITERATIONS {
-            let mut mac = <HmacSha256 as Mac>::new_from_slice(password)
-                .expect("HMAC accepts any key size");
+            let mut mac =
+                <HmacSha256 as Mac>::new_from_slice(password).expect("HMAC accepts any key size");
             mac.update(&u);
             u = mac.finalize().into_bytes();
             for i in 0..32 {

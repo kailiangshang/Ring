@@ -66,12 +66,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!reader) throw new Error('no response body')
 
       let assistant_content = ''
+      const stream_id = `stream-${Date.now()}`
 
       for await (const event of parseSseStream(reader) as AsyncGenerator<SseEvent>) {
         if (event.type === 'text' && event.content) {
           assistant_content += event.content
           const assistant_msg: Message = {
-            id: `stream-${conv_id}`,
+            id: stream_id,
             conversation_id: conv_id,
             role: 'assistant',
             content: assistant_content,
@@ -80,7 +81,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           set((s) => ({
             messages: [
-              ...s.messages.filter((m) => m.id !== `stream-${conv_id}`),
+              ...s.messages.filter((m) => m.id !== stream_id),
               assistant_msg,
             ],
           }))

@@ -33,6 +33,7 @@ pub trait Repository: Send + Sync {
         ring_id: &str,
         token: &str,
         token_type: &str,
+        role: &str,
         inviter_id: &str,
     ) -> Result<InviteToken>;
     async fn get_invite_token(&self, token: &str) -> Result<Option<InviteToken>>;

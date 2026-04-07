@@ -98,12 +98,7 @@ pub async fn invite_member(
 ) -> Result<Json<serde_json::Value>, RingError> {
     let service = SessionService::new(state.db.clone());
     let invited = service
-        .invite_member(
-            &ring_id,
-            &session_id,
-            &req.member_ids,
-            &auth_user.user_id,
-        )
+        .invite_member(&ring_id, &session_id, &req.member_ids, &auth_user.user_id)
         .await?;
     Ok(Json(serde_json::json!({ "invited": invited })))
 }

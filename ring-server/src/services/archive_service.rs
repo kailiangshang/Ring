@@ -14,7 +14,7 @@ use crate::services::gitlab_service::GitlabService;
 pub struct ArchiveService {
     db: Arc<dyn Repository>,
     git_service: Arc<GitService>,
-        graph_store: Arc<dyn GraphStore>,
+    graph_store: Arc<dyn GraphStore>,
     gitlab_service: Option<Arc<GitlabService>>,
 }
 
@@ -22,7 +22,7 @@ impl ArchiveService {
     pub fn new(
         db: Arc<dyn Repository>,
         git_service: Arc<GitService>,
-    graph_store: Arc<dyn GraphStore>,
+        graph_store: Arc<dyn GraphStore>,
         gitlab_service: Option<Arc<GitlabService>>,
     ) -> Self {
         ArchiveService {
@@ -356,6 +356,7 @@ mod tests {
             _ring_id: &str,
             _token: &str,
             _token_type: &str,
+            _role: &str,
             _inviter_id: &str,
         ) -> crate::error::Result<crate::models::invite::InviteToken> {
             unimplemented!()

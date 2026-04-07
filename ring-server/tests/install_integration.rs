@@ -53,7 +53,7 @@ async fn join_page_valid_token_returns_html() {
         .await
         .unwrap();
 
-    repo.create_invite_token(&ring.id, "valid-test-token", "open", &user.id)
+    repo.create_invite_token(&ring.id, "valid-test-token", "open", "member", &user.id)
         .await
         .unwrap();
 
@@ -117,7 +117,7 @@ async fn join_page_html_contains_ring_data() {
         .await
         .unwrap();
 
-    repo.create_invite_token(&ring.id, "data-test-token", "open", &user.id)
+    repo.create_invite_token(&ring.id, "data-test-token", "open", "member", &user.id)
         .await
         .unwrap();
 
