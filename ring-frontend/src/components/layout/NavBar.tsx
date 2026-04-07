@@ -12,7 +12,7 @@ export function NavBar() {
           end
           className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
         >
-          Group Ring
+          Ring Group
         </NavLink>
         <NavLink
           to="/super-ring"

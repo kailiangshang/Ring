@@ -11,7 +11,7 @@ use crate::state::AppState;
 pub struct SetupStatus {
     pub setup_completed: bool,
     pub step: String,
-    pub     user_id: Option<String>,
+    pub user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

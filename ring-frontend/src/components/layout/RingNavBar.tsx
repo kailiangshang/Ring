@@ -16,7 +16,7 @@ export function RingNavBar() {
   return (
     <nav className="ring-navbar">
       <NavLink to="/" className="ring-back">
-        &larr; Group Ring
+        &larr; Ring Group
       </NavLink>
       <div className="ring-tabs">
         {RING_TABS.map((tab) => (

@@ -29,12 +29,16 @@ pub struct CreateRingHandlerRequest {
     pub namespace: Option<String>,
 }
 
+fn make_ring_service(state: &AppState) -> RingService {
+    RingService::new(state.db.clone(), state.config.data_dir.clone())
+}
+
 pub async fn list_rings(
     State(state): State<AppState>,
     Extension(auth_user): Extension<AuthUser>,
 ) -> Result<Json<RingsResponse>, RingError> {
     let user_id = auth_user.user_id;
-    let service = RingService::new(state.db.clone());
+    let service = make_ring_service(&state);
     let rings = service.list_rings(&user_id).await?;
     Ok(Json(RingsResponse { rings }))
 }
@@ -48,7 +52,7 @@ pub async fn create_ring(
         return Err(RingError::Validation("name must not be empty".into()));
     }
     let user_id = auth_user.user_id;
-    let service = RingService::new(state.db.clone());
+    let service = make_ring_service(&state);
     let ring = service
         .create_ring(CreateRingRequest {
             name: req.name,
@@ -66,7 +70,7 @@ pub async fn get_ring(
     State(state): State<AppState>,
     Path(ring_id): Path<String>,
 ) -> Result<Json<Ring>, RingError> {
-    let service = RingService::new(state.db.clone());
+    let service = make_ring_service(&state);
     let ring = service.get_ring(&ring_id).await?;
     Ok(Json(ring))
 }
@@ -76,7 +80,7 @@ pub async fn update_ring(
     Path(ring_id): Path<String>,
     Json(req): Json<UpdateRingRequest>,
 ) -> Result<Json<Ring>, RingError> {
-    let service = RingService::new(state.db.clone());
+    let service = make_ring_service(&state);
     let ring = service
         .update_ring(&ring_id, req.name, req.description)
         .await?;
@@ -87,7 +91,7 @@ pub async fn delete_ring(
     State(state): State<AppState>,
     Path(ring_id): Path<String>,
 ) -> Result<StatusCode, RingError> {
-    let service = RingService::new(state.db.clone());
+    let service = make_ring_service(&state);
     service.delete_ring(&ring_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

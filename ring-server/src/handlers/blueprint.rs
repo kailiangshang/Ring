@@ -112,7 +112,10 @@ pub async fn blueprint_chat(
         .unwrap_or_default()
         .into_iter()
         .filter(|m| m.role == "user" || m.role == "assistant")
-        .map(|m| LlmMessage { role: m.role, content: m.content })
+        .map(|m| LlmMessage {
+            role: m.role,
+            content: m.content,
+        })
         .collect();
     let llm_stream = ai.blueprint_chat(&ring_id, req.message, history).await?;
 

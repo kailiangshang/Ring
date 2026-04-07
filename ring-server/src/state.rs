@@ -6,6 +6,7 @@ use crate::graph::store_trait::GraphStore;
 use crate::services::llm_anthropic::AnthropicProvider;
 use crate::services::llm_openai::OpenAiProvider;
 use crate::services::llm_provider::LlmProvider;
+use crate::services::search_service::SearchService;
 use crate::services::tool_engine::ToolRegistry;
 use crate::services::ws_hub::WsHub;
 
@@ -13,6 +14,7 @@ use crate::services::ws_hub::WsHub;
 pub struct AppState {
     pub db: Arc<dyn Repository>,
     pub graph_store: Arc<dyn GraphStore>,
+    pub search_service: Arc<SearchService>,
     pub config: Arc<Config>,
     pub llm_provider: Arc<dyn LlmProvider>,
     pub ws_hub: Arc<WsHub>,
@@ -30,20 +32,16 @@ impl AppState {
         let base_url = self.db.get_setting("llm_base_url").await.ok().flatten();
 
         match provider_name.as_deref() {
-            Some("openai") | Some("ollama") => {
-                Arc::new(OpenAiProvider::new(
-                    api_key.unwrap_or_default(),
-                    model.unwrap_or_default(),
-                    base_url,
-                ))
-            }
-            Some("anthropic") => {
-                Arc::new(AnthropicProvider::new(
-                    api_key.unwrap_or_default(),
-                    model.unwrap_or_default(),
-                    base_url,
-                ))
-            }
+            Some("openai") | Some("ollama") => Arc::new(OpenAiProvider::new(
+                api_key.unwrap_or_default(),
+                model.unwrap_or_default(),
+                base_url,
+            )),
+            Some("anthropic") => Arc::new(AnthropicProvider::new(
+                api_key.unwrap_or_default(),
+                model.unwrap_or_default(),
+                base_url,
+            )),
             _ => self.llm_provider.clone(),
         }
     }

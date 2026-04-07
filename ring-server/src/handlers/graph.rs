@@ -10,11 +10,21 @@ use crate::models::graph_model::{
 use crate::services::graph_service::GraphService;
 use crate::state::AppState;
 
+fn make_graph_service(state: &AppState) -> GraphService {
+    GraphService::new(
+        state.graph_store.clone(),
+        state.search_service.clone(),
+        state.config.data_dir.clone(),
+    )
+}
+
 pub async fn list_graphs(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(_ring_id): Path<String>,
 ) -> Result<Json<Vec<String>>, RingError> {
-    Ok(Json(vec![]))
+    let service = make_graph_service(&state);
+    let graphs = service.list_graphs(&_ring_id).await?;
+    Ok(Json(graphs))
 }
 
 pub async fn get_graph(
@@ -44,7 +54,7 @@ pub async fn create_node(
     Path((_ring_id, graph_id)): Path<(String, String)>,
     Json(req): Json<CreateNodeRequest>,
 ) -> Result<(StatusCode, Json<NodeResponse>), RingError> {
-    let service = GraphService::new(state.graph_store.clone());
+    let service = make_graph_service(&state);
     let node = service.create_node(&graph_id, req).await?;
     Ok((StatusCode::CREATED, Json(NodeResponse::from(node))))
 }
@@ -53,7 +63,7 @@ pub async fn get_node(
     State(state): State<AppState>,
     Path((_ring_id, graph_id, node_id)): Path<(String, String, String)>,
 ) -> Result<Json<NodeResponse>, RingError> {
-    let service = GraphService::new(state.graph_store.clone());
+    let service = make_graph_service(&state);
     let node = service
         .get_node(&graph_id, &node_id)
         .await?
@@ -66,7 +76,7 @@ pub async fn update_node(
     Path((_ring_id, graph_id, node_id)): Path<(String, String, String)>,
     Json(req): Json<UpdateNodeRequest>,
 ) -> Result<Json<NodeResponse>, RingError> {
-    let service = GraphService::new(state.graph_store.clone());
+    let service = make_graph_service(&state);
     let node = service.update_node(&graph_id, &node_id, req).await?;
     Ok(Json(NodeResponse::from(node)))
 }
@@ -75,7 +85,7 @@ pub async fn delete_node(
     State(state): State<AppState>,
     Path((_ring_id, graph_id, node_id)): Path<(String, String, String)>,
 ) -> Result<StatusCode, RingError> {
-    let service = GraphService::new(state.graph_store.clone());
+    let service = make_graph_service(&state);
     service.delete_node(&graph_id, &node_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -84,7 +94,7 @@ pub async fn get_node_content(
     State(state): State<AppState>,
     Path((_ring_id, graph_id, node_id)): Path<(String, String, String)>,
 ) -> Result<Json<NodeContentResponse>, RingError> {
-    let service = GraphService::new(state.graph_store.clone());
+    let service = make_graph_service(&state);
     let content = service.get_node_content(&graph_id, &node_id).await?;
     Ok(Json(content))
 }

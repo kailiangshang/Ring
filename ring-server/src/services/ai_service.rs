@@ -40,7 +40,11 @@ impl AiService {
         let system_prompt = build_super_ring_prompt();
         let mut context = system_prompt;
 
-        let rings = self.db.list_rings_by_user(&user_id).await.unwrap_or_default();
+        let rings = self
+            .db
+            .list_rings_by_user(&user_id)
+            .await
+            .unwrap_or_default();
         if !rings.is_empty() {
             let ring_summary: Vec<String> = rings
                 .iter()
@@ -67,7 +71,12 @@ impl AiService {
             content: message,
         });
 
-        self.llm.chat_stream(messages, None).await
+        let tools = self.tool_dispatcher.definitions();
+        if tools.is_empty() {
+            self.llm.chat_stream(messages, None).await
+        } else {
+            self.chat_with_tools(messages, tools).await
+        }
     }
 
     pub async fn group_ring_chat(
@@ -118,7 +127,12 @@ impl AiService {
             });
         }
 
-        self.llm.chat_stream(messages, None).await
+        let tools = self.tool_dispatcher.definitions();
+        if tools.is_empty() {
+            self.llm.chat_stream(messages, None).await
+        } else {
+            self.chat_with_tools(messages, tools).await
+        }
     }
 
     pub async fn blueprint_chat(
@@ -167,10 +181,7 @@ impl AiService {
             .create_session_message(session_id, sender_id, "user", &message, 1)
             .await?;
 
-        let all_messages = self
-            .db
-            .get_session_messages(session_id, None, 200)
-            .await?;
+        let all_messages = self.db.get_session_messages(session_id, None, 200).await?;
         let system_prompt = build_session_prompt(ring_name, scenario);
         let mut messages = vec![LlmMessage {
             role: "system".into(),
@@ -742,7 +753,10 @@ mod tests {
             crate::services::tool_engine::ToolRegistry::new(),
         )));
         let svc = AiService::new(db, llm, dispatcher);
-        let stream = svc.super_ring_chat("user-1".into(), "hi".into(), vec![]).await.unwrap();
+        let stream = svc
+            .super_ring_chat("user-1".into(), "hi".into(), vec![])
+            .await
+            .unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
         assert_eq!(collected.len(), 2);
         assert!(matches!(&collected[0], LlmEvent::Text { content } if content == "hello"));
@@ -778,7 +792,10 @@ mod tests {
             crate::services::tool_engine::ToolRegistry::new(),
         )));
         let svc = AiService::new(db, llm, dispatcher);
-        let _stream = svc.super_ring_chat("user-1".into(), "test".into(), vec![]).await.unwrap();
+        let _stream = svc
+            .super_ring_chat("user-1".into(), "test".into(), vec![])
+            .await
+            .unwrap();
         let prompt = build_super_ring_prompt();
         assert!(prompt.contains("Super Ring"));
         assert!(prompt.contains("核心能力"));

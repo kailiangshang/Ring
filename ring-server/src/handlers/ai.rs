@@ -39,9 +39,14 @@ pub async fn super_ring_chat(
     let history: Vec<LlmMessage> = history
         .into_iter()
         .filter(|m| m.role == "user" || m.role == "assistant")
-        .map(|m| LlmMessage { role: m.role, content: m.content })
+        .map(|m| LlmMessage {
+            role: m.role,
+            content: m.content,
+        })
         .collect();
-    let llm_stream = ai.super_ring_chat(auth_user.user_id.clone(), req.message, history).await?;
+    let llm_stream = ai
+        .super_ring_chat(auth_user.user_id.clone(), req.message, history)
+        .await?;
 
     Ok(spawn_sse_stream(llm_stream))
 }

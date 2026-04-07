@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::registry::ToolRegistry;
-use crate::models::tool_model::{ToolCallRequest, ToolResultRecord};
+use crate::models::tool_model::{ToolCallRequest, ToolDefinition, ToolResultRecord};
 
 pub struct ToolDispatcher {
     registry: Arc<ToolRegistry>,
@@ -10,6 +10,10 @@ pub struct ToolDispatcher {
 impl ToolDispatcher {
     pub fn new(registry: Arc<ToolRegistry>) -> Self {
         ToolDispatcher { registry }
+    }
+
+    pub fn definitions(&self) -> Vec<ToolDefinition> {
+        self.registry.definitions()
     }
 
     pub async fn dispatch(&self, call: ToolCallRequest) -> ToolResultRecord {

@@ -58,7 +58,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/{sessionId}/leave", post(session::leave_session))
         .route("/{sessionId}/archive-toggle", put(session::toggle_archive))
         .route("/{sessionId}/invite", post(session::invite_member))
-        .route("/{sessionId}/messages", get(session::get_messages).post(session::send_message));
+        .route(
+            "/{sessionId}/messages",
+            get(session::get_messages).post(session::send_message),
+        );
 
     let conversation_routes = Router::new()
         .route("/", get(conversation::list).post(conversation::create))

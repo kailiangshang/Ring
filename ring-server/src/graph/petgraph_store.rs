@@ -40,14 +40,16 @@ impl PetgraphStore {
     }
 
     pub async fn create_node(&self, graph_id: &str, input: NewNode) -> Result<NodeData> {
+        let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
         let node = NodeData {
-            id: Uuid::new_v4().to_string(),
+            id: id.clone(),
             label: input.label,
             node_type: input.node_type,
             parent_id: input.parent_id,
             description: input.description,
             graph_id: graph_id.to_string(),
+            markdown_path: Some(format!("nodes/{id}.md")),
             created_at: now.clone(),
             updated_at: now,
         };

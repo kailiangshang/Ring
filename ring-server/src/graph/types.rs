@@ -8,6 +8,7 @@ pub struct NodeData {
     pub parent_id: Option<String>,
     pub description: Option<String>,
     pub graph_id: String,
+    pub markdown_path: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }

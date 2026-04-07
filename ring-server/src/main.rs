@@ -4,6 +4,7 @@ use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::MockLlmProvider;
+use ring_server::services::search_service::SearchService;
 use ring_server::services::tool_engine::tools::{
     MarkdownGenTool, PrivacyFilterTool, SearchTool, TextCleanTool, WebScrapeTool,
 };
@@ -36,6 +37,34 @@ async fn main() {
 
     let db = Arc::new(SqliteRepository::new(pool));
     let graph_store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
+    let search_service = Arc::new(SearchService::new(db.clone(), graph_store.clone()));
+
+    let repos_dir = config.data_dir.join("repos");
+    if repos_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&repos_dir) {
+            for entry in entries.flatten() {
+                if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    let graph_id = entry.file_name().to_string_lossy().to_string();
+                    let graph_json_path = entry.path().join("graph.json");
+                    if graph_json_path.exists() {
+                        if let Ok(contents) = std::fs::read_to_string(&graph_json_path) {
+                            if let Ok(data) = serde_json::from_str::<
+                                ring_server::graph::types::GraphJson,
+                            >(&contents)
+                            {
+                                if let Err(e) =
+                                    graph_store.import_graph_json(&graph_id, &data).await
+                                {
+                                    tracing::warn!("failed to load graph {}: {}", graph_id, e);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     let config = Arc::new(config);
     let ws_hub = Arc::new(WsHub::new());
     let mut registry = ToolRegistry::new();
@@ -51,6 +80,7 @@ async fn main() {
     let state = AppState {
         db: db.clone(),
         graph_store,
+        search_service,
         config,
         llm_provider,
         ws_hub,

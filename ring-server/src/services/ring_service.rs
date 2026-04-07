@@ -1,9 +1,11 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
 use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
+use crate::graph::types::GraphJson;
 use crate::models::ring::{NewRing, Ring};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -18,11 +20,12 @@ pub struct CreateRingRequest {
 
 pub struct RingService {
     repo: Arc<dyn Repository>,
+    data_dir: PathBuf,
 }
 
 impl RingService {
-    pub fn new(repo: Arc<dyn Repository>) -> Self {
-        RingService { repo }
+    pub fn new(repo: Arc<dyn Repository>, data_dir: PathBuf) -> Self {
+        RingService { repo, data_dir }
     }
 
     pub async fn create_ring(&self, req: CreateRingRequest) -> Result<Ring> {
@@ -49,7 +52,7 @@ impl RingService {
         };
 
         let new_ring = NewRing {
-            name: req.name,
+            name: req.name.clone(),
             description: req.description,
             creator_id,
             gitlab_repo: req.gitlab_repo,
@@ -57,7 +60,21 @@ impl RingService {
             role_description: req.role_description,
         };
 
-        self.repo.create_ring(new_ring).await
+        let ring = self.repo.create_ring(new_ring).await?;
+
+        let repo_dir = self
+            .data_dir
+            .join("repos")
+            .join(format!("ring-{}", ring.name));
+        std::fs::create_dir_all(repo_dir.join("nodes"))?;
+        let empty_graph = GraphJson {
+            nodes: vec![],
+            edges: vec![],
+        };
+        let json = serde_json::to_string_pretty(&empty_graph)?;
+        std::fs::write(repo_dir.join("graph.json"), json)?;
+
+        Ok(ring)
     }
 
     pub async fn get_ring(&self, id: &str) -> Result<Ring> {
@@ -93,7 +110,8 @@ mod tests {
         let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
         let repo = crate::db::sqlite::SqliteRepository::new(pool);
-        RingService::new(Arc::new(repo))
+        let data_dir = tempfile::tempdir().unwrap().path().to_path_buf();
+        RingService::new(Arc::new(repo), data_dir)
     }
 
     fn valid_request(creator_id: &str) -> CreateRingRequest {

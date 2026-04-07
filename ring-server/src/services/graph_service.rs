@@ -1,17 +1,115 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::error::{Result, RingError};
 use crate::graph::store_trait::GraphStore;
 use crate::graph::types::{EdgeData, NewNode, NodeData};
 use crate::models::graph_model::{CreateNodeRequest, NodeContentResponse, UpdateNodeRequest};
+use crate::services::search_service::SearchService;
 
 pub struct GraphService {
     store: Arc<dyn GraphStore>,
+    search_service: Arc<SearchService>,
+    data_dir: PathBuf,
 }
 
 impl GraphService {
-    pub fn new(store: Arc<dyn GraphStore>) -> Self {
-        GraphService { store }
+    pub fn new(
+        store: Arc<dyn GraphStore>,
+        search_service: Arc<SearchService>,
+        data_dir: PathBuf,
+    ) -> Self {
+        GraphService {
+            store,
+            search_service,
+            data_dir,
+        }
+    }
+
+    fn repo_dir(&self, graph_id: &str) -> PathBuf {
+        self.data_dir.join("repos").join(graph_id)
+    }
+
+    fn nodes_dir(&self, graph_id: &str) -> PathBuf {
+        self.repo_dir(graph_id).join("nodes")
+    }
+
+    fn node_md_path(&self, graph_id: &str, node_id: &str) -> PathBuf {
+        self.nodes_dir(graph_id).join(format!("{node_id}.md"))
+    }
+
+    fn write_node_markdown(&self, graph_id: &str, node: &NodeData) -> Result<()> {
+        let dir = self.nodes_dir(graph_id);
+        std::fs::create_dir_all(&dir)?;
+        let path = self.node_md_path(graph_id, &node.id);
+        let labels = [node.label.as_str()];
+        let labels_str = labels
+            .iter()
+            .map(|l| format!("\"{}\"", l.replace('"', "\\\"")))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let content = format!(
+            "---\nnode_id: {}\ntype: {}\nlabels: [{}]\ncreated_at: {}\nupdated_at: {}\n---\n\n{}",
+            node.id,
+            node.node_type,
+            labels_str,
+            node.created_at,
+            node.updated_at,
+            node.description.as_deref().unwrap_or("")
+        );
+        std::fs::write(&path, content)?;
+        Ok(())
+    }
+
+    fn delete_node_markdown(&self, graph_id: &str, node_id: &str) -> Result<()> {
+        let path = self.node_md_path(graph_id, node_id);
+        if path.exists() {
+            std::fs::remove_file(&path)?;
+        }
+        Ok(())
+    }
+
+    async fn persist_graph(&self, graph_id: &str) {
+        let result: Result<()> = async {
+            let data = self.store.export_graph_json(graph_id).await?;
+            let json = serde_json::to_string_pretty(&data)?;
+            let repo_dir = self.repo_dir(graph_id);
+            std::fs::create_dir_all(&repo_dir)?;
+            let graph_json_path = repo_dir.join("graph.json");
+            let tmp_path = repo_dir.join("graph.json.tmp");
+            std::fs::write(&tmp_path, &json)?;
+            std::fs::rename(&tmp_path, &graph_json_path)?;
+            Ok(())
+        }
+        .await;
+
+        if let Err(e) = result {
+            tracing::warn!("failed to persist graph {}: {}", graph_id, e);
+        }
+    }
+
+    async fn collect_descendant_ids(&self, graph_id: &str, node_id: &str) -> Vec<String> {
+        let graph_data = match self.store.export_graph_json(graph_id).await {
+            Ok(d) => d,
+            Err(_) => return vec![node_id.to_string()],
+        };
+        let mut ids = vec![node_id.to_string()];
+        let mut i = 0;
+        while i < ids.len() {
+            let current = ids[i].clone();
+            let mut new_ids = Vec::new();
+            for n in &graph_data.nodes {
+                if n.graph_id == graph_id
+                    && n.parent_id.as_deref() == Some(current.as_str())
+                    && !ids.contains(&n.id)
+                {
+                    new_ids.push(n.id.clone());
+                }
+            }
+            ids.extend(new_ids);
+            i += 1;
+        }
+        ids
     }
 
     pub async fn create_node(&self, graph_id: &str, req: CreateNodeRequest) -> Result<NodeData> {
@@ -24,7 +122,23 @@ impl GraphService {
             parent_id: req.parent_id,
             description: req.description,
         };
-        self.store.create_node(graph_id, input).await
+        let node = self.store.create_node(graph_id, input).await?;
+
+        self.write_node_markdown(graph_id, &node)?;
+
+        let _ = self
+            .search_service
+            .index_node(
+                &node.id,
+                graph_id,
+                &node.label,
+                node.description.as_deref().unwrap_or(""),
+            )
+            .await;
+
+        self.persist_graph(graph_id).await;
+
+        Ok(node)
     }
 
     pub async fn get_node(&self, graph_id: &str, node_id: &str) -> Result<Option<NodeData>> {
@@ -42,16 +156,50 @@ impl GraphService {
                 "at least one field must be provided".into(),
             ));
         }
+
+        let _old_node = self
+            .store
+            .get_node(graph_id, node_id)
+            .await?
+            .ok_or_else(|| RingError::NotFound(format!("node {} not found", node_id)))?;
+
+        let _ = self.search_service.delete_node_index(node_id).await;
+
         let node = self
             .store
             .update_node(graph_id, node_id, req.label, req.description, req.node_type)
             .await?;
 
+        self.write_node_markdown(graph_id, &node)?;
+
+        let _ = self
+            .search_service
+            .index_node(
+                &node.id,
+                graph_id,
+                &node.label,
+                node.description.as_deref().unwrap_or(""),
+            )
+            .await;
+
+        self.persist_graph(graph_id).await;
+
         Ok(node)
     }
 
     pub async fn delete_node(&self, graph_id: &str, node_id: &str) -> Result<()> {
-        self.store.delete_node(graph_id, node_id).await
+        let descendant_ids = self.collect_descendant_ids(graph_id, node_id).await;
+
+        self.store.delete_node(graph_id, node_id).await?;
+
+        for id in &descendant_ids {
+            let _ = self.delete_node_markdown(graph_id, id);
+            let _ = self.search_service.delete_node_index(id).await;
+        }
+
+        self.persist_graph(graph_id).await;
+
+        Ok(())
     }
 
     pub async fn get_children(&self, graph_id: &str, parent_id: &str) -> Result<Vec<NodeData>> {
@@ -112,11 +260,18 @@ impl GraphService {
             .await?
             .ok_or_else(|| RingError::NotFound(format!("node {} not found", node_id)))?;
 
+        let md_path = self.node_md_path(graph_id, node_id);
+        let content = if md_path.exists() {
+            Some(std::fs::read_to_string(&md_path)?)
+        } else {
+            None
+        };
+
         Ok(NodeContentResponse {
             node_id: node.id.clone(),
             label: node.label,
-            markdown_path: None,
-            content: None,
+            markdown_path: node.markdown_path,
+            content,
             last_modified: node.updated_at,
         })
     }
@@ -129,17 +284,23 @@ impl GraphService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db::sqlite::SqliteRepository;
     use crate::graph::petgraph_store::PetgraphStore;
     use crate::graph::types::NewEdge;
 
-    fn new_service() -> GraphService {
+    async fn new_service() -> GraphService {
         let store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
-        GraphService::new(store)
+        let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
+        sqlx::migrate!("./migrations").run(&pool).await.unwrap();
+        let db = Arc::new(SqliteRepository::new(pool));
+        let search_service = Arc::new(SearchService::new(db, store.clone()));
+        let data_dir = tempfile::tempdir().unwrap().path().to_path_buf();
+        GraphService::new(store, search_service, data_dir)
     }
 
     #[tokio::test]
     async fn create_node_with_valid_data() {
-        let svc = new_service();
+        let svc = new_service().await;
         let req = CreateNodeRequest {
             label: "Test Node".into(),
             node_type: "concept".into(),
@@ -157,7 +318,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_node_empty_label_fails() {
-        let svc = new_service();
+        let svc = new_service().await;
         let req = CreateNodeRequest {
             label: "  ".into(),
             node_type: "concept".into(),
@@ -173,7 +334,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_node_label() {
-        let svc = new_service();
+        let svc = new_service().await;
         let node = svc
             .create_node(
                 "graph-1",
@@ -207,7 +368,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_node_no_fields_fails() {
-        let svc = new_service();
+        let svc = new_service().await;
         let node = svc
             .create_node(
                 "graph-1",
@@ -242,7 +403,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete_node_cascades_children() {
-        let svc = new_service();
+        let svc = new_service().await;
         let parent = svc
             .create_node(
                 "graph-1",
@@ -276,7 +437,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_children_returns_correct_order() {
-        let svc = new_service();
+        let svc = new_service().await;
         let parent = svc
             .create_node(
                 "graph-1",
@@ -337,7 +498,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_root_nodes_filters_correctly() {
-        let svc = new_service();
+        let svc = new_service().await;
         let root = svc
             .create_node(
                 "graph-1",
@@ -385,7 +546,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_neighbors_returns_edges() {
-        let svc = new_service();
+        let svc = new_service().await;
         let n1 = svc
             .create_node(
                 "graph-1",

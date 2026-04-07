@@ -28,6 +28,7 @@ pub use member_service::MemberService;
 pub use notification_service::NotificationService;
 pub use permission_service::PermissionService;
 pub use ring_service::RingService;
+pub use search_service::SearchService;
 pub use session_service::SessionService;
 pub use settings_service::SettingsService;
 pub use tool_engine::{ToolDispatcher, ToolRegistry};

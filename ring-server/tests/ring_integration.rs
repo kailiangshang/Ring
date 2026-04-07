@@ -8,6 +8,7 @@ use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
+use ring_server::services::search_service::SearchService;
 use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
@@ -20,12 +21,16 @@ async fn create_test_app() -> (Router, String) {
     let repo = Arc::new(SqliteRepository::new(pool));
     let llm: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(vec![]));
     let state = AppState {
-        db: repo,
+        db: repo.clone(),
         graph_store: Arc::new(PetgraphStore::new()) as Arc<dyn GraphStore>,
         config: Arc::new(Config::default()),
         llm_provider: llm,
         ws_hub: Arc::new(WsHub::new()),
         tool_registry: Arc::new(ToolRegistry::new()),
+        search_service: Arc::new(SearchService::new(
+            repo.clone(),
+            Arc::new(PetgraphStore::new()),
+        )),
     };
     let app = build_router(state);
     let user_id = complete_setup(app.clone()).await;

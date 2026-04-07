@@ -45,7 +45,7 @@ impl From<crate::graph::types::NodeData> for NodeResponse {
             parent_id: n.parent_id,
             description: n.description,
             graph_id: n.graph_id,
-            markdown_path: None,
+            markdown_path: n.markdown_path,
             created_at: n.created_at,
             updated_at: n.updated_at,
         }

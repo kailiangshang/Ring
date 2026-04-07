@@ -159,7 +159,9 @@ pub async fn send_message(
     }
 
     let session_svc = SessionService::new(state.db.clone());
-    let session = session_svc.get_session_detail(&ring_id, &session_id).await?;
+    let session = session_svc
+        .get_session_detail(&ring_id, &session_id)
+        .await?;
     let ring = state
         .db
         .get_ring(&ring_id)
@@ -196,6 +198,8 @@ pub async fn send_message(
         });
     };
 
-
-    Ok(spawn_sse_stream_with_callback(llm_stream, Some(on_complete)))
+    Ok(spawn_sse_stream_with_callback(
+        llm_stream,
+        Some(on_complete),
+    ))
 }

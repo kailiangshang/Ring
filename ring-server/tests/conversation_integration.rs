@@ -8,6 +8,7 @@ use ring_server::graph::petgraph_store::PetgraphStore;
 use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmEvent, LlmProvider, MockLlmProvider, TokenUsage};
+use ring_server::services::search_service::SearchService;
 use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
@@ -42,6 +43,10 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, String) {
         llm_provider: llm,
         ws_hub: Arc::new(WsHub::new()),
         tool_registry: Arc::new(ToolRegistry::new()),
+        search_service: Arc::new(SearchService::new(
+            repo.clone(),
+            Arc::new(PetgraphStore::new()),
+        )),
     };
     let app = build_router(state);
 

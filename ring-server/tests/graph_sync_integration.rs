@@ -250,6 +250,7 @@ async fn import_replaces_existing_data() {
             parent_id: None,
             description: Some("replaced".into()),
             graph_id: "graph-1".into(),
+            markdown_path: None,
             created_at: "2025-01-01T00:00:00Z".into(),
             updated_at: "2025-01-01T00:00:00Z".into(),
         }],

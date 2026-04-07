@@ -41,7 +41,7 @@ export function RingHub() {
 
   return (
     <div>
-      <h1>Group Ring</h1>
+      <h1>Ring Group</h1>
       <CreateRing on_create={handle_create} />
       <RingList rings={rings} on_select={handle_select} />
     </div>

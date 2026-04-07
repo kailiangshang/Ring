@@ -104,9 +104,14 @@ pub async fn send_message(
         let db = db.clone();
         let conv_id = conv_id_clone.clone();
         tokio::spawn(async move {
-            let _ = db.create_message(&conv_id, "assistant", &content, None).await;
+            let _ = db
+                .create_message(&conv_id, "assistant", &content, None)
+                .await;
         });
     };
 
-    Ok(spawn_sse_stream_with_callback(llm_stream, Some(on_complete)))
+    Ok(spawn_sse_stream_with_callback(
+        llm_stream,
+        Some(on_complete),
+    ))
 }
