@@ -1,9 +1,10 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
 use crate::error::RingError;
+use crate::middleware::auth::AuthUser;
 use crate::models::invite::InviteToken;
 use crate::models::member::Member;
 use crate::services::MemberService;
@@ -28,6 +29,7 @@ pub struct GenerateInviteRequest {
 
 pub async fn generate_invite(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Path(ring_id): Path<String>,
     Json(req): Json<GenerateInviteRequest>,
 ) -> Result<Json<InviteToken>, RingError> {
@@ -35,7 +37,7 @@ pub async fn generate_invite(
     let token = service
         .generate_invite(
             &ring_id,
-            "user-1",
+            &auth_user.user_id,
             &req.token_type,
             &req.role,
             req.max_uses,
@@ -53,23 +55,25 @@ pub struct UpdateRoleRequest {
 
 pub async fn update_role(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Path((ring_id, member_id)): Path<(String, String)>,
     Json(req): Json<UpdateRoleRequest>,
 ) -> Result<StatusCode, RingError> {
     let service = MemberService::new(state.db.clone());
     service
-        .update_role(&ring_id, &member_id, &req.role, "user-1")
+        .update_role(&ring_id, &member_id, &req.role, &auth_user.user_id)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn remove_member(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Path((ring_id, member_id)): Path<(String, String)>,
 ) -> Result<StatusCode, RingError> {
     let service = MemberService::new(state.db.clone());
     service
-        .remove_member(&ring_id, &member_id, "user-1")
+        .remove_member(&ring_id, &member_id, &auth_user.user_id)
         .await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -86,12 +90,13 @@ pub struct JoinQueryParams {
 
 pub async fn join_ring(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Query(params): Query<JoinQueryParams>,
     Json(req): Json<JoinRequest>,
 ) -> Result<Json<Member>, RingError> {
     let service = MemberService::new(state.db.clone());
     let member = service
-        .join_ring(&params.token, "user-1", &req.display_name)
+        .join_ring(&params.token, &auth_user.user_id, &req.display_name)
         .await?;
     Ok(Json(member))
 }

@@ -1,3 +1,4 @@
+use axum::middleware;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 
@@ -16,6 +17,7 @@ use crate::handlers::session;
 use crate::handlers::settings;
 use crate::handlers::setup;
 use crate::handlers::ws;
+use crate::middleware::auth::auth_middleware;
 use crate::state::AppState;
 
 pub fn build_router(state: AppState) -> Router {
@@ -111,8 +113,7 @@ pub fn build_router(state: AppState) -> Router {
         get(settings::get_settings).put(settings::update_settings),
     );
 
-    Router::new()
-        .nest("/api/v1/setup", setup_routes)
+    let protected = Router::new()
         .nest("/api/v1/rings", ring_routes)
         .nest("/api/v1/rings/{ringId}/members", member_routes)
         .nest("/api/v1/rings/{ringId}/sessions", session_routes)
@@ -126,6 +127,11 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/settings", settings_routes)
         .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
         .route("/api/v1/ws/{ringId}", get(ws::ws_handler))
+        .layer(middleware::from_fn(auth_middleware));
+
+    Router::new()
+        .nest("/api/v1/setup", setup_routes)
         .route("/join", get(install::join_page))
+        .merge(protected)
         .with_state(state)
 }

@@ -27,7 +27,7 @@ async fn body_to_json(body: Body) -> serde_json::Value {
     serde_json::from_slice(&bytes).unwrap()
 }
 
-fn create_app_with_events(events: Vec<LlmEvent>) -> Router {
+fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, String) {
     let pool = futures::executor::block_on(async {
         let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
@@ -45,8 +45,9 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> Router {
     };
     let app = build_router(state);
 
-    futures::executor::block_on(async {
-        app.clone()
+    let user_id = futures::executor::block_on(async {
+        let resp = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
@@ -59,6 +60,8 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> Router {
             )
             .await
             .unwrap();
+        let json = body_to_json(resp.into_body()).await;
+        let uid = json["user_id"].as_str().unwrap().to_string();
 
         app.clone()
             .oneshot(
@@ -70,12 +73,14 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> Router {
             )
             .await
             .unwrap();
+
+        uid
     });
 
-    app
+    (app, user_id)
 }
 
-async fn create_ring(app: &Router) -> String {
+async fn create_ring(app: &Router, user_id: &str) -> String {
     let resp = app
         .clone()
         .oneshot(
@@ -83,6 +88,7 @@ async fn create_ring(app: &Router) -> String {
                 .method(Method::POST)
                 .uri("/api/v1/rings")
                 .header("content-type", "application/json")
+                .header("X-User-Id", user_id)
                 .body(json_body(&serde_json::json!({
                     "name": "Test Ring",
                     "description": "A test ring",
@@ -99,8 +105,8 @@ async fn create_ring(app: &Router) -> String {
 
 #[tokio::test]
 async fn create_conversation_success() {
-    let app = create_app_with_events(vec![]);
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_app_with_events(vec![]);
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .clone()
@@ -109,6 +115,7 @@ async fn create_conversation_success() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/conversations", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({
                     "title": "My Chat",
                     "context_mode": "storage"
@@ -127,8 +134,8 @@ async fn create_conversation_success() {
 
 #[tokio::test]
 async fn list_conversations_by_ring() {
-    let app = create_app_with_events(vec![]);
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_app_with_events(vec![]);
+    let ring_id = create_ring(&app, &user_id).await;
 
     app.clone()
         .oneshot(
@@ -136,6 +143,7 @@ async fn list_conversations_by_ring() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/conversations", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({ "title": "Conv 1" })))
                 .unwrap(),
         )
@@ -148,6 +156,7 @@ async fn list_conversations_by_ring() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/conversations", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({ "title": "Conv 2" })))
                 .unwrap(),
         )
@@ -159,6 +168,7 @@ async fn list_conversations_by_ring() {
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/conversations", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -185,8 +195,8 @@ async fn send_message_returns_sse_stream() {
             }),
         },
     ];
-    let app = create_app_with_events(events);
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_app_with_events(events);
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .clone()
@@ -195,6 +205,7 @@ async fn send_message_returns_sse_stream() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/conversations", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({ "title": "SSE Test" })))
                 .unwrap(),
         )
@@ -212,6 +223,7 @@ async fn send_message_returns_sse_stream() {
                     ring_id, conv_id
                 ))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({ "message": "Hi there" })))
                 .unwrap(),
         )

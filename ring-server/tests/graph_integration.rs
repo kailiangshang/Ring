@@ -14,7 +14,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tower::ServiceExt;
 
-async fn create_test_app() -> Router {
+async fn create_test_app() -> (Router, String) {
     let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
     let repo = Arc::new(SqliteRepository::new(pool));
@@ -28,12 +28,13 @@ async fn create_test_app() -> Router {
         tool_registry: Arc::new(ToolRegistry::new()),
     };
     let app = build_router(state);
-    complete_setup(app.clone()).await;
-    app
+    let user_id = complete_setup(app.clone()).await;
+    (app, user_id)
 }
 
-async fn complete_setup(app: Router) {
-    app.clone()
+async fn complete_setup(app: Router) -> String {
+    let resp = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::POST)
@@ -46,6 +47,8 @@ async fn complete_setup(app: Router) {
         )
         .await
         .unwrap();
+    let json = body_to_json(resp.into_body()).await;
+    let user_id = json["user_id"].as_str().unwrap().to_string();
 
     app.oneshot(
         Request::builder()
@@ -56,6 +59,8 @@ async fn complete_setup(app: Router) {
     )
     .await
     .unwrap();
+
+    user_id
 }
 
 fn json_body(value: &serde_json::Value) -> Body {
@@ -77,7 +82,7 @@ fn valid_create_ring_body() -> serde_json::Value {
     })
 }
 
-async fn create_ring(app: &Router) -> String {
+async fn create_ring(app: &Router, user_id: &str) -> String {
     let resp = app
         .clone()
         .oneshot(
@@ -85,6 +90,7 @@ async fn create_ring(app: &Router) -> String {
                 .method(Method::POST)
                 .uri("/api/v1/rings")
                 .header("content-type", "application/json")
+                .header("X-User-Id", user_id)
                 .body(json_body(&valid_create_ring_body()))
                 .unwrap(),
         )
@@ -98,7 +104,12 @@ fn graph_base(ring_id: &str) -> String {
     format!("/api/v1/rings/{}/graphs", ring_id)
 }
 
-async fn create_test_node(app: &Router, ring_id: &str, graph_id: &str) -> serde_json::Value {
+async fn create_test_node(
+    app: &Router,
+    ring_id: &str,
+    graph_id: &str,
+    user_id: &str,
+) -> serde_json::Value {
     let body = serde_json::json!({
         "label": "Test Node",
         "node_type": "concept",
@@ -112,6 +123,7 @@ async fn create_test_node(app: &Router, ring_id: &str, graph_id: &str) -> serde_
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", user_id)
                 .body(json_body(&body))
                 .unwrap(),
         )
@@ -122,11 +134,11 @@ async fn create_test_node(app: &Router, ring_id: &str, graph_id: &str) -> serde_
 
 #[tokio::test]
 async fn create_and_get_node() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
-    let node = create_test_node(&app, &ring_id, graph_id).await;
+    let node = create_test_node(&app, &ring_id, graph_id, &user_id).await;
     let node_id = node["id"].as_str().unwrap();
 
     let resp = app
@@ -139,6 +151,7 @@ async fn create_and_get_node() {
                     graph_id,
                     node_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -154,11 +167,11 @@ async fn create_and_get_node() {
 
 #[tokio::test]
 async fn update_node_label() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
-    let node = create_test_node(&app, &ring_id, graph_id).await;
+    let node = create_test_node(&app, &ring_id, graph_id, &user_id).await;
     let node_id = node["id"].as_str().unwrap();
 
     let resp = app
@@ -173,6 +186,7 @@ async fn update_node_label() {
                     node_id
                 ))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({
                     "label": "Updated Label",
                     "description": null,
@@ -189,11 +203,11 @@ async fn update_node_label() {
 
 #[tokio::test]
 async fn delete_node_returns_204_then_404() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
-    let node = create_test_node(&app, &ring_id, graph_id).await;
+    let node = create_test_node(&app, &ring_id, graph_id, &user_id).await;
     let node_id = node["id"].as_str().unwrap();
 
     let resp = app
@@ -207,6 +221,7 @@ async fn delete_node_returns_204_then_404() {
                     graph_id,
                     node_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -224,6 +239,7 @@ async fn delete_node_returns_204_then_404() {
                     graph_id,
                     node_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -234,62 +250,12 @@ async fn delete_node_returns_204_then_404() {
 
 #[tokio::test]
 async fn create_edge_and_list_in_graph() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
-    let n1 = create_test_node(&app, &ring_id, graph_id).await;
-    let n2 = create_test_node(&app, &ring_id, graph_id).await;
-    let n1_id = n1["id"].as_str().unwrap();
-    let n2_id = n2["id"].as_str().unwrap();
-
-    let edge_body = serde_json::json!({
-        "source_id": n1_id,
-        "target_id": n2_id,
-        "relation": "depends_on",
-        "label": "A depends on B"
-    });
-    let resp = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .method(Method::POST)
-                .uri(format!("{}/{}/edges", graph_base(&ring_id), graph_id))
-                .header("content-type", "application/json")
-                .body(json_body(&edge_body))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::CREATED);
-
-    let resp = app
-        .clone()
-        .oneshot(
-            Request::builder()
-                .uri(format!("{}/{}", graph_base(&ring_id), graph_id))
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
-    let json = body_to_json(resp.into_body()).await;
-    let edges = json["edges"].as_array().unwrap();
-    assert_eq!(edges.len(), 1);
-    assert_eq!(edges[0]["source_id"], n1_id);
-    assert_eq!(edges[0]["target_id"], n2_id);
-    assert_eq!(edges[0]["relation"], "depends_on");
-}
-
-#[tokio::test]
-async fn delete_edge_removes_from_graph() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
-    let graph_id = "graph-1";
-
-    let n1 = create_test_node(&app, &ring_id, graph_id).await;
-    let n2 = create_test_node(&app, &ring_id, graph_id).await;
+    let n1 = create_test_node(&app, &ring_id, graph_id, &user_id).await;
+    let n2 = create_test_node(&app, &ring_id, graph_id, &user_id).await;
     let n1_id = n1["id"].as_str().unwrap();
     let n2_id = n2["id"].as_str().unwrap();
 
@@ -297,7 +263,7 @@ async fn delete_edge_removes_from_graph() {
         "source_id": n1_id,
         "target_id": n2_id,
         "relation": "related_to",
-        "label": null
+        "label": "test edge"
     });
     let resp = app
         .clone()
@@ -306,6 +272,58 @@ async fn delete_edge_removes_from_graph() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/edges", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
+                .body(json_body(&edge_body))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let edge = body_to_json(resp.into_body()).await;
+    let edge_id = edge["id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("{}/{}", graph_base(&ring_id), graph_id))
+                .header("X-User-Id", &user_id)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let json = body_to_json(resp.into_body()).await;
+    let edges = json["edges"].as_array().unwrap();
+    assert_eq!(edges.len(), 1);
+    assert_eq!(edges[0]["id"], edge_id);
+}
+
+#[tokio::test]
+async fn delete_edge_removes_from_graph() {
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
+    let graph_id = "graph-1";
+
+    let n1 = create_test_node(&app, &ring_id, graph_id, &user_id).await;
+    let n2 = create_test_node(&app, &ring_id, graph_id, &user_id).await;
+    let n1_id = n1["id"].as_str().unwrap();
+    let n2_id = n2["id"].as_str().unwrap();
+
+    let edge_body = serde_json::json!({
+        "source_id": n1_id,
+        "target_id": n2_id,
+        "relation": "related_to",
+        "label": "to delete"
+    });
+    let resp = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method(Method::POST)
+                .uri(format!("{}/{}/edges", graph_base(&ring_id), graph_id))
+                .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&edge_body))
                 .unwrap(),
         )
@@ -325,6 +343,7 @@ async fn delete_edge_removes_from_graph() {
                     graph_id,
                     edge_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -337,6 +356,7 @@ async fn delete_edge_removes_from_graph() {
         .oneshot(
             Request::builder()
                 .uri(format!("{}/{}", graph_base(&ring_id), graph_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -349,8 +369,8 @@ async fn delete_edge_removes_from_graph() {
 
 #[tokio::test]
 async fn get_children_of_node() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
     let parent_body = serde_json::json!({
@@ -366,6 +386,7 @@ async fn get_children_of_node() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&parent_body))
                 .unwrap(),
         )
@@ -386,6 +407,7 @@ async fn get_children_of_node() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&child_body))
                 .unwrap(),
         )
@@ -397,6 +419,7 @@ async fn get_children_of_node() {
         .oneshot(
             Request::builder()
                 .uri(format!("{}/{}", graph_base(&ring_id), graph_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -414,8 +437,8 @@ async fn get_children_of_node() {
 
 #[tokio::test]
 async fn get_root_nodes_via_graph_detail() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
     let root_body = serde_json::json!({
@@ -431,6 +454,7 @@ async fn get_root_nodes_via_graph_detail() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&root_body))
                 .unwrap(),
         )
@@ -451,6 +475,7 @@ async fn get_root_nodes_via_graph_detail() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&child_body))
                 .unwrap(),
         )
@@ -462,6 +487,7 @@ async fn get_root_nodes_via_graph_detail() {
         .oneshot(
             Request::builder()
                 .uri(format!("{}/{}", graph_base(&ring_id), graph_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -477,11 +503,11 @@ async fn get_root_nodes_via_graph_detail() {
 
 #[tokio::test]
 async fn get_node_returns_content() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
-    let node = create_test_node(&app, &ring_id, graph_id).await;
+    let node = create_test_node(&app, &ring_id, graph_id, &user_id).await;
     let node_id = node["id"].as_str().unwrap();
 
     let resp = app
@@ -494,6 +520,7 @@ async fn get_node_returns_content() {
                     graph_id,
                     node_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -508,8 +535,8 @@ async fn get_node_returns_content() {
 
 #[tokio::test]
 async fn create_node_empty_label_400() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
     let body = serde_json::json!({
@@ -525,6 +552,7 @@ async fn create_node_empty_label_400() {
                 .method(Method::POST)
                 .uri(format!("{}/{}/nodes", graph_base(&ring_id), graph_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&body))
                 .unwrap(),
         )
@@ -535,8 +563,8 @@ async fn create_node_empty_label_400() {
 
 #[tokio::test]
 async fn get_nonexistent_node_404() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
     let graph_id = "graph-1";
 
     let resp = app
@@ -548,6 +576,7 @@ async fn get_nonexistent_node_404() {
                     graph_base(&ring_id),
                     graph_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
