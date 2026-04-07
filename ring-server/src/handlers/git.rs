@@ -36,21 +36,6 @@ pub async fn list_prs(
     Ok(Json(PrsResponse { prs }))
 }
 
-pub async fn get_pr_diff(
-    State(state): State<AppState>,
-    Path((ring_id, pr_id)): Path<(String, i64)>,
-) -> Result<Json<PrResponse>, RingError> {
-    let git_service = std::sync::Arc::new(GitService::new());
-    let service = ArchiveService::new(
-        state.db.clone(),
-        git_service,
-        state.graph_store.clone(),
-        None,
-    );
-    let pr = service.get_pr_diff(&ring_id, pr_id).await?;
-    Ok(Json(pr))
-}
-
 pub async fn merge_pr(
     State(state): State<AppState>,
     Path((ring_id, pr_id)): Path<(String, i64)>,

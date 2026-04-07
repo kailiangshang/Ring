@@ -6,13 +6,13 @@ use ring_server::config::Config;
 use ring_server::db::sqlite::SqliteRepository;
 use ring_server::db::Repository;
 use ring_server::graph::petgraph_store::PetgraphStore;
+use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmEvent, LlmProvider, MockLlmProvider, TokenUsage};
 use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower::ServiceExt;
 
 fn json_body(value: &serde_json::Value) -> Body {
@@ -28,7 +28,7 @@ async fn body_to_bytes(body: Body) -> Vec<u8> {
     body.collect().await.unwrap().to_bytes().to_vec()
 }
 
-fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepository>) {
+fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepository>, String) {
     let pool = futures::executor::block_on(async {
         let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
@@ -38,7 +38,7 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepositor
     let llm: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(events));
     let state = AppState {
         db: repo.clone(),
-        graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
+        graph_store: Arc::new(PetgraphStore::new()) as Arc<dyn GraphStore>,
         config: Arc::new(Config::default()),
         llm_provider: llm,
         ws_hub: Arc::new(WsHub::new()),
@@ -46,8 +46,9 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepositor
     };
     let app = build_router(state);
 
-    futures::executor::block_on(async {
-        app.clone()
+    let user_id = futures::executor::block_on(async {
+        let resp = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .method(Method::POST)
@@ -60,6 +61,8 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepositor
             )
             .await
             .unwrap();
+        let json = body_to_json(resp.into_body()).await;
+        let uid = json["user_id"].as_str().unwrap().to_string();
 
         app.clone()
             .oneshot(
@@ -71,12 +74,14 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, Arc<SqliteRepositor
             )
             .await
             .unwrap();
+
+        uid
     });
 
-    (app, repo)
+    (app, repo, user_id)
 }
 
-async fn create_ring(app: &Router) -> String {
+async fn create_ring(app: &Router, user_id: &str) -> String {
     let resp = app
         .clone()
         .oneshot(
@@ -84,6 +89,7 @@ async fn create_ring(app: &Router) -> String {
                 .method(Method::POST)
                 .uri("/api/v1/rings")
                 .header("content-type", "application/json")
+                .header("X-User-Id", user_id)
                 .body(json_body(&serde_json::json!({
                     "name": "Test Ring",
                     "description": "A test ring",
@@ -100,7 +106,7 @@ async fn create_ring(app: &Router) -> String {
 
 #[tokio::test]
 async fn list_templates_returns_list() {
-    let (app, repo) = create_app_with_events(vec![]);
+    let (app, repo, user_id) = create_app_with_events(vec![]);
 
     repo.create_blueprint_template(
         "tpl-1",
@@ -112,13 +118,14 @@ async fn list_templates_returns_list() {
     .await
     .unwrap();
 
-    let ring_id = create_ring(&app).await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .clone()
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/blueprint/templates", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -150,8 +157,8 @@ async fn blueprint_chat_returns_sse() {
             }),
         },
     ];
-    let (app, _) = create_app_with_events(events);
-    let ring_id = create_ring(&app).await;
+    let (app, _, user_id) = create_app_with_events(events);
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
@@ -159,6 +166,7 @@ async fn blueprint_chat_returns_sse() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/blueprint/chat", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({
                     "message": "I need a competitor research graph"
                 })))
@@ -184,8 +192,8 @@ async fn blueprint_chat_returns_sse() {
 
 #[tokio::test]
 async fn preview_blueprint_returns_nodes() {
-    let (app, _) = create_app_with_events(vec![]);
-    let ring_id = create_ring(&app).await;
+    let (app, _, user_id) = create_app_with_events(vec![]);
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
@@ -193,6 +201,7 @@ async fn preview_blueprint_returns_nodes() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/blueprint/preview", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({
                     "graphs": [
                         {
@@ -232,8 +241,8 @@ async fn preview_blueprint_returns_nodes() {
 
 #[tokio::test]
 async fn confirm_blueprint_creates_graphs() {
-    let (app, _) = create_app_with_events(vec![]);
-    let ring_id = create_ring(&app).await;
+    let (app, _, user_id) = create_app_with_events(vec![]);
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .clone()
@@ -242,6 +251,7 @@ async fn confirm_blueprint_creates_graphs() {
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/blueprint/confirm", ring_id))
                 .header("content-type", "application/json")
+                .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({
                     "graphs": [
                         {
@@ -271,6 +281,7 @@ async fn confirm_blueprint_creates_graphs() {
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )

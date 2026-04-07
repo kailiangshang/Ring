@@ -1,6 +1,7 @@
 use ring_server::config::Config;
 use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
+use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
 use ring_server::services::tool_engine::tools::{
@@ -13,7 +14,6 @@ use ring_server::state::AppState;
 use std::sync::Arc;
 
 use sqlx::sqlite::SqlitePoolOptions;
-use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() {
@@ -35,7 +35,7 @@ async fn main() {
         .expect("failed to run migrations");
 
     let db = Arc::new(SqliteRepository::new(pool));
-    let graph_store = Arc::new(RwLock::new(PetgraphStore::new()));
+    let graph_store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
     let config = Arc::new(config);
     let llm_provider: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(vec![]));
     let ws_hub = Arc::new(WsHub::new());

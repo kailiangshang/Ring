@@ -1,13 +1,11 @@
-use axum::extract::{Path, Query, State};
-use axum::response::sse::{Event, Sse};
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
 use std::sync::Arc;
-use tokio_stream::wrappers::ReceiverStream;
 
 use crate::error::RingError;
+use crate::handlers::sse_helpers::{spawn_sse_stream, SseStream};
+use crate::middleware::auth::AuthUser;
 use crate::models::conversation::Conversation;
 use crate::services::ai_service::AiService;
 use crate::services::tool_engine::ToolDispatcher;
@@ -40,15 +38,6 @@ pub struct MessagesQueryParams {
     pub before_id: Option<String>,
 }
 
-async fn get_first_user_id(state: &AppState) -> Result<String, RingError> {
-    let users = state.db.list_all_users().await?;
-    users
-        .into_iter()
-        .next()
-        .map(|u| u.id)
-        .ok_or_else(|| RingError::Validation("no user found, run setup first".into()))
-}
-
 pub async fn list(
     State(state): State<AppState>,
     Path(ring_id): Path<String>,
@@ -59,10 +48,11 @@ pub async fn list(
 
 pub async fn create(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Path(ring_id): Path<String>,
     Json(req): Json<CreateConvRequest>,
 ) -> Result<(axum::http::StatusCode, Json<Conversation>), RingError> {
-    let user_id = get_first_user_id(&state).await?;
+    let user_id = auth_user.user_id;
     let context_mode = req.context_mode.unwrap_or_else(|| "storage".into());
     let conv = state
         .db
@@ -98,7 +88,7 @@ pub async fn send_message(
     State(state): State<AppState>,
     Path((ring_id, conv_id)): Path<(String, String)>,
     Json(req): Json<SendMessageRequest>,
-) -> Result<Sse<ReceiverStream<Result<Event, Infallible>>>, RingError> {
+) -> Result<SseStream, RingError> {
     if req.message.trim().is_empty() {
         return Err(RingError::Validation("message must not be empty".into()));
     }
@@ -107,18 +97,5 @@ pub async fn send_message(
     let ai = AiService::new(state.db.clone(), state.llm_provider.clone(), dispatcher);
     let llm_stream = ai.group_ring_chat(&ring_id, &conv_id, req.message).await?;
 
-    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(32);
-
-    tokio::spawn(async move {
-        let mut stream = std::pin::pin!(llm_stream);
-        while let Some(event) = stream.next().await {
-            let json = serde_json::to_string(&event).unwrap_or_default();
-            let sse_event = Event::default().event("message").data(json);
-            if tx.send(Ok(sse_event)).await.is_err() {
-                break;
-            }
-        }
-    });
-
-    Ok(Sse::new(ReceiverStream::new(rx)))
+    Ok(spawn_sse_stream(llm_stream))
 }

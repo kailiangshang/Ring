@@ -1,9 +1,10 @@
-use axum::extract::{Path, Query, State};
+use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
 use crate::error::RingError;
+use crate::middleware::auth::AuthUser;
 use crate::services::notification_service::NotificationService;
 use crate::state::AppState;
 
@@ -14,11 +15,12 @@ pub struct ListNotificationsQuery {
 
 pub async fn list_notifications(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Query(query): Query<ListNotificationsQuery>,
 ) -> Result<Json<serde_json::Value>, RingError> {
     let service = NotificationService::new(state.db.clone());
     let notifications = service
-        .list_for_user("user-1", query.unread_only.unwrap_or(false))
+        .list_for_user(&auth_user.user_id, query.unread_only.unwrap_or(false))
         .await?;
     Ok(Json(serde_json::json!({ "notifications": notifications })))
 }

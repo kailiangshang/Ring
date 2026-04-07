@@ -1,8 +1,9 @@
-use axum::extract::{Path, State};
+use axum::extract::{Extension, Path, State};
 use axum::http::StatusCode;
 use axum::Json;
 
 use crate::error::RingError;
+use crate::middleware::auth::AuthUser;
 use crate::models::git_model::{ArchiveQueueResponse, ArchiveRequest, ArchiveResponse};
 use crate::services::archive_service::ArchiveService;
 use crate::services::git_service::GitService;
@@ -10,6 +11,7 @@ use crate::state::AppState;
 
 pub async fn archive(
     State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
     Path(ring_id): Path<String>,
     Json(req): Json<ArchiveRequest>,
 ) -> Result<(StatusCode, Json<ArchiveResponse>), RingError> {
@@ -20,7 +22,9 @@ pub async fn archive(
         state.graph_store.clone(),
         None,
     );
-    let resp = service.archive(&ring_id, &req, "user-1", true).await?;
+    let resp = service
+        .archive(&ring_id, &req, &auth_user.user_id, true)
+        .await?;
     Ok((StatusCode::CREATED, Json(resp)))
 }
 

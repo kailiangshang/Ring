@@ -1,20 +1,18 @@
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
 use crate::db::traits::Repository;
 use crate::error::Result;
-use crate::graph::petgraph_store::PetgraphStore;
+use crate::graph::store_trait::GraphStore;
 use crate::models::graph_model::SearchResult;
 
 pub struct SearchService {
     repo: Arc<dyn Repository>,
     #[allow(dead_code)]
-    store: Arc<RwLock<PetgraphStore>>,
+    store: Arc<dyn GraphStore>,
 }
 
 impl SearchService {
-    pub fn new(repo: Arc<dyn Repository>, store: Arc<RwLock<PetgraphStore>>) -> Self {
+    pub fn new(repo: Arc<dyn Repository>, store: Arc<dyn GraphStore>) -> Self {
         SearchService { repo, store }
     }
 
@@ -47,12 +45,13 @@ impl SearchService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::petgraph_store::PetgraphStore;
 
     async fn setup_service() -> SearchService {
         let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
         sqlx::migrate!("./migrations").run(&pool).await.unwrap();
         let repo = crate::db::sqlite::SqliteRepository::new(pool);
-        let store = Arc::new(RwLock::new(PetgraphStore::new()));
+        let store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
         SearchService::new(Arc::new(repo), store)
     }
 

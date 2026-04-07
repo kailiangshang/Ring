@@ -165,8 +165,12 @@ impl Repository for SqliteRepository {
 
     async fn list_rings_by_user(&self, user_id: &str) -> Result<Vec<Ring>> {
         let rows = sqlx::query_as::<_, RingRow>(
-            "SELECT id, name, description, creator_id, gitlab_repo, local_path, next_token_id, status, created_at, updated_at FROM rings WHERE creator_id = ?",
+            "SELECT DISTINCT r.id, r.name, r.description, r.creator_id, r.gitlab_repo, r.local_path, r.next_token_id, r.status, r.created_at, r.updated_at \
+             FROM rings r \
+             LEFT JOIN members m ON m.ring_id = r.id \
+             WHERE r.creator_id = ? OR m.user_id = ?",
         )
+        .bind(user_id)
         .bind(user_id)
         .fetch_all(&self.pool)
         .await
@@ -453,7 +457,7 @@ impl Repository for SqliteRepository {
                 match before_created {
                     Some((ts,)) => {
                         sqlx::query_as::<_, MessageRow>(
-                            "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",
+                            "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at ASC LIMIT ?",
                         )
                         .bind(conversation_id)
                         .bind(&ts)
@@ -467,7 +471,7 @@ impl Repository for SqliteRepository {
             }
             None => {
                 sqlx::query_as::<_, MessageRow>(
-                    "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",
+                    "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?",
                 )
                 .bind(conversation_id)
                 .bind(limit)

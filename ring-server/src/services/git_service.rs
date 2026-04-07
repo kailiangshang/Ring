@@ -142,21 +142,36 @@ impl GitService {
 
             let diff = repo.diff_tree_to_tree(Some(&from_tree), Some(&to_tree), None)?;
 
-            let mut additions = 0i64;
-            let mut deletions = 0i64;
-            diff.foreach(
-                &mut |_delta, _progress| true,
-                None,
-                None,
-                Some(&mut |_delta, _hunk, line| {
-                    match line.origin() {
-                        '+' => additions += 1,
-                        '-' => deletions += 1,
-                        _ => {}
+            let mut file_stats: std::collections::HashMap<String, (i64, i64)> =
+                std::collections::HashMap::new();
+
+            for (i, delta) in diff.deltas().enumerate() {
+                let path = delta
+                    .new_file()
+                    .path()
+                    .or_else(|| delta.old_file().path())
+                    .map(|p| p.to_string_lossy().to_string());
+                if let Some(path) = path.clone() {
+                    let mut adds: i64 = 0;
+                    let mut dels: i64 = 0;
+                    if let Some(patch) = git2::Patch::from_diff(&diff, i).ok().flatten() {
+                        for h in 0..patch.num_hunks() {
+                            if let Ok((_header, hunk_lines)) = patch.hunk(h) {
+                                for l in 0..hunk_lines {
+                                    if let Ok(line) = patch.line_in_hunk(h, l) {
+                                        match line.origin() {
+                                            '+' => adds += 1,
+                                            '-' => dels += 1,
+                                            _ => {}
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                    true
-                }),
-            )?;
+                    file_stats.insert(path, (adds, dels));
+                }
+            }
 
             let mut files = Vec::new();
             for delta in diff.deltas() {
@@ -172,6 +187,7 @@ impl GitService {
                         git2::Delta::Renamed => "renamed",
                         _ => "unknown",
                     };
+                    let (additions, deletions) = file_stats.get(&path).copied().unwrap_or((0, 0));
                     files.push(FileDiff {
                         path,
                         status: status.to_string(),

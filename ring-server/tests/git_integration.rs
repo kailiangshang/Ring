@@ -5,35 +5,36 @@ use http_body_util::BodyExt;
 use ring_server::config::Config;
 use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
+use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmProvider, MockLlmProvider};
 use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower::ServiceExt;
 
-async fn create_test_app() -> Router {
+async fn create_test_app() -> (Router, String) {
     let pool = sqlx::SqlitePool::connect("sqlite::memory:").await.unwrap();
     sqlx::migrate!("./migrations").run(&pool).await.unwrap();
     let repo = Arc::new(SqliteRepository::new(pool));
     let llm: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(vec![]));
     let state = AppState {
         db: repo,
-        graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
+        graph_store: Arc::new(PetgraphStore::new()) as Arc<dyn GraphStore>,
         config: Arc::new(Config::default()),
         llm_provider: llm,
         ws_hub: Arc::new(WsHub::new()),
         tool_registry: Arc::new(ToolRegistry::new()),
     };
     let app = build_router(state);
-    complete_setup(app.clone()).await;
-    app
+    let user_id = complete_setup(app.clone()).await;
+    (app, user_id)
 }
 
-async fn complete_setup(app: Router) {
-    app.clone()
+async fn complete_setup(app: Router) -> String {
+    let resp = app
+        .clone()
         .oneshot(
             Request::builder()
                 .method(Method::POST)
@@ -46,6 +47,8 @@ async fn complete_setup(app: Router) {
         )
         .await
         .unwrap();
+    let json = body_to_json(resp.into_body()).await;
+    let user_id = json["user_id"].as_str().unwrap().to_string();
 
     app.oneshot(
         Request::builder()
@@ -56,6 +59,8 @@ async fn complete_setup(app: Router) {
     )
     .await
     .unwrap();
+
+    user_id
 }
 
 fn json_body(value: &serde_json::Value) -> Body {
@@ -77,7 +82,7 @@ fn valid_create_ring_body() -> serde_json::Value {
     })
 }
 
-async fn create_ring(app: &Router) -> String {
+async fn create_ring(app: &Router, user_id: &str) -> String {
     let resp = app
         .clone()
         .oneshot(
@@ -85,6 +90,7 @@ async fn create_ring(app: &Router) -> String {
                 .method(Method::POST)
                 .uri("/api/v1/rings")
                 .header("content-type", "application/json")
+                .header("X-User-Id", user_id)
                 .body(json_body(&valid_create_ring_body()))
                 .unwrap(),
         )
@@ -96,13 +102,14 @@ async fn create_ring(app: &Router) -> String {
 
 #[tokio::test]
 async fn get_queue_returns_200() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/archive/queue", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -116,13 +123,14 @@ async fn get_queue_returns_200() {
 
 #[tokio::test]
 async fn list_prs_returns_200() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/git/prs", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -135,13 +143,14 @@ async fn list_prs_returns_200() {
 
 #[tokio::test]
 async fn list_prs_with_state_filter() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/git/prs?state=opened", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -154,13 +163,14 @@ async fn list_prs_with_state_filter() {
 
 #[tokio::test]
 async fn get_commit_log_returns_200() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/git/commits", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -173,13 +183,14 @@ async fn get_commit_log_returns_200() {
 
 #[tokio::test]
 async fn get_commit_log_with_limit() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/git/commits?limit=5", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -190,13 +201,14 @@ async fn get_commit_log_with_limit() {
 
 #[tokio::test]
 async fn get_pr_diff_returns_404_for_missing() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .uri(format!("/api/v1/rings/{}/git/prs/999/diff", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -207,14 +219,15 @@ async fn get_pr_diff_returns_404_for_missing() {
 
 #[tokio::test]
 async fn merge_pr_returns_404_for_missing() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/git/prs/999/merge", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -225,14 +238,15 @@ async fn merge_pr_returns_404_for_missing() {
 
 #[tokio::test]
 async fn reject_pr_returns_404_for_missing() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
             Request::builder()
                 .method(Method::POST)
                 .uri(format!("/api/v1/rings/{}/git/prs/999/reject", ring_id))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )
@@ -243,8 +257,8 @@ async fn reject_pr_returns_404_for_missing() {
 
 #[tokio::test]
 async fn confirm_archive_returns_404_for_missing() {
-    let app = create_test_app().await;
-    let ring_id = create_ring(&app).await;
+    let (app, user_id) = create_test_app().await;
+    let ring_id = create_ring(&app, &user_id).await;
 
     let resp = app
         .oneshot(
@@ -254,6 +268,7 @@ async fn confirm_archive_returns_404_for_missing() {
                     "/api/v1/rings/{}/archive/nonexistent/confirm",
                     ring_id
                 ))
+                .header("X-User-Id", &user_id)
                 .body(Body::empty())
                 .unwrap(),
         )

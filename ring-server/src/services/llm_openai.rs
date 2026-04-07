@@ -4,7 +4,8 @@ use async_openai::types::chat::CreateChatCompletionStreamResponse;
 use async_openai::types::chat::{
     ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
-    ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
+    ChatCompletionRequestSystemMessageContent, ChatCompletionRequestToolMessage,
+    ChatCompletionRequestToolMessageContent, ChatCompletionRequestUserMessage,
     ChatCompletionRequestUserMessageContent, ChatCompletionStreamOptions, ChatCompletionTool,
     ChatCompletionTools, CreateChatCompletionRequest, FinishReason, FunctionObject,
 };
@@ -63,6 +64,10 @@ pub(crate) fn convert_messages(messages: &[LlmMessage]) -> Vec<ChatCompletionReq
                     function_call: None,
                 })
             }
+            "tool" => ChatCompletionRequestMessage::Tool(ChatCompletionRequestToolMessage {
+                content: ChatCompletionRequestToolMessageContent::Text(msg.content.clone()),
+                tool_call_id: String::new(),
+            }),
             _ => ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessage {
                 content: ChatCompletionRequestUserMessageContent::Text(msg.content.clone()),
                 name: None,
@@ -249,12 +254,24 @@ mod tests {
     #[test]
     fn convert_messages_unknown_role_becomes_user() {
         let messages = vec![LlmMessage {
-            role: "tool".into(),
+            role: "function".into(),
             content: "result data".into(),
         }];
         let result = convert_messages(&messages);
         assert!(
             matches!(&result[0], ChatCompletionRequestMessage::User(m) if matches!(&m.content, ChatCompletionRequestUserMessageContent::Text(t) if t == "result data"))
+        );
+    }
+
+    #[test]
+    fn convert_messages_tool_role() {
+        let messages = vec![LlmMessage {
+            role: "tool".into(),
+            content: "tool result".into(),
+        }];
+        let result = convert_messages(&messages);
+        assert!(
+            matches!(&result[0], ChatCompletionRequestMessage::Tool(m) if m.tool_call_id.is_empty())
         );
     }
 
