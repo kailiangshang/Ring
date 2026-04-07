@@ -1,18 +1,16 @@
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
 use crate::error::{Result, RingError};
-use crate::graph::petgraph_store::PetgraphStore;
+use crate::graph::store_trait::GraphStore;
 use crate::graph::types::{EdgeData, NewNode, NodeData};
 use crate::models::graph_model::{CreateNodeRequest, NodeContentResponse, UpdateNodeRequest};
 
 pub struct GraphService {
-    store: Arc<RwLock<PetgraphStore>>,
+    store: Arc<dyn GraphStore>,
 }
 
 impl GraphService {
-    pub fn new(store: Arc<RwLock<PetgraphStore>>) -> Self {
+    pub fn new(store: Arc<dyn GraphStore>) -> Self {
         GraphService { store }
     }
 
@@ -26,13 +24,11 @@ impl GraphService {
             parent_id: req.parent_id,
             description: req.description,
         };
-        let store = self.store.read().await;
-        store.create_node(graph_id, input).await
+        self.store.create_node(graph_id, input).await
     }
 
     pub async fn get_node(&self, graph_id: &str, node_id: &str) -> Result<Option<NodeData>> {
-        let store = self.store.read().await;
-        store.get_node(graph_id, node_id).await
+        self.store.get_node(graph_id, node_id).await
     }
 
     pub async fn update_node(
@@ -46,8 +42,8 @@ impl GraphService {
                 "at least one field must be provided".into(),
             ));
         }
-        let store = self.store.read().await;
-        let node = store
+        let node = self
+            .store
             .update_node(graph_id, node_id, req.label, req.description, req.node_type)
             .await?;
 
@@ -55,18 +51,15 @@ impl GraphService {
     }
 
     pub async fn delete_node(&self, graph_id: &str, node_id: &str) -> Result<()> {
-        let store = self.store.read().await;
-        store.delete_node(graph_id, node_id).await
+        self.store.delete_node(graph_id, node_id).await
     }
 
     pub async fn get_children(&self, graph_id: &str, parent_id: &str) -> Result<Vec<NodeData>> {
-        let store = self.store.read().await;
-        store.get_children(graph_id, parent_id).await
+        self.store.get_children(graph_id, parent_id).await
     }
 
     pub async fn get_root_nodes(&self, graph_id: &str) -> Result<Vec<NodeData>> {
-        let store = self.store.read().await;
-        let graph_data = store.export_graph_json(graph_id).await?;
+        let graph_data = self.store.export_graph_json(graph_id).await?;
         let roots: Vec<NodeData> = graph_data
             .nodes
             .into_iter()
@@ -80,8 +73,7 @@ impl GraphService {
         graph_id: &str,
         node_id: &str,
     ) -> Result<Vec<(NodeData, EdgeData)>> {
-        let store = self.store.read().await;
-        let graph_data = store.export_graph_json(graph_id).await?;
+        let graph_data = self.store.export_graph_json(graph_id).await?;
 
         let neighbor_edge_ids: Vec<String> = graph_data
             .edges
@@ -114,8 +106,8 @@ impl GraphService {
         graph_id: &str,
         node_id: &str,
     ) -> Result<NodeContentResponse> {
-        let store = self.store.read().await;
-        let node = store
+        let node = self
+            .store
             .get_node(graph_id, node_id)
             .await?
             .ok_or_else(|| RingError::NotFound(format!("node {} not found", node_id)))?;
@@ -130,18 +122,18 @@ impl GraphService {
     }
 
     pub async fn list_graphs(&self, _ring_id: &str) -> Result<Vec<String>> {
-        let store = self.store.read().await;
-        Ok(store.list_graph_ids().await)
+        Ok(self.store.list_graph_ids().await)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::petgraph_store::PetgraphStore;
     use crate::graph::types::NewEdge;
 
     fn new_service() -> GraphService {
-        let store = Arc::new(RwLock::new(PetgraphStore::new()));
+        let store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
         GraphService::new(store)
     }
 
@@ -419,21 +411,18 @@ mod tests {
             .await
             .unwrap();
 
-        {
-            let store = svc.store.read().await;
-            store
-                .create_edge(
-                    "graph-1",
-                    NewEdge {
-                        source_id: n1.id.clone(),
-                        target_id: n2.id.clone(),
-                        relation: "depends_on".into(),
-                        label: Some("A depends on B".into()),
-                    },
-                )
-                .await
-                .unwrap();
-        }
+        svc.store
+            .create_edge(
+                "graph-1",
+                NewEdge {
+                    source_id: n1.id.clone(),
+                    target_id: n2.id.clone(),
+                    relation: "depends_on".into(),
+                    label: Some("A depends on B".into()),
+                },
+            )
+            .await
+            .unwrap();
 
         let neighbors = svc.get_neighbors("graph-1", &n1.id).await.unwrap();
         assert_eq!(neighbors.len(), 1);

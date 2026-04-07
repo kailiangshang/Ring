@@ -8,6 +8,7 @@ use petgraph::visit::EdgeRef;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 
+use super::store_trait::GraphStore;
 use super::types::{EdgeData, GraphJson, NewEdge, NewNode, NodeData};
 use crate::error::{Result, RingError};
 
@@ -310,6 +311,56 @@ impl PetgraphStore {
         }
 
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl GraphStore for PetgraphStore {
+    async fn create_node(&self, graph_id: &str, input: NewNode) -> Result<NodeData> {
+        PetgraphStore::create_node(self, graph_id, input).await
+    }
+
+    async fn get_node(&self, graph_id: &str, node_id: &str) -> Result<Option<NodeData>> {
+        PetgraphStore::get_node(self, graph_id, node_id).await
+    }
+
+    async fn update_node(
+        &self,
+        graph_id: &str,
+        node_id: &str,
+        label: Option<String>,
+        description: Option<String>,
+        node_type: Option<String>,
+    ) -> Result<NodeData> {
+        PetgraphStore::update_node(self, graph_id, node_id, label, description, node_type).await
+    }
+
+    async fn delete_node(&self, graph_id: &str, node_id: &str) -> Result<()> {
+        PetgraphStore::delete_node(self, graph_id, node_id).await
+    }
+
+    async fn create_edge(&self, graph_id: &str, input: NewEdge) -> Result<EdgeData> {
+        PetgraphStore::create_edge(self, graph_id, input).await
+    }
+
+    async fn delete_edge(&self, graph_id: &str, edge_id: &str) -> Result<()> {
+        PetgraphStore::delete_edge(self, graph_id, edge_id).await
+    }
+
+    async fn get_children(&self, graph_id: &str, parent_id: &str) -> Result<Vec<NodeData>> {
+        PetgraphStore::get_children(self, graph_id, parent_id).await
+    }
+
+    async fn list_graph_ids(&self) -> Vec<String> {
+        PetgraphStore::list_graph_ids(self).await
+    }
+
+    async fn export_graph_json(&self, graph_id: &str) -> Result<GraphJson> {
+        PetgraphStore::export_graph_json(self, graph_id).await
+    }
+
+    async fn import_graph_json(&self, graph_id: &str, data: &GraphJson) -> Result<()> {
+        PetgraphStore::import_graph_json(self, graph_id, data).await
     }
 }
 

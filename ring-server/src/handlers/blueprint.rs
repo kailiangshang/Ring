@@ -154,11 +154,11 @@ pub async fn confirm_blueprint(
     let mut graph_infos = Vec::new();
 
     {
-        let store = state.graph_store.read().await;
         for graph_def in &req.graphs {
             let graph_id = Uuid::new_v4().to_string();
 
-            let root = store
+            let root = state
+                .graph_store
                 .create_node(
                     &graph_id,
                     NewNode {
@@ -171,7 +171,8 @@ pub async fn confirm_blueprint(
                 .await?;
 
             for cat in &graph_def.categories {
-                store
+                state
+                    .graph_store
                     .create_node(
                         &graph_id,
                         NewNode {

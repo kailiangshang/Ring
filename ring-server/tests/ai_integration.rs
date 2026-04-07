@@ -5,13 +5,13 @@ use http_body_util::BodyExt;
 use ring_server::config::Config;
 use ring_server::db::sqlite::SqliteRepository;
 use ring_server::graph::petgraph_store::PetgraphStore;
+use ring_server::graph::store_trait::GraphStore;
 use ring_server::routes::build_router;
 use ring_server::services::llm_provider::{LlmEvent, LlmProvider, MockLlmProvider, TokenUsage};
 use ring_server::services::tool_engine::ToolRegistry;
 use ring_server::services::ws_hub::WsHub;
 use ring_server::state::AppState;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower::ServiceExt;
 
 fn json_body(value: &serde_json::Value) -> Body {
@@ -33,7 +33,7 @@ fn create_app_with_events(events: Vec<LlmEvent>) -> (Router, String) {
     let llm: Arc<dyn LlmProvider> = Arc::new(MockLlmProvider::new(events));
     let state = AppState {
         db: repo,
-        graph_store: Arc::new(RwLock::new(PetgraphStore::new())),
+        graph_store: Arc::new(PetgraphStore::new()) as Arc<dyn GraphStore>,
         config: Arc::new(Config::default()),
         llm_provider: llm,
         ws_hub: Arc::new(WsHub::new()),

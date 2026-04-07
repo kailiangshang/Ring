@@ -21,8 +21,7 @@ pub async fn get_graph(
     State(state): State<AppState>,
     Path((_ring_id, graph_id)): Path<(String, String)>,
 ) -> Result<Json<GraphDetailResponse>, RingError> {
-    let store = state.graph_store.read().await;
-    let graph_data = store.export_graph_json(&graph_id).await?;
+    let graph_data = state.graph_store.export_graph_json(&graph_id).await?;
     let nodes: Vec<NodeResponse> = graph_data
         .nodes
         .into_iter()
@@ -95,14 +94,13 @@ pub async fn create_edge(
     Path((_ring_id, graph_id)): Path<(String, String)>,
     Json(req): Json<CreateEdgeRequest>,
 ) -> Result<(StatusCode, Json<EdgeResponse>), RingError> {
-    let store = state.graph_store.read().await;
     let new_edge = crate::graph::types::NewEdge {
         source_id: req.source_id,
         target_id: req.target_id,
         relation: req.relation,
         label: req.label,
     };
-    let edge = store.create_edge(&graph_id, new_edge).await?;
+    let edge = state.graph_store.create_edge(&graph_id, new_edge).await?;
     Ok((StatusCode::CREATED, Json(EdgeResponse::from(edge))))
 }
 
@@ -110,7 +108,6 @@ pub async fn delete_edge(
     State(state): State<AppState>,
     Path((_ring_id, graph_id, edge_id)): Path<(String, String, String)>,
 ) -> Result<StatusCode, RingError> {
-    let store = state.graph_store.read().await;
-    store.delete_edge(&graph_id, &edge_id).await?;
+    state.graph_store.delete_edge(&graph_id, &edge_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }

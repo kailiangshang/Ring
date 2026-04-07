@@ -1,11 +1,9 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
-
 use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
-use crate::graph::petgraph_store::PetgraphStore;
+use crate::graph::store_trait::GraphStore;
 use crate::models::git_model::{
     ArchiveQueueResponse, ArchiveRecord, ArchiveRequest, ArchiveResponse, CommitEntry,
     CommitLogResponse, FileChange, PrResponse, QueueItem,
@@ -16,7 +14,7 @@ use crate::services::gitlab_service::GitlabService;
 pub struct ArchiveService {
     db: Arc<dyn Repository>,
     git_service: Arc<GitService>,
-    graph_store: Arc<RwLock<PetgraphStore>>,
+        graph_store: Arc<dyn GraphStore>,
     gitlab_service: Option<Arc<GitlabService>>,
 }
 
@@ -24,7 +22,7 @@ impl ArchiveService {
     pub fn new(
         db: Arc<dyn Repository>,
         git_service: Arc<GitService>,
-        graph_store: Arc<RwLock<PetgraphStore>>,
+    graph_store: Arc<dyn GraphStore>,
         gitlab_service: Option<Arc<GitlabService>>,
     ) -> Self {
         ArchiveService {
@@ -79,8 +77,6 @@ impl ArchiveService {
 
         let graph_data = self
             .graph_store
-            .read()
-            .await
             .export_graph_json(&request.graph_id)
             .await?;
         let graph_json = serde_json::to_string_pretty(&graph_data)?;
@@ -281,6 +277,7 @@ impl ArchiveService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph::petgraph_store::PetgraphStore;
     use crate::models::ring::Ring;
     use std::fs;
 
@@ -675,7 +672,7 @@ mod tests {
         git_svc.add_all(dir.path()).await.unwrap();
         git_svc.commit(dir.path(), "initial commit").await.unwrap();
 
-        let graph_store = Arc::new(RwLock::new(PetgraphStore::new()));
+        let graph_store: Arc<dyn GraphStore> = Arc::new(PetgraphStore::new());
         let ring = make_test_ring(dir.path());
         let db = Arc::new(MockArchiveRepo::new(ring));
 
