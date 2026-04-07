@@ -165,8 +165,12 @@ impl Repository for SqliteRepository {
 
     async fn list_rings_by_user(&self, user_id: &str) -> Result<Vec<Ring>> {
         let rows = sqlx::query_as::<_, RingRow>(
-            "SELECT id, name, description, creator_id, gitlab_repo, local_path, next_token_id, status, created_at, updated_at FROM rings WHERE creator_id = ?",
+            "SELECT DISTINCT r.id, r.name, r.description, r.creator_id, r.gitlab_repo, r.local_path, r.next_token_id, r.status, r.created_at, r.updated_at \
+             FROM rings r \
+             LEFT JOIN members m ON m.ring_id = r.id \
+             WHERE r.creator_id = ? OR m.user_id = ?",
         )
+        .bind(user_id)
         .bind(user_id)
         .fetch_all(&self.pool)
         .await
