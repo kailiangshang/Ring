@@ -1,15 +1,12 @@
 use axum::extract::{Path, State};
-use axum::response::sse::{Event, Sse};
 use axum::Json;
-use futures::StreamExt;
 use serde::{Deserialize, Serialize};
-use std::convert::Infallible;
 use std::sync::Arc;
-use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 
 use crate::error::RingError;
 use crate::graph::types::NewNode;
+use crate::handlers::sse_helpers::{spawn_sse_stream, SseStream};
 use crate::models::blueprint::BlueprintTemplate;
 use crate::services::ai_service::AiService;
 use crate::services::tool_engine::ToolDispatcher;
@@ -94,7 +91,7 @@ pub async fn blueprint_chat(
     State(state): State<AppState>,
     Path(ring_id): Path<String>,
     Json(req): Json<BlueprintChatRequest>,
-) -> Result<Sse<ReceiverStream<Result<Event, Infallible>>>, RingError> {
+) -> Result<SseStream, RingError> {
     if req.message.trim().is_empty() {
         return Err(RingError::Validation("message must not be empty".into()));
     }
@@ -103,32 +100,17 @@ pub async fn blueprint_chat(
     let ai = AiService::new(state.db.clone(), state.llm_provider.clone(), dispatcher);
     let llm_stream = ai.blueprint_chat(&ring_id, req.message).await?;
 
-    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Event, Infallible>>(32);
-
-    tokio::spawn(async move {
-        let mut stream = std::pin::pin!(llm_stream);
-        while let Some(event) = stream.next().await {
-            let json = serde_json::to_string(&event).unwrap_or_default();
-            let sse_event = Event::default().event("message").data(json);
-            if tx.send(Ok(sse_event)).await.is_err() {
-                break;
-            }
-        }
-    });
-
-    Ok(Sse::new(ReceiverStream::new(rx)))
+    Ok(spawn_sse_stream(llm_stream))
 }
 
 pub async fn preview_blueprint(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(_ring_id): Path<String>,
     Json(req): Json<PreviewRequest>,
 ) -> Result<Json<PreviewResponse>, RingError> {
-    let store = state.graph_store.read().await;
     let mut graphs = Vec::new();
 
     for graph_def in &req.graphs {
-        let temp_graph_id = Uuid::new_v4().to_string();
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
 
@@ -139,7 +121,6 @@ pub async fn preview_blueprint(
             node_type: graph_def.graph_type.clone(),
         });
 
-        let mut category_node_ids = Vec::new();
         for cat in &graph_def.categories {
             let cat_id = Uuid::new_v4().to_string();
             nodes.push(NodePreview {
@@ -152,21 +133,6 @@ pub async fn preview_blueprint(
                 target_id: cat_id.clone(),
                 relation: "contains".into(),
             });
-            category_node_ids.push(cat_id);
-        }
-
-        for cat_id in &category_node_ids {
-            let _ = store
-                .create_node(
-                    &temp_graph_id,
-                    NewNode {
-                        label: "placeholder".into(),
-                        node_type: "placeholder".into(),
-                        parent_id: Some(cat_id.clone()),
-                        description: None,
-                    },
-                )
-                .await;
         }
 
         graphs.push(GraphPreview {

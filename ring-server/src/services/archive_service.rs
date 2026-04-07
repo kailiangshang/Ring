@@ -56,16 +56,14 @@ impl ArchiveService {
             )));
         }
 
+        let all = self
+            .db
+            .get_messages(&request.conversation_id, 1000, None)
+            .await?;
         let mut messages = Vec::new();
         for mid in &request.message_ids {
-            let all = self
-                .db
-                .get_messages(&request.conversation_id, 1000, None)
-                .await?;
-            for msg in &all {
-                if msg.id == *mid {
-                    messages.push(msg.content.clone());
-                }
+            if let Some(msg) = all.iter().find(|m| m.id == *mid) {
+                messages.push(msg.content.clone());
             }
         }
 
@@ -222,10 +220,6 @@ impl ArchiveService {
                 }],
             })
             .collect())
-    }
-
-    pub async fn get_pr_diff(&self, _ring_id: &str, _pr_id: i64) -> Result<PrResponse> {
-        Err(RingError::NotFound("pr not found".into()))
     }
 
     pub async fn merge_pr(&self, ring_id: &str, archive_id: &str) -> Result<()> {

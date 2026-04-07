@@ -1,6 +1,7 @@
 use axum::middleware;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
+use tower_http::cors::CorsLayer;
 
 use crate::handlers::ai;
 use crate::handlers::archive;
@@ -99,7 +100,6 @@ pub fn build_router(state: AppState) -> Router {
 
     let git_routes = Router::new()
         .route("/prs", get(git::list_prs))
-        .route("/prs/{prId}/diff", get(git::get_pr_diff))
         .route("/prs/{prId}/merge", post(git::merge_pr))
         .route("/prs/{prId}/reject", post(git::reject_pr))
         .route("/commits", get(git::get_commit_log));
@@ -134,4 +134,5 @@ pub fn build_router(state: AppState) -> Router {
         .route("/join", get(install::join_page))
         .merge(protected)
         .with_state(state)
+        .layer(CorsLayer::permissive())
 }

@@ -92,7 +92,11 @@ impl GraphService {
 
         let mut result = Vec::new();
         for edge_id in &neighbor_edge_ids {
-            let edge = graph_data.edges.iter().find(|e| &e.id == edge_id).unwrap();
+            let edge = graph_data
+                .edges
+                .iter()
+                .find(|e| &e.id == edge_id)
+                .ok_or_else(|| RingError::NotFound(format!("edge {} not found", edge_id)))?;
             let neighbor_id = if edge.source_id == node_id {
                 &edge.target_id
             } else {
@@ -126,7 +130,8 @@ impl GraphService {
     }
 
     pub async fn list_graphs(&self, _ring_id: &str) -> Result<Vec<String>> {
-        Ok(vec![])
+        let store = self.store.read().await;
+        Ok(store.list_graph_ids().await)
     }
 }
 

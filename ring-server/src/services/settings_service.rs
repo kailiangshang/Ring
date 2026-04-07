@@ -29,8 +29,21 @@ impl SettingsService {
     }
 
     pub async fn update_settings(&self, settings: serde_json::Value) -> Result<()> {
+        let allowed = [
+            "llm_provider",
+            "llm_model",
+            "llm_api_key",
+            "llm_base_url",
+            "privacy_enabled",
+        ];
         if let Some(obj) = settings.as_object() {
             for (key, value) in obj {
+                if !allowed.contains(&key.as_str()) {
+                    return Err(crate::error::RingError::Validation(format!(
+                        "unknown setting key: {}",
+                        key
+                    )));
+                }
                 let val_str = match value {
                     serde_json::Value::String(s) => s.clone(),
                     other => other.to_string(),

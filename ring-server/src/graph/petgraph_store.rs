@@ -202,9 +202,9 @@ impl PetgraphStore {
         let edge_idx = inner
             .graph
             .edge_indices()
-            .find(|e| {
-                let w = inner.graph.edge_weight(*e).unwrap();
-                w.id == edge_id && w.graph_id == graph_id
+            .find(|e| match inner.graph.edge_weight(*e) {
+                Some(w) => w.id == edge_id && w.graph_id == graph_id,
+                None => false,
             })
             .ok_or_else(|| RingError::NotFound(format!("edge {} not found", edge_id)))?;
 
@@ -229,6 +229,11 @@ impl PetgraphStore {
         Ok(children)
     }
 
+    pub async fn list_graph_ids(&self) -> Vec<String> {
+        let inner = self.inner.read().await;
+        inner.graph_id_to_nodes.keys().cloned().collect()
+    }
+
     pub async fn export_graph_json(&self, graph_id: &str) -> Result<GraphJson> {
         let inner = self.inner.read().await;
         let mut nodes = Vec::new();
@@ -242,9 +247,10 @@ impl PetgraphStore {
         }
 
         for e in inner.graph.edge_indices() {
-            let w = inner.graph.edge_weight(e).unwrap();
-            if w.graph_id == graph_id {
-                edges.push(w.clone());
+            if let Some(w) = inner.graph.edge_weight(e) {
+                if w.graph_id == graph_id {
+                    edges.push(w.clone());
+                }
             }
         }
 

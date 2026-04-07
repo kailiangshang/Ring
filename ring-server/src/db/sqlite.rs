@@ -457,7 +457,7 @@ impl Repository for SqliteRepository {
                 match before_created {
                     Some((ts,)) => {
                         sqlx::query_as::<_, MessageRow>(
-                            "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at DESC LIMIT ?",
+                            "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? AND created_at < ? ORDER BY created_at ASC LIMIT ?",
                         )
                         .bind(conversation_id)
                         .bind(&ts)
@@ -471,7 +471,7 @@ impl Repository for SqliteRepository {
             }
             None => {
                 sqlx::query_as::<_, MessageRow>(
-                    "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at DESC LIMIT ?",
+                    "SELECT id, conversation_id, role, content, sender_id, tool_calls, archived, created_at FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?",
                 )
                 .bind(conversation_id)
                 .bind(limit)
