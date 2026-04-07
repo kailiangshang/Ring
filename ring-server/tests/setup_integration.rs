@@ -94,7 +94,7 @@ async fn full_setup_wizard_flow() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     let resp = app
         .clone()
@@ -113,7 +113,7 @@ async fn full_setup_wizard_flow() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     let resp = app
         .clone()
@@ -126,7 +126,7 @@ async fn full_setup_wizard_flow() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     let resp = app
         .oneshot(
@@ -207,7 +207,7 @@ async fn setup_twice_returns_conflict() {
         )
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     let resp = app
         .clone()

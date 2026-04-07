@@ -45,7 +45,10 @@ export function StepGitlab() {
       </div>
       {error && <p role="alert">{error}</p>}
       <button type="submit" disabled={loading}>
-        Complete
+        Next
+      </button>
+      <button type="button" disabled={loading} onClick={() => submit_gitlab({ repo_url: '', auth_type: 'local', ssh_key_path: null })}>
+        Skip
       </button>
     </form>
   )

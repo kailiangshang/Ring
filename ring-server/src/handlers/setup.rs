@@ -11,6 +11,7 @@ use crate::state::AppState;
 pub struct SetupStatus {
     pub setup_completed: bool,
     pub step: String,
+    pub     user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,14 +43,17 @@ pub struct GitlabRequest {
 
 pub async fn get_status(State(state): State<AppState>) -> Result<Json<SetupStatus>, RingError> {
     let completed = state.db.is_setup_completed().await?;
-    let step = if completed {
-        "completed".to_string()
+    let (step, user_id) = if completed {
+        let users = state.db.list_all_users().await?;
+        let uid = users.into_iter().next().map(|u| u.id);
+        ("completed".to_string(), uid)
     } else {
-        "username".to_string()
+        ("username".to_string(), None)
     };
     Ok(Json(SetupStatus {
         setup_completed: completed,
         step,
+        user_id,
     }))
 }
 
@@ -95,7 +99,7 @@ pub async fn set_llm(
     }
     let value = serde_json::to_string(&req).map_err(RingError::Serialization)?;
     state.db.set_setting("llm_config", &value).await?;
-    Ok(StatusCode::OK)
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn set_gitlab(
@@ -107,7 +111,7 @@ pub async fn set_gitlab(
     }
     let value = serde_json::to_string(&req).map_err(RingError::Serialization)?;
     state.db.set_setting("gitlab_config", &value).await?;
-    Ok(StatusCode::OK)
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn complete(State(state): State<AppState>) -> Result<StatusCode, RingError> {
@@ -120,5 +124,5 @@ pub async fn complete(State(state): State<AppState>) -> Result<StatusCode, RingE
         .next()
         .ok_or_else(|| RingError::Validation("must set username before completing setup".into()))?;
     state.db.complete_setup(&user.id).await?;
-    Ok(StatusCode::OK)
+    Ok(StatusCode::NO_CONTENT)
 }

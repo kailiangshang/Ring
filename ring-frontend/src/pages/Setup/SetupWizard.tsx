@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useSetupStore } from '../../stores/setupStore'
 import { StepUsername } from './StepUsername'
 import { StepLlm } from './StepLlm'
@@ -11,7 +12,12 @@ export function SetupWizard() {
   const set_step = useSetupStore((s) => s.set_step)
   const error = useSetupStore((s) => s.error)
   const complete = useSetupStore((s) => s.complete)
+  const redirect_home = useSetupStore((s) => s.redirect_home)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (redirect_home) navigate('/', { replace: true })
+  }, [redirect_home, navigate])
 
   const handle_complete = async () => {
     await complete()

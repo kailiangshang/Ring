@@ -33,12 +33,19 @@ import { toast_error } from '../components/Toast'
 
 const BASE_URL = '/api/v1'
 
+function get_auth_headers(): Record<string, string> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  const user_id = localStorage.getItem('ring_user_id')
+  if (user_id) headers['X-User-Id'] = user_id
+  return headers
+}
+
 async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers: get_auth_headers(),
     ...options,
   })
   if (!res.ok) {
@@ -132,16 +139,16 @@ export function send_message(
 ): Promise<Response> {
   return fetch(`${BASE_URL}/rings/${ring_id}/conversations/${conv_id}/messages`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content }),
+    headers: get_auth_headers(),
+    body: JSON.stringify({ message: content }),
   })
 }
 
-export function super_ring_chat(message: string): Promise<Response> {
+export function super_ring_chat(message: string, history: { role: string; content: string }[] = []): Promise<Response> {
   return fetch(`${BASE_URL}/super-ring/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    headers: get_auth_headers(),
+    body: JSON.stringify({ message, history }),
   })
 }
 
@@ -157,11 +164,12 @@ export async function list_blueprint_templates(
 export function blueprint_chat(
   ring_id: string,
   message: string,
+  history: { role: string; content: string }[] = [],
 ): Promise<Response> {
   return fetch(`${BASE_URL}/rings/${ring_id}/blueprint/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message }),
+    headers: get_auth_headers(),
+    body: JSON.stringify({ message, history }),
   })
 }
 
@@ -329,7 +337,7 @@ export async function generate_invite(
   ring_id: string,
   req: InviteRequest,
 ): Promise<InviteToken> {
-  return request<InviteToken>(`/rings/${ring_id}/invites`, {
+  return request<InviteToken>(`/rings/${ring_id}/members/invites`, {
     method: 'POST',
     body: JSON.stringify(req),
   })
@@ -444,6 +452,28 @@ export async function delete_session(
 ): Promise<void> {
   return request<void>(`/rings/${ring_id}/sessions/${session_id}`, {
     method: 'DELETE',
+  })
+}
+
+export async function get_session_messages(
+  ring_id: string,
+  session_id: string,
+): Promise<Message[]> {
+  const data = await request<{ messages: Message[] }>(
+    `/rings/${ring_id}/sessions/${session_id}/messages`,
+  )
+  return data.messages
+}
+
+export function send_session_message(
+  ring_id: string,
+  session_id: string,
+  message: string,
+): Promise<Response> {
+  return fetch(`${BASE_URL}/rings/${ring_id}/sessions/${session_id}/messages`, {
+    method: 'POST',
+    headers: get_auth_headers(),
+    body: JSON.stringify({ message }),
   })
 }
 

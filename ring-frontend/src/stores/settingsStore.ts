@@ -28,7 +28,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     set({ loading: true, error: null })
     try {
       await api.update_settings(settings)
-      set({ settings, loading: false })
+      const fresh = await api.get_settings()
+      set({ settings: fresh, loading: false })
     } catch (e) {
       set({ error: (e as Error).message, loading: false })
     }

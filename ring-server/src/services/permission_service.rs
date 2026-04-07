@@ -13,6 +13,12 @@ impl PermissionService {
     }
 
     pub async fn check_ring_access(&self, ring_id: &str, user_id: &str) -> Result<()> {
+        let ring = self.db.get_ring(ring_id).await?;
+        if let Some(r) = &ring {
+            if r.creator_id == user_id {
+                return Ok(());
+            }
+        }
         let member = self
             .db
             .get_member_by_user_and_ring(user_id, ring_id)
@@ -24,18 +30,30 @@ impl PermissionService {
     }
 
     pub async fn check_creator_or_admin(&self, ring_id: &str, user_id: &str) -> Result<()> {
+        let ring = self.db.get_ring(ring_id).await?;
+        if let Some(r) = &ring {
+            if r.creator_id == user_id {
+                return Ok(());
+            }
+        }
         let member = self
             .db
             .get_member_by_user_and_ring(user_id, ring_id)
             .await?;
         match member {
-            Some(m) if m.role == "creator" || m.role == "admin" => Ok(()),
+            Some(m) if m.role == "admin" => Ok(()),
             Some(_) => Err(RingError::Forbidden("creator or admin required".into())),
             None => Err(RingError::Forbidden("not a member of this ring".into())),
         }
     }
 
     pub async fn check_creator(&self, ring_id: &str, user_id: &str) -> Result<()> {
+        let ring = self.db.get_ring(ring_id).await?;
+        if let Some(r) = &ring {
+            if r.creator_id == user_id {
+                return Ok(());
+            }
+        }
         let member = self
             .db
             .get_member_by_user_and_ring(user_id, ring_id)

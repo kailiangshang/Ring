@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::error::RingError;
-use crate::handlers::sse_helpers::{spawn_sse_stream, SseStream};
+use crate::handlers::sse_helpers::{spawn_sse_stream_with_callback, SseStream};
 use crate::middleware::auth::AuthUser;
 use crate::models::conversation::Conversation;
 use crate::services::ai_service::AiService;
@@ -93,9 +93,20 @@ pub async fn send_message(
         return Err(RingError::Validation("message must not be empty".into()));
     }
 
+    let llm = state.rebuild_llm().await;
     let dispatcher = Arc::new(ToolDispatcher::new(state.tool_registry.clone()));
-    let ai = AiService::new(state.db.clone(), state.llm_provider.clone(), dispatcher);
+    let ai = AiService::new(state.db.clone(), llm, dispatcher);
     let llm_stream = ai.group_ring_chat(&ring_id, &conv_id, req.message).await?;
 
-    Ok(spawn_sse_stream(llm_stream))
+    let db = state.db.clone();
+    let conv_id_clone = conv_id.clone();
+    let on_complete = move |content: String| {
+        let db = db.clone();
+        let conv_id = conv_id_clone.clone();
+        tokio::spawn(async move {
+            let _ = db.create_message(&conv_id, "assistant", &content, None).await;
+        });
+    };
+
+    Ok(spawn_sse_stream_with_callback(llm_stream, Some(on_complete)))
 }

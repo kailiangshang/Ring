@@ -24,8 +24,8 @@ pub struct RingsResponse {
 pub struct CreateRingHandlerRequest {
     pub name: String,
     pub description: Option<String>,
-    pub role_description: String,
-    pub gitlab_repo: String,
+    pub role_description: Option<String>,
+    pub gitlab_repo: Option<String>,
     pub namespace: Option<String>,
 }
 
@@ -53,9 +53,9 @@ pub async fn create_ring(
         .create_ring(CreateRingRequest {
             name: req.name,
             description: req.description,
-            role_description: req.role_description,
+            role_description: req.role_description.unwrap_or_default(),
             creator_id: user_id,
-            gitlab_repo: req.gitlab_repo,
+            gitlab_repo: req.gitlab_repo.unwrap_or_default(),
             namespace: req.namespace,
         })
         .await?;

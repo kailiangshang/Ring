@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
+import { useBlueprintStore } from '../../stores/blueprintStore'
 import * as api from '../../api/client'
-import { parseSseStream } from '../../components/chat/SseParser'
 import { ChatBubble } from '../../components/chat/ChatBubble'
 import { ChatInput } from '../../components/chat/ChatInput'
-import type {
-  BlueprintTemplate,
-  Message,
-  SseEvent,
-  GraphDef,
-} from '../../types'
+import type { BlueprintTemplate, GraphDef } from '../../types'
 
 type TabMode = 'templates' | 'custom'
 
@@ -17,10 +12,14 @@ export function BlueprintWizard() {
   const { ringId } = useParams<{ ringId: string }>()
   const [tab, set_tab] = useState<TabMode>('templates')
   const [templates, set_templates] = useState<BlueprintTemplate[]>([])
-  const [messages, set_messages] = useState<Message[]>([])
-  const [is_streaming, set_streaming] = useState(false)
-  const [preview_graphs, set_preview_graphs] = useState<GraphDef[] | null>(null)
   const [error, set_error] = useState<string | null>(null)
+
+  const messages = useBlueprintStore((s) => s.messages)
+  const is_streaming = useBlueprintStore((s) => s.is_streaming)
+  const preview_graphs = useBlueprintStore((s) => s.preview_graphs)
+  const send_message = useBlueprintStore((s) => s.send_message)
+  const confirm = useBlueprintStore((s) => s.confirm)
+  const store_error = useBlueprintStore((s) => s.error)
 
   useEffect(() => {
     if (!ringId || tab !== 'templates') return
@@ -31,77 +30,15 @@ export function BlueprintWizard() {
     if (!ringId) return
     try {
       const res = await api.blueprint_preview(ringId, t.graphs)
-      set_preview_graphs(res.graphs)
+      useBlueprintStore.setState({ preview_graphs: res.graphs })
     } catch (e) {
       set_error((e as Error).message)
     }
   }
 
-  const handle_confirm = async () => {
-    if (!ringId || !preview_graphs) return
-    try {
-      await api.blueprint_confirm(ringId, preview_graphs)
-      set_preview_graphs(null)
-    } catch (e) {
-      set_error((e as Error).message)
-    }
-  }
-
-  const handle_custom_send = async (content: string) => {
+  const handle_custom_send = (content: string) => {
     if (!ringId) return
-
-    const user_msg: Message = {
-      id: `temp-${Date.now()}`,
-      conversation_id: '',
-      role: 'user',
-      content,
-      sender_id: '',
-      created_at: new Date().toISOString(),
-    }
-    set_messages((prev) => [...prev, user_msg])
-    set_streaming(true)
-    set_error(null)
-
-    try {
-      const res = await api.blueprint_chat(ringId, content)
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error || `request failed: ${res.status}`)
-      }
-
-      const reader = res.body?.getReader()
-      if (!reader) throw new Error('no response body')
-
-      let assistant_content = ''
-
-      for await (const event of parseSseStream(reader) as AsyncGenerator<SseEvent>) {
-        if (event.type === 'text' && event.content) {
-          assistant_content += event.content
-          set_messages((prev) => {
-            const filtered = prev.filter((m) => m.id !== 'stream-blueprint')
-            return [
-              ...filtered,
-              {
-                id: 'stream-blueprint',
-                conversation_id: '',
-                role: 'assistant',
-                content: assistant_content,
-                sender_id: '',
-                created_at: new Date().toISOString(),
-              },
-            ]
-          })
-        } else if (event.type === 'blueprint_proposal' && event.graphs) {
-          set_preview_graphs(event.graphs)
-        } else if (event.type === 'error') {
-          throw new Error(event.message || 'stream error')
-        }
-      }
-    } catch (e) {
-      set_error((e as Error).message)
-    } finally {
-      set_streaming(false)
-    }
+    send_message(ringId, content)
   }
 
   return (
@@ -158,7 +95,7 @@ export function BlueprintWizard() {
       )}
 
       {preview_graphs && (
-        <div style={{ marginTop: 16, border: '1px solid #aa3bff', padding: 12 }}>
+        <div style={{ marginTop: 16, border: '1px solid #aa3bff', padding: 12, background: 'var(--bg, #fff)', color: 'var(--text-h, #000)', borderRadius: 8 }}>
           <h3>Blueprint Preview</h3>
           {preview_graphs.map((g, i) => (
             <div key={i}>
@@ -166,13 +103,13 @@ export function BlueprintWizard() {
               {g.categories.join(', ')}
             </div>
           ))}
-          <button onClick={handle_confirm} style={{ marginTop: 8 }}>
+          <button onClick={() => ringId && confirm(ringId)} style={{ marginTop: 8 }}>
             Confirm Blueprint
           </button>
         </div>
       )}
 
-      {error && <p role="alert">{error}</p>}
+      {(error || store_error) && <p role="alert">{error || store_error}</p>}
     </div>
   )
 }

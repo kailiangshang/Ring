@@ -36,19 +36,19 @@ export function CreateRing({ on_create }: CreateRingProps) {
   }
 
   if (!open) {
-    return <button onClick={() => set_open(true)}>Create Ring</button>
+    return <button onClick={() => set_open(true)}>Create Ring Group</button>
   }
 
   return (
     <form onSubmit={handle_submit}>
-      <h2>Create New Ring</h2>
+      <h2>Create New Ring Group</h2>
       <div>
         <label>Name</label>
         <input
           type="text"
           value={name}
           onChange={(e) => set_name(e.target.value)}
-          placeholder="Ring name"
+          placeholder="Ring Group name"
         />
       </div>
       <div>

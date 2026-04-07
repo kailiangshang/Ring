@@ -6,6 +6,7 @@ export interface User {
 export interface SetupStatus {
   setup_completed: boolean
   step: string
+  user_id?: string
 }
 
 export interface LlmConfig {
@@ -240,15 +241,13 @@ export interface Member {
   joined_at: string
 }
 
-export interface SessionData {
+export interface SessionMessage {
   id: string
-  ring_id: string
-  title: string | null
-  scenario: string
-  created_by: string
-  archive_enabled: boolean
-  status: string
-  members: SessionMemberData[]
+  session_id: string
+  sender_id: string
+  role: 'user' | 'assistant'
+  content: string
+  seq_num: number
   created_at: string
 }
 

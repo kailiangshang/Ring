@@ -25,6 +25,14 @@ impl SettingsService {
                 settings.insert(key.to_string(), serde_json::Value::String(val));
             }
         }
+        let users = self.repo.list_all_users().await?;
+        if let Some(user) = users.into_iter().next() {
+            settings.insert("user_id".to_string(), serde_json::Value::String(user.id));
+            settings.insert(
+                "display_name".to_string(),
+                serde_json::Value::String(user.display_name),
+            );
+        }
         Ok(serde_json::Value::Object(settings))
     }
 

@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 
+const LLM_PROVIDERS = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'ollama', label: 'Ollama' },
+  { value: 'anthropic', label: 'Anthropic' },
+]
+
 export function SettingsPage() {
   const { settings, loading, error, load_settings, save_settings } = useSettingsStore()
   const [form, set_form] = useState({
@@ -34,15 +40,35 @@ export function SettingsPage() {
     <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
       <h2>Settings</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      <section style={{ marginBottom: 32 }}>
+        <h3 style={{ marginBottom: 12, fontSize: 16, color: 'var(--text-h)' }}>Profile</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+            <span>Display Name</span>
+            <strong style={{ color: 'var(--text-h)' }}>{settings.display_name || '—'}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+            <span>User ID</span>
+            <code style={{ fontSize: 13 }}>{settings.user_id || '—'}</code>
+          </div>
+        </div>
+      </section>
+
       <form onSubmit={handle_save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <h3 style={{ marginBottom: 4, fontSize: 16, color: 'var(--text-h)' }}>LLM Configuration</h3>
         <label>
-          LLM Provider
-          <input
+          Provider
+          <select
             value={form.llm_provider}
             onChange={(e) => set_form({ ...form, llm_provider: e.target.value })}
-            placeholder="openai / ollama / anthropic"
-            style={{ width: '100%', marginTop: 4 }}
-          />
+            style={{ width: '100%', marginTop: 4, padding: 8 }}
+          >
+            <option value="">Select provider...</option>
+            {LLM_PROVIDERS.map((p) => (
+              <option key={p.value} value={p.value}>{p.label}</option>
+            ))}
+          </select>
         </label>
         <label>
           Model

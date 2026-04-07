@@ -7,7 +7,7 @@ use crate::db::traits::Repository;
 use crate::error::{Result, RingError};
 use crate::models::tool_model::{ToolCallRequest, ToolDefinition};
 use crate::services::context_loader::{
-    build_blueprint_prompt, build_group_ring_prompt, build_super_ring_prompt,
+    build_blueprint_prompt, build_group_ring_prompt, build_session_prompt, build_super_ring_prompt,
 };
 use crate::services::llm_provider::{LlmEvent, LlmMessage, LlmProvider};
 use crate::services::tool_engine::ToolDispatcher;
@@ -33,19 +33,40 @@ impl AiService {
 
     pub async fn super_ring_chat(
         &self,
+        user_id: String,
         message: String,
+        history: Vec<LlmMessage>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let system_prompt = build_super_ring_prompt();
-        let messages = vec![
-            LlmMessage {
-                role: "system".into(),
-                content: system_prompt,
-            },
-            LlmMessage {
-                role: "user".into(),
-                content: message,
-            },
-        ];
+        let mut context = system_prompt;
+
+        let rings = self.db.list_rings_by_user(&user_id).await.unwrap_or_default();
+        if !rings.is_empty() {
+            let ring_summary: Vec<String> = rings
+                .iter()
+                .map(|r| format!("- {} (id: {})", r.name, r.id))
+                .collect();
+            context.push_str("\n\n## 当前用户的 Ring 列表\n");
+            context.push_str(&ring_summary.join("\n"));
+        } else {
+            context.push_str("\n\n## 当前用户的 Ring 列表\n用户尚未创建任何 Ring。");
+        }
+
+        let mut messages = vec![LlmMessage {
+            role: "system".into(),
+            content: context.clone(),
+        }];
+
+        let system_tokens = estimate_tokens(&context);
+        let budget = 100_000usize.saturating_sub(system_tokens);
+        let truncated = truncate_llm_messages(&history, budget);
+        messages.extend(truncated);
+
+        messages.push(LlmMessage {
+            role: "user".into(),
+            content: message,
+        });
+
         self.llm.chat_stream(messages, None).await
     }
 
@@ -71,7 +92,7 @@ impl AiService {
             .create_message(conv_id, "user", &message, None)
             .await?;
 
-        let history = self.db.get_messages(conv_id, 100, None).await?;
+        let all_messages = self.db.get_messages(conv_id, 200, None).await?;
 
         let role_md = "(未设置角色定义)";
         let system_prompt = build_group_ring_prompt(
@@ -81,12 +102,16 @@ impl AiService {
             conv.title.as_deref().unwrap_or("(无活跃上下文)"),
         );
 
+        let system_tokens = estimate_tokens(&system_prompt);
+        let budget = 100_000usize.saturating_sub(system_tokens);
+        let history = truncate_messages(&all_messages, budget);
+
         let mut messages = vec![LlmMessage {
             role: "system".into(),
             content: system_prompt,
         }];
 
-        for msg in history.into_iter().rev() {
+        for msg in history {
             messages.push(LlmMessage {
                 role: msg.role,
                 content: msg.content,
@@ -100,6 +125,7 @@ impl AiService {
         &self,
         ring_id: &str,
         message: String,
+        history: Vec<LlmMessage>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let _ring = self
             .db
@@ -110,16 +136,66 @@ impl AiService {
         let role_md = "(未设置角色定义)";
         let system_prompt = build_blueprint_prompt(role_md);
 
-        let messages = vec![
-            LlmMessage {
-                role: "system".into(),
-                content: system_prompt,
-            },
-            LlmMessage {
-                role: "user".into(),
-                content: message,
-            },
-        ];
+        let mut messages = vec![LlmMessage {
+            role: "system".into(),
+            content: system_prompt.clone(),
+        }];
+
+        let system_tokens = estimate_tokens(&system_prompt);
+        let budget = 100_000usize.saturating_sub(system_tokens);
+        let truncated = truncate_llm_messages(&history, budget);
+        messages.extend(truncated);
+
+        messages.push(LlmMessage {
+            role: "user".into(),
+            content: message,
+        });
+
+        self.llm.chat_stream(messages, None).await
+    }
+
+    pub async fn session_chat(
+        &self,
+        _ring_id: &str,
+        session_id: &str,
+        sender_id: &str,
+        ring_name: &str,
+        scenario: &str,
+        message: String,
+    ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
+        self.db
+            .create_session_message(session_id, sender_id, "user", &message, 1)
+            .await?;
+
+        let all_messages = self
+            .db
+            .get_session_messages(session_id, None, 200)
+            .await?;
+        let system_prompt = build_session_prompt(ring_name, scenario);
+        let mut messages = vec![LlmMessage {
+            role: "system".into(),
+            content: system_prompt.clone(),
+        }];
+
+        let history: Vec<LlmMessage> = all_messages
+            .iter()
+            .filter(|m| m.role == "user" || m.role == "assistant")
+            .map(|m| LlmMessage {
+                role: m.role.clone(),
+                content: m.content.clone(),
+            })
+            .collect();
+
+        let system_tokens = estimate_tokens(&system_prompt);
+        let budget = 100_000usize.saturating_sub(system_tokens);
+        let truncated = truncate_llm_messages(&history, budget);
+        for msg in truncated {
+            messages.push(LlmMessage {
+                role: msg.role,
+                content: msg.content,
+            });
+        }
+
         self.llm.chat_stream(messages, None).await
     }
 
@@ -226,6 +302,48 @@ impl AiService {
     }
 }
 
+fn estimate_tokens(text: &str) -> usize {
+    text.len() / 3
+}
+
+use crate::models::conversation::Message;
+
+fn truncate_messages(messages: &[Message], budget_tokens: usize) -> Vec<Message> {
+    let budget_chars = budget_tokens * 3;
+    let mut total_chars = 0usize;
+    let mut kept = Vec::new();
+
+    for msg in messages.iter().rev() {
+        let cost = msg.content.len();
+        if total_chars + cost > budget_chars {
+            break;
+        }
+        total_chars += cost;
+        kept.push(msg.clone());
+    }
+
+    kept.reverse();
+    kept
+}
+
+fn truncate_llm_messages(messages: &[LlmMessage], budget_tokens: usize) -> Vec<LlmMessage> {
+    let budget_chars = budget_tokens * 3;
+    let mut total_chars = 0usize;
+    let mut kept = Vec::new();
+
+    for msg in messages.iter().rev() {
+        let cost = msg.content.len();
+        if total_chars + cost > budget_chars {
+            break;
+        }
+        total_chars += cost;
+        kept.push(msg.clone());
+    }
+
+    kept.reverse();
+    kept
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -297,7 +415,7 @@ mod tests {
             &self,
             _user_id: &str,
         ) -> crate::error::Result<Vec<crate::models::ring::Ring>> {
-            unimplemented!()
+            Ok(vec![])
         }
         async fn update_ring(
             &self,
@@ -624,7 +742,7 @@ mod tests {
             crate::services::tool_engine::ToolRegistry::new(),
         )));
         let svc = AiService::new(db, llm, dispatcher);
-        let stream = svc.super_ring_chat("hi".into()).await.unwrap();
+        let stream = svc.super_ring_chat("user-1".into(), "hi".into(), vec![]).await.unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
         assert_eq!(collected.len(), 2);
         assert!(matches!(&collected[0], LlmEvent::Text { content } if content == "hello"));
@@ -660,7 +778,7 @@ mod tests {
             crate::services::tool_engine::ToolRegistry::new(),
         )));
         let svc = AiService::new(db, llm, dispatcher);
-        let _stream = svc.super_ring_chat("test".into()).await.unwrap();
+        let _stream = svc.super_ring_chat("user-1".into(), "test".into(), vec![]).await.unwrap();
         let prompt = build_super_ring_prompt();
         assert!(prompt.contains("Super Ring"));
         assert!(prompt.contains("核心能力"));

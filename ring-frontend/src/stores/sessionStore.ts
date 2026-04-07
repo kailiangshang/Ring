@@ -71,8 +71,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       await api.toggle_session_archive(ring_id, session_id, enabled)
-      const updated = await api.get_session(ring_id, session_id)
-      set({ current_session: updated, loading: false })
+      await get().load_sessions(ring_id)
     } catch (e) {
       set({ error: (e as Error).message, loading: false })
     }

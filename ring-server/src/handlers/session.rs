@@ -1,13 +1,18 @@
 use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::RingError;
+use crate::handlers::sse_helpers::{spawn_sse_stream_with_callback, SseStream};
 use crate::middleware::auth::AuthUser;
 use crate::models::session_model::*;
+use crate::services::ai_service::AiService;
 use crate::services::session_service::SessionService;
+use crate::services::tool_engine::ToolDispatcher;
 use crate::state::AppState;
+
+use std::sync::Arc;
 
 pub async fn create_session(
     State(state): State<AppState>,
@@ -136,4 +141,61 @@ pub async fn get_messages(
         )
         .await?;
     Ok(Json(resp))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SessionChatRequest {
+    pub message: String,
+}
+
+pub async fn send_message(
+    State(state): State<AppState>,
+    Extension(auth_user): Extension<AuthUser>,
+    Path((ring_id, session_id)): Path<(String, String)>,
+    Json(req): Json<SessionChatRequest>,
+) -> Result<SseStream, RingError> {
+    if req.message.trim().is_empty() {
+        return Err(RingError::Validation("message must not be empty".into()));
+    }
+
+    let session_svc = SessionService::new(state.db.clone());
+    let session = session_svc.get_session_detail(&ring_id, &session_id).await?;
+    let ring = state
+        .db
+        .get_ring(&ring_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound(format!("ring {}", ring_id)))?;
+
+    let llm = state.rebuild_llm().await;
+    let dispatcher = Arc::new(ToolDispatcher::new(state.tool_registry.clone()));
+    let ai = AiService::new(state.db.clone(), llm, dispatcher);
+    let llm_stream = ai
+        .session_chat(
+            &ring_id,
+            &session_id,
+            &auth_user.user_id,
+            &ring.name,
+            &session.scenario,
+            req.message,
+        )
+        .await?;
+
+    let db = state.db.clone();
+    let sid = session_id.clone();
+    let on_complete = move |content: String| {
+        let db = db.clone();
+        let session_id = sid.clone();
+        tokio::spawn(async move {
+            let msgs = db.get_session_messages(&session_id, None, 1).await.ok();
+            let seq = msgs
+                .and_then(|m| m.last().map(|msg| msg.seq_num + 1))
+                .unwrap_or(1);
+            let _ = db
+                .create_session_message(&session_id, "system", "assistant", &content, seq)
+                .await;
+        });
+    };
+
+
+    Ok(spawn_sse_stream_with_callback(llm_stream, Some(on_complete)))
 }

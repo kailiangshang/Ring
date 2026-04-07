@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useChatStore } from '../../stores/chatStore'
+import * as api from '../../api/client'
 import { ChatBubble } from '../../components/chat/ChatBubble'
 import { ChatInput } from '../../components/chat/ChatInput'
 import { ToolCallBubble } from '../../components/chat/ToolCallBubble'
@@ -10,7 +11,7 @@ import { Toolbar } from '../../components/toolbar/Toolbar'
 import type { ToolStatus } from '../../components/toolbar/Toolbar'
 
 const DEFAULT_TOOLS: ToolStatus[] = [
-  { name: 'search', description: 'Search the knowledge graph', active: true },
+  { name: 'search', description: 'Search the knowledge graph', active: false },
   { name: 'text_clean', description: 'Clean and normalize text', active: false },
   { name: 'web_scrape', description: 'Extract text from web pages', active: false },
   { name: 'markdown_gen', description: 'Generate markdown documents', active: false },
@@ -41,11 +42,24 @@ export function ChatView() {
 
   useEffect(() => {
     if (!ringId) return
+    if (current_conversation_id) return
 
     const init = async () => {
-      reset()
-      const conv_id = await create_conversation(ringId, 'New Conversation')
-      await load_history(ringId, conv_id)
+      try {
+        const convs = await api.list_conversations(ringId)
+        if (convs.length > 0) {
+          const last = convs[convs.length - 1]
+          await load_history(ringId, last.id)
+        } else {
+          reset()
+          const conv_id = await create_conversation(ringId, 'New Conversation')
+          await load_history(ringId, conv_id)
+        }
+      } catch {
+        reset()
+        const conv_id = await create_conversation(ringId, 'New Conversation')
+        await load_history(ringId, conv_id)
+      }
     }
 
     init()
