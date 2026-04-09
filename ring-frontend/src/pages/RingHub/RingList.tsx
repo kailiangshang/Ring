@@ -1,4 +1,7 @@
+import { Badge } from '../../components/ui/Badge'
+import { EmptyState } from '../../components/ui/EmptyState'
 import type { RingListItem } from '../../types'
+import './RingHub.css'
 
 interface RingListProps {
   rings: RingListItem[]
@@ -7,27 +10,40 @@ interface RingListProps {
 
 export function RingList({ rings, on_select }: RingListProps) {
   if (rings.length === 0) {
-    return <p>No rings yet. Create one to get started.</p>
+    return (
+      <EmptyState
+        icon="⊕"
+        title="No rings yet"
+        description="Create your first Ring to get started with collaborative knowledge management."
+        action_label="Create Ring"
+        on_action={() => on_select('new')}
+      />
+    )
   }
 
   return (
-    <div>
+    <div className="ring-hub-grid">
       {rings.map((ring) => (
         <div
           key={ring.id}
+          className="ring-card"
           onClick={() => on_select(ring.id)}
-          style={{
-            border: '1px solid #ccc',
-            padding: 12,
-            marginBottom: 8,
-            cursor: 'pointer',
-          }}
         >
-          <h3>{ring.name}</h3>
-          <p>
-            Members: {ring.member_count} | Nodes: {ring.graph_node_count} | Role: {ring.role}
-          </p>
-          <p>Last activity: {ring.last_activity_at}</p>
+          <div className="ring-card-header">
+            <span className="ring-card-dot" />
+            <span className="ring-card-name">{ring.name}</span>
+          </div>
+          <div className="ring-card-desc">
+            {ring.member_count} members
+          </div>
+          <div className="ring-card-activity">
+            Last activity: {ring.last_activity_at}
+          </div>
+          <div className="ring-card-divider" />
+          <div className="ring-card-footer">
+            <span className="ring-card-meta">{ring.graph_node_count} nodes</span>
+            <Badge status={ring.role}>{ring.role}</Badge>
+          </div>
         </div>
       ))}
     </div>

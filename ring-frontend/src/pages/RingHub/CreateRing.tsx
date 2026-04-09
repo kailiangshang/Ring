@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { Button } from '../../components/ui/Button'
+import { Input } from '../../components/ui/Input'
+import { Modal } from '../../components/ui/Modal'
 import type { CreateRingRequest } from '../../types'
 
 interface CreateRingProps {
@@ -35,46 +38,51 @@ export function CreateRing({ on_create }: CreateRingProps) {
     }
   }
 
-  if (!open) {
-    return <button onClick={() => set_open(true)}>Create Ring Group</button>
-  }
-
   return (
-    <form onSubmit={handle_submit}>
-      <h2>Create New Ring Group</h2>
-      <div>
-        <label>Name</label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => set_name(e.target.value)}
-          placeholder="Ring Group name"
-        />
-      </div>
-      <div>
-        <label>Description</label>
-        <input
-          type="text"
-          value={description}
-          onChange={(e) => set_description(e.target.value)}
-          placeholder="Optional description"
-        />
-      </div>
-      <div>
-        <label>Role Description</label>
-        <textarea
-          value={role_description}
-          onChange={(e) => set_role_description(e.target.value)}
-          placeholder="Describe the AI role for this ring"
-        />
-      </div>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={loading}>
-        Create
-      </button>
-      <button type="button" onClick={() => set_open(false)}>
-        Cancel
-      </button>
-    </form>
+    <>
+      <Button onClick={() => set_open(true)}>Create Ring</Button>
+      <Modal
+        open={open}
+        on_close={() => set_open(false)}
+        title="Create Ring"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => set_open(false)}>Cancel</Button>
+            <Button onClick={handle_submit as () => void} disabled={loading || !name.trim()}>Create</Button>
+          </>
+        }
+      >
+        <form onSubmit={handle_submit}>
+          {error && <p className="setup-error" role="alert">{error}</p>}
+          <div className="setup-field">
+            <label>Name</label>
+            <Input
+              type="text"
+              value={name}
+              onChange={(e) => set_name(e.target.value)}
+              placeholder="Ring Group name"
+            />
+          </div>
+          <div className="setup-field">
+            <label>Description</label>
+            <Input
+              type="text"
+              value={description}
+              onChange={(e) => set_description(e.target.value)}
+              placeholder="Optional description"
+            />
+          </div>
+          <div className="setup-field">
+            <label>Role Description</label>
+            <Input
+              input_type="textarea"
+              value={role_description}
+              onChange={(e) => set_role_description(e.target.value)}
+              placeholder="Describe the AI role for this ring"
+            />
+          </div>
+        </form>
+      </Modal>
+    </>
   )
 }

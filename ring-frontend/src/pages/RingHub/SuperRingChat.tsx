@@ -1,6 +1,7 @@
 import { useSuperRingStore } from '../../stores/superRingStore'
 import { ChatBubble } from '../../components/chat/ChatBubble'
 import { ChatInput } from '../../components/chat/ChatInput'
+import './RingHub.css'
 
 export function SuperRingChat() {
   const messages = useSuperRingStore((s) => s.messages)
@@ -10,18 +11,19 @@ export function SuperRingChat() {
 
   return (
     <div>
-      <h2>Ring Super Chat</h2>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '70vh' }}>
-        <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+      <div className="super-ring-header">
+        <h2 className="super-ring-title">Super Ring</h2>
+        <p className="super-ring-subtitle">全局助手</p>
+      </div>
+      <div className="super-ring-chat">
+        <div className="super-ring-messages">
           {messages.map((msg) => (
             <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
           ))}
-          {is_streaming && (
-            <div style={{ color: '#888', marginBottom: 8 }}>AI is typing...</div>
-          )}
+          {is_streaming && <div className="super-ring-typing">AI is typing...</div>}
         </div>
-        {error && <p role="alert">{error}</p>}
-        <div style={{ padding: 16, borderTop: '1px solid #eee' }}>
+        {error && <p className="setup-error" role="alert">{error}</p>}
+        <div className="super-ring-input-area">
           <ChatInput on_send={send_message} disabled={is_streaming} />
         </div>
       </div>

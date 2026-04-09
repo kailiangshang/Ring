@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as api from '../../api/client'
+import { Button } from '../../components/ui/Button'
+import { Skeleton } from '../../components/ui/Skeleton'
 import { RingList } from './RingList'
 import { CreateRing } from './CreateRing'
 import type { RingListItem, CreateRingRequest } from '../../types'
+import './RingHub.css'
 
 export function RingHub() {
   const [rings, set_rings] = useState<RingListItem[]>([])
@@ -36,14 +39,29 @@ export function RingHub() {
     navigate(`/ring/${id}`)
   }
 
-  if (loading) return <p>Loading...</p>
-  if (error) return <p role="alert">{error}</p>
+  if (error) return <p className="setup-error" role="alert">{error}</p>
 
   return (
-    <div>
-      <h1>Ring Group</h1>
-      <CreateRing on_create={handle_create} />
-      <RingList rings={rings} on_select={handle_select} />
+    <div className="ring-hub">
+      <div className="ring-hub-header">
+        <div>
+          <h1 className="ring-hub-title">Ring Hub</h1>
+          <p className="ring-hub-subtitle">你的群组知识协作空间</p>
+        </div>
+        <CreateRing on_create={handle_create} />
+      </div>
+
+      {loading ? (
+        <div className="ring-hub-grid">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} width="100%" height={120} />
+          ))}
+        </div>
+      ) : (
+        <RingList rings={rings} on_select={handle_select} />
+      )}
+
+      <div className="ring-hub-footer">对话记录仅保存在当前设备</div>
     </div>
   )
 }
