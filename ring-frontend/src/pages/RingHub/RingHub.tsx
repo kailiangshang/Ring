@@ -38,8 +38,6 @@ export function RingHub() {
     navigate(`/ring/${id}`)
   }
 
-  if (error) return <p className="setup-error" role="alert">{error}</p>
-
   return (
     <div className="ring-hub">
       <div className="ring-hub-header">
@@ -49,6 +47,8 @@ export function RingHub() {
         </div>
         <CreateRing on_create={handle_create} />
       </div>
+
+      {error && <p className="setup-error" role="alert">{error}</p>}
 
       {loading ? (
         <div className="ring-hub-grid">

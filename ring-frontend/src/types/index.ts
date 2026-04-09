@@ -257,6 +257,18 @@ export interface SessionMemberData {
   status: string
 }
 
+export interface SessionData {
+  id: string
+  ring_id: string
+  title: string
+  scenario: string
+  status: string
+  archive_enabled: boolean
+  member_count?: number
+  members?: SessionMemberData[]
+  created_at: string
+}
+
 export interface CreateSessionRequest {
   title?: string
   scenario: string

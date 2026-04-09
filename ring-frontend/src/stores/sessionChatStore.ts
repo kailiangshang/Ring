@@ -12,7 +12,7 @@ interface SessionChatState {
   reset: () => void
 }
 
-export const useSessionChatStore = create<SessionChatState>((set, get) => ({
+export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
   messages: [],
   is_streaming: false,
   error: null,
