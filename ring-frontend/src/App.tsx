@@ -11,7 +11,7 @@ import { SuperRingChat } from './pages/RingHub/SuperRingChat'
 import { MemberList } from './components/member/MemberList'
 import { SessionView } from './components/session/SessionView'
 import { SettingsPage } from './pages/Settings/SettingsPage'
-import { Layout } from './components/layout/Layout'
+import { AppShell } from './components/layout/AppShell'
 import { get_setup_status } from './api/client'
 import { Toast } from './components/Toast'
 
@@ -53,30 +53,34 @@ function SetupWizardRedirect() {
   return <SetupWizard />
 }
 
+function RingSpacePlaceholder() {
+  return (
+    <div style={{ padding: 'var(--space-6)', color: 'var(--color-text-secondary)' }}>
+      Ring Space layout placeholder — will be implemented in Task 7
+    </div>
+  )
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Toast />
       <Routes>
         <Route path="/setup" element={<SetupWizardRedirect />} />
-        <Route
-          element={
-            <SetupGuard>
-              <Layout />
-            </SetupGuard>
-          }
-        >
+        <Route element={<SetupGuard><AppShell /></SetupGuard>}>
           <Route path="/" element={<RingHub />} />
-          <Route path="/ring/:ringId" element={<ChatView />} />
-          <Route path="/ring/:ringId/blueprint" element={<BlueprintWizard />} />
-          <Route path="/ring/:ringId/graph" element={<GraphView />} />
-          <Route path="/ring/:ringId/prs" element={<PrList />} />
-          <Route path="/ring/:ringId/prs/:prId" element={<PrDetail />} />
-          <Route path="/ring/:ringId/members" element={<MemberList />} />
-          <Route path="/ring/:ringId/sessions" element={<SessionView />} />
-          <Route path="/ring/:ringId/sessions/:sessionId" element={<SessionView />} />
           <Route path="/super-ring" element={<SuperRingChat />} />
           <Route path="/settings" element={<SettingsPage />} />
+        </Route>
+        <Route path="/ring/:ringId" element={<SetupGuard><RingSpacePlaceholder /></SetupGuard>}>
+          <Route index element={<ChatView />} />
+          <Route path="blueprint" element={<BlueprintWizard />} />
+          <Route path="graph" element={<GraphView />} />
+          <Route path="prs" element={<PrList />} />
+          <Route path="prs/:prId" element={<PrDetail />} />
+          <Route path="members" element={<MemberList />} />
+          <Route path="sessions" element={<SessionView />} />
+          <Route path="sessions/:sessionId" element={<SessionView />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
