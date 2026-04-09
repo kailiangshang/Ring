@@ -16,7 +16,7 @@ export function RingList({ rings, on_select }: RingListProps) {
         title="No rings yet"
         description="Create your first Ring to get started with collaborative knowledge management."
         action_label="Create Ring"
-        on_action={() => on_select('new')}
+        on_action={undefined}
       />
     )
   }

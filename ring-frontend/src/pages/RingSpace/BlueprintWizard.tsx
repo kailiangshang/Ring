@@ -7,7 +7,7 @@ import { ChatInput } from '../../components/chat/ChatInput'
 import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
-import type { BlueprintTemplate, GraphDef } from '../../types'
+import type { BlueprintTemplate } from '../../types'
 import './BlueprintWizard.css'
 
 type TabMode = 'templates' | 'custom'

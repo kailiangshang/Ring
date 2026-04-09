@@ -56,7 +56,7 @@ export function StepGitlab() {
           type="button"
           variant="secondary"
           disabled={loading}
-          onClick={() => submit_gitlab({ repo_url: '', auth_type: 'local', ssh_key_path: null })}
+          onClick={() => submit_gitlab({ repo_url: '', auth_type: 'local', ssh_key_path: undefined })}
         >
           Skip
         </Button>

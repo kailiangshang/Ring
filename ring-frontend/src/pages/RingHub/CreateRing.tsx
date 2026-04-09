@@ -48,11 +48,11 @@ export function CreateRing({ on_create }: CreateRingProps) {
         footer={
           <>
             <Button variant="secondary" onClick={() => set_open(false)}>Cancel</Button>
-            <Button onClick={handle_submit as () => void} disabled={loading || !name.trim()}>Create</Button>
+            <Button form="create-ring-form" type="submit" disabled={loading || !name.trim()}>Create</Button>
           </>
         }
       >
-        <form onSubmit={handle_submit}>
+        <form id="create-ring-form" onSubmit={handle_submit}>
           {error && <p className="setup-error" role="alert">{error}</p>}
           <div className="setup-field">
             <label>Name</label>

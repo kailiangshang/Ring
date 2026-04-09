@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import * as api from '../../api/client'
-import { Button } from '../../components/ui/Button'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { RingList } from './RingList'
 import { CreateRing } from './CreateRing'
@@ -54,7 +53,7 @@ export function RingHub() {
       {loading ? (
         <div className="ring-hub-grid">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} width="100%" height={120} />
+            <Skeleton key={i} width="100%" height="120px" />
           ))}
         </div>
       ) : (
