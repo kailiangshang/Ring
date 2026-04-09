@@ -103,7 +103,7 @@ export function BlueprintWizard() {
               <strong>{g.name}</strong> ({g.graph_type}) — {g.categories.join(', ')}
             </div>
           ))}
-          <Button onClick={() => ringId && confirm(ringId)} style={{ marginTop: 'var(--space-3)' }}>
+          <Button onClick={() => ringId && confirm(ringId)} className="blueprint-confirm-btn">
             Confirm Blueprint
           </Button>
         </div>

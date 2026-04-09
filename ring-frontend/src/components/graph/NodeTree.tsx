@@ -70,7 +70,7 @@ function TreeNodeItem({
       <div
         className={cls}
         onClick={() => on_select(tree_node.node.id)}
-        style={{ paddingLeft: depth * 16 + 8 }}
+        style={{ '--node-depth': depth } as React.CSSProperties}
       >
         {has_children && (
           <span

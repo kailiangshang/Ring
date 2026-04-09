@@ -27,9 +27,7 @@ export function StepLlm() {
 
   return (
     <form onSubmit={handle_submit}>
-      <h2 className="setup-title" style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-4)' }}>
-        Configure LLM
-      </h2>
+      <h2 className="setup-title setup-step-h2">Configure LLM</h2>
       <div className="setup-field">
         <label>Provider</label>
         <Input

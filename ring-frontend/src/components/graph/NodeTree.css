@@ -8,6 +8,7 @@
   align-items: center;
   gap: var(--space-1);
   padding: 4px 8px;
+  padding-left: calc(var(--node-depth, 0) * 16px + 8px);
   cursor: pointer;
   user-select: none;
   transition: background 100ms ease;

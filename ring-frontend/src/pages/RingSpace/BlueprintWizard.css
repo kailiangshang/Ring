@@ -90,3 +90,7 @@
 .blueprint-preview-item strong {
   color: var(--color-text-primary);
 }
+
+.blueprint-confirm-btn {
+  margin-top: var(--space-3);
+}

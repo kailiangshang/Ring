@@ -1,0 +1,229 @@
+<h2>Ring 功能联动设计</h2>
+<p class="subtitle">以用户实际工作流为线索，重新审视布局和交互</p>
+
+<div class="section">
+  <h3>核心工作流</h3>
+  <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:20px; margin-top:12px;">
+    <div style="font-size:13px; color:#737373; margin-bottom:12px;">Ring 的主循环：对话 → 归档 → 图谱生长</div>
+    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+      <span style="background:#eff6ff; color:#2563eb; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;">1. 对话产生内容</span>
+      <span style="color:#a3a3a3;">→</span>
+      <span style="background:#eff6ff; color:#2563eb; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;">2. AI 建议归档</span>
+      <span style="color:#a3a3a3;">→</span>
+      <span style="background:#eff6ff; color:#2563eb; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;">3. 用户确认节点位置</span>
+      <span style="color:#a3a3a3;">→</span>
+      <span style="background:#eff6ff; color:#2563eb; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;">4. 生成 MD + 更新图谱</span>
+      <span style="color:#a3a3a3;">→</span>
+      <span style="background:#eff6ff; color:#2563eb; padding:6px 14px; border-radius:6px; font-size:13px; font-weight:500;">5. Git commit / PR</span>
+    </div>
+    <div style="margin-top:16px; padding:12px; background:#fafafa; border-radius:6px; border:1px solid #e5e5e5;">
+      <div style="font-size:13px; color:#171717; font-weight:500;">设计关键：这个循环必须在同一个界面内完成</div>
+      <div style="font-size:13px; color:#737373; margin-top:4px;">如果用户需要从 Chat 切到 Graph 再切到 PR 才能完成一次归档，流程就断了</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>当前问题分析</h3>
+  <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#dc2626; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">Chat / Graph / PR 完全隔离</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">当前 Tab 切换导致视图互斥。用户在 Chat 中看到归档建议时，看不到图谱结构，无法判断 AI 建议的节点位置是否合理</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#dc2626; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">图谱树只在 Graph 视图可见</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">PRD 核心是"知识图谱为骨架"，但骨架在大部分时间（Chat/PR/Sessions）是隐藏的。用户失去空间感</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#dc2626; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">归档建议的回调是空的</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">ArchiveSuggestion 的 on_accept/on_dismiss 是 () => {}，归档流程没有 UI 闭环</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#dc2626; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">通知没有入口</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">PRD 有完整通知系统（PR 状态、成员变更、Session 邀请），但前端没有通知 UI 组件</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#d97706; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">顶层导航结构低效</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">当前 NavBar + RingNavBar 占两条 bar，在 Ring 工作区内，返回 Hub 和全局导航不应该是最高优先级的视觉元素</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#d97706; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">Graph 视图和 Ring 视图脱离 Layout</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">GraphView 用 height:100vh 脱离了 Layout 的 flex 容器，破坏了一致性</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>重新设计：联动优先的 Ring Space</h3>
+  <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; margin-top:12px; overflow:hidden;">
+
+    <div style="background:#fafafa; padding:10px 16px; border-bottom:1px solid #e5e5e5; display:flex; align-items:center; gap:12px;">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <div style="width:12px; height:12px; border-radius:2px; background:#e5e5e5;"></div>
+        <div style="width:12px; height:12px; border-radius:2px; background:#e5e5e5;"></div>
+        <div style="width:12px; height:12px; border-radius:2px; background:#e5e5e5;"></div>
+      </div>
+      <div style="font-size:12px; color:#a3a3a3;">Ring Space — 三栏联动布局</div>
+    </div>
+
+    <div style="display:flex; min-height:360px;">
+      <div style="width:200px; border-right:1px solid #e5e5e5; padding:12px; flex-shrink:0;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">图谱树 — 始终可见</div>
+        <div style="font-size:11px; color:#a3a3a3; margin-bottom:8px;">▾ 竞品分析</div>
+        <div style="font-size:11px; color:#737373; padding-left:12px; margin-bottom:4px;">├ 会议记录</div>
+        <div style="font-size:11px; color:#737373; padding-left:12px; margin-bottom:4px;">├ 技术对比</div>
+        <div style="font-size:11px; color:#171717; padding-left:12px; margin-bottom:4px; background:#eff6ff; padding:3px 6px; border-radius:3px; display:inline-block;">├ 产品决策 ←</div>
+        <div style="font-size:11px; color:#737373; padding-left:12px; margin-bottom:4px;">└ 市场分析</div>
+        <div style="font-size:11px; color:#a3a3a3; margin-bottom:8px;">▾ 技术架构</div>
+        <div style="margin-top:16px; padding-top:8px; border-top:1px solid #f0f0f0;">
+          <div style="font-size:10px; color:#a3a3a3;">导航切换</div>
+          <div style="margin-top:6px; display:flex; flex-direction:column; gap:4px;">
+            <div style="font-size:11px; color:#2563eb; background:#eff6ff; padding:4px 8px; border-radius:4px;">Chat</div>
+            <div style="font-size:11px; color:#737373; padding:4px 8px;">Graph</div>
+            <div style="font-size:11px; color:#737373; padding:4px 8px; display:flex; justify-content:space-between;">PRs <span style="background:#dc2626; color:#fff; font-size:9px; padding:1px 5px; border-radius:8px;">2</span></div>
+            <div style="font-size:11px; color:#737373; padding:4px 8px;">Members</div>
+            <div style="font-size:11px; color:#737373; padding:4px 8px;">Sessions</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+        <div style="padding:10px 16px; border-bottom:1px solid #e5e5e5; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:600; color:#171717;">Chat</span>
+            <span style="background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:3px; font-size:10px;">Auto</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex;">
+              <div style="width:22px; height:22px; border-radius:50%; background:#2563eb; display:flex; align-items:center; justify-content:center; color:#fff; font-size:9px; border:1.5px solid #fff;">K</div>
+              <div style="width:22px; height:22px; border-radius:50%; background:#16a34a; display:flex; align-items:center; justify-content:center; color:#fff; font-size:9px; margin-left:-6px; border:1.5px solid #fff;">L</div>
+              <div style="width:22px; height:22px; border-radius:50%; background:#d97706; display:flex; align-items:center; justify-content:center; color:#fff; font-size:9px; margin-left:-6px; border:1.5px solid #fff;">M</div>
+              <span style="font-size:11px; color:#a3a3a3; margin-left:6px;">+2</span>
+            </div>
+            <span style="font-size:11px; color:#a3a3a3;">🔔 2</span>
+          </div>
+        </div>
+
+        <div style="flex:1; padding:12px 16px; overflow:auto;">
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <div style="width:22px; height:22px; border-radius:50%; background:#2563eb; display:flex; align-items:center; justify-content:center; color:#fff; font-size:9px; flex-shrink:0;">K</div>
+            <div style="font-size:12px; color:#171717; line-height:1.5;">帮我把今天的会议纪要归档到图谱</div>
+          </div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <div style="width:22px; height:22px; border-radius:50%; background:#f5f5f5; border:1px solid #e5e5e5; display:flex; align-items:center; justify-content:center; font-size:8px; flex-shrink:0;">AI</div>
+            <div>
+              <div style="font-size:12px; color:#171717; line-height:1.5;">已整理。建议归档到：<strong>会议记录 → 2026-04-09 周会</strong></div>
+            </div>
+          </div>
+
+          <div style="background:#fafafa; border:1px solid #2563eb; border-radius:8px; padding:12px; margin-bottom:12px;">
+            <div style="font-size:11px; color:#2563eb; font-weight:500; margin-bottom:8px;">归档建议</div>
+            <div style="font-size:12px; color:#171717;">新建节点「2026-04-09 周会」→ 挂载到「会议记录」下</div>
+            <div style="font-size:11px; color:#737373; margin-top:6px;">图谱：竞品分析 · 位置预览已高亮在左侧树中</div>
+            <div style="display:flex; gap:8px; margin-top:10px;">
+              <button style="background:#2563eb; color:#fff; border:none; padding:5px 14px; border-radius:4px; font-size:12px; cursor:pointer;">确认归档</button>
+              <button style="background:#fff; color:#737373; border:1px solid #e5e5e5; padding:5px 14px; border-radius:4px; font-size:12px; cursor:pointer;">换个位置</button>
+              <button style="background:transparent; color:#a3a3a3; border:none; padding:5px 8px; font-size:12px; cursor:pointer;">跳过</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:8px 16px; border-top:1px solid #e5e5e5;">
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input style="flex:1; background:#fff; border:1px solid #e5e5e5; color:#171717; padding:8px 12px; border-radius:6px; font-size:12px;" placeholder="Message Group Ring..." />
+            <button style="background:#2563eb; color:#fff; border:none; padding:8px 14px; border-radius:6px; font-size:12px;">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="width:180px; border-left:1px solid #e5e5e5; padding:12px; flex-shrink:0; background:#fafafa;">
+        <div style="font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">节点详情 — 按需弹出</div>
+        <div style="font-size:12px; font-weight:600; color:#171717; margin-bottom:6px;">2026-04-09 周会</div>
+        <div style="font-size:11px; color:#737373; margin-bottom:8px;">类型: document · 新建</div>
+        <div style="background:#fff; border:1px solid #e5e5e5; border-radius:4px; padding:8px; font-size:11px; color:#737373; line-height:1.5;">
+          # 会议纪要<br>参会人: K, L, M<br><br>1. Q2 目标确认<br>2. 竞品分析进展...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>联动设计要点</h3>
+  <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">左栏图谱树始终可见</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">不管在 Chat/Graph/PR 哪个模式，左侧图谱树都在。用户始终知道自己在哪里。归档建议时，AI 推荐的节点在树中高亮。</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">右栏按需弹出，不占常驻空间</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">点击树中节点、AI 归档建议触发、PR 查看 diff 时弹出。默认隐藏，把空间让给主内容区。</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">导航合并到左栏底部</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">Chat/Graph/PR/Members/Sessions 不再用顶部 Tab，而是放在左栏图谱树下方的图标列表中。节省一条导航栏的高度，且和图谱树形成统一的侧栏。</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">通知 → PR 联动</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">顶栏铃铛图标显示未读数。新 PR 通知点击直接跳转到 PR Detail。成员加入通知跳转到 Members。Session 邀请跳转到 Sessions。</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">Graph 全屏模式 — 从侧栏进入</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">选择 Graph 模式时，D3 力导向图占据中栏全宽。左栏的树仍然保留作为导航。右栏可选显示节点详情。不是 100vh 脱离布局，而是嵌在三栏内。</div>
+      </div>
+    </div>
+
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px; display:flex; gap:16px;">
+      <div style="width:4px; background:#2563eb; border-radius:2px; flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:14px; font-weight:600; color:#171717;">Auto 模式状态清晰可见</div>
+        <div style="font-size:13px; color:#737373; margin-top:4px;">Chat 顶栏显示 Auto 状态标签。Auto 模式下归档不弹确认框，但仍显示 toast 通知："已归档到 节点X"。用户可随时切换回手动模式。</div>
+      </div>
+    </div>
+
+  </div>
+</div>

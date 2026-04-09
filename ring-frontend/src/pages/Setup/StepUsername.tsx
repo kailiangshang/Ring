@@ -22,9 +22,7 @@ export function StepUsername() {
 
   return (
     <form onSubmit={handle_submit}>
-      <h2 className="setup-title" style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-4)' }}>
-        Set Your Display Name
-      </h2>
+      <h2 className="setup-title setup-step-h2">Set Your Display Name</h2>
       <div className="setup-field">
         <Input
           type="text"

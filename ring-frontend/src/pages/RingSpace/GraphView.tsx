@@ -56,7 +56,7 @@ export function GraphView() {
     <div className="graph-view">
       <div className="graph-header">
         <span className="graph-header-title">Graph{current_graph_id ? ` — ${current_graph_id}` : ''}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <div className="graph-header-controls">
           <Input
             input_type="select"
             value={current_graph_id || ''}
@@ -73,7 +73,7 @@ export function GraphView() {
       </div>
 
       {show_add_form && (
-        <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--color-border-light)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+        <div className="graph-add-bar">
           <Input
             value={new_label}
             onChange={(e) => set_new_label(e.target.value)}

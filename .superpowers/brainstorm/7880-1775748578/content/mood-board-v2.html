@@ -1,0 +1,129 @@
+<h2>Ring 设计基调确认 v2</h2>
+<p class="subtitle">精密 / 理性 / 面向公司全员的专业工具</p>
+
+<div class="section">
+  <h3>色彩系统 — 亮色主导</h3>
+  <div style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top:12px;">
+    <div>
+      <div style="height:64px; background:#ffffff; border-radius:6px; border:1px solid #e5e5e5;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#FFFFFF<br>主背景</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#fafafa; border-radius:6px; border:1px solid #e5e5e5;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#FAFAFA<br>次面板</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#f5f5f5; border-radius:6px; border:1px solid #e5e5e5;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#F5F5F5<br>卡片/hover</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#e5e5e5; border-radius:6px;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#E5E5E5<br>边框/分割</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#737373; border-radius:6px;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#737373<br>次要文字</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#171717; border-radius:6px;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#171717<br>主文字</div>
+    </div>
+    <div>
+      <div style="height:64px; background:#2563eb; border-radius:6px;"></div>
+      <div style="font-size:11px; margin-top:4px; color:#888;">#2563EB<br>强调色</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>排版系统</h3>
+  <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:24px; margin-top:12px;">
+    <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:32px; font-weight:600; color:#171717; letter-spacing:-0.5px; line-height:1.2;">
+      Ring Hub
+    </div>
+    <div style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; font-size:14px; color:#737373; margin-top:8px; line-height:1.6; max-width:520px;">
+      群组知识协作空间 — 以 Ring 为入口，知识图谱为骨架，AI 为群组组长。本地优先，隐私保护。
+    </div>
+    <div style="font-family:'SF Mono','Fira Code','JetBrains Mono',monospace; font-size:13px; color:#2563eb; margin-top:12px; background:#f5f5f5; padding:8px 12px; border-radius:4px; display:inline-block;">
+      ring-server --port 7420
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>组件风格</h3>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:12px;">
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">按钮</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button style="background:#2563eb; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer; font-weight:500;">Primary</button>
+        <button style="background:#f5f5f5; color:#171717; border:1px solid #e5e5e5; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer;">Secondary</button>
+        <button style="background:transparent; color:#737373; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer;">Ghost</button>
+      </div>
+    </div>
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">输入框</div>
+      <input style="width:100%; background:#fff; border:1px solid #e5e5e5; color:#171717; padding:8px 12px; border-radius:6px; font-size:13px; outline:none;" placeholder="Search nodes..." />
+    </div>
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">标签</div>
+      <div style="display:flex; gap:6px;">
+        <span style="background:#eff6ff; color:#2563eb; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:500;">active</span>
+        <span style="background:#f0fdf4; color:#16a34a; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:500;">merged</span>
+        <span style="background:#fef2f2; color:#dc2626; padding:4px 10px; border-radius:4px; font-size:12px; font-weight:500;">closed</span>
+      </div>
+    </div>
+    <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:16px;">
+      <div style="font-size:11px; text-transform:uppercase; letter-spacing:1px; color:#2563eb; margin-bottom:8px;">头像</div>
+      <div style="display:flex; align-items:center;">
+        <div style="width:32px; height:32px; border-radius:50%; background:#2563eb; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:600; border:2px solid #fff;">K</div>
+        <div style="width:32px; height:32px; border-radius:50%; background:#16a34a; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:600; margin-left:-8px; border:2px solid #fff;">L</div>
+        <div style="width:32px; height:32px; border-radius:50%; background:#d97706; display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px; font-weight:600; margin-left:-8px; border:2px solid #fff;">M</div>
+        <span style="font-size:12px; color:#737373; margin-left:8px;">+3 members</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>Ring 卡片预览</h3>
+  <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:20px; margin-top:12px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="width:8px; height:8px; border-radius:2px; background:#2563eb;"></div>
+          <span style="font-size:16px; font-weight:600; color:#171717;">产品竞品分析组</span>
+        </div>
+        <div style="font-size:13px; color:#737373; margin-top:6px; margin-left:16px;">产品分析专家 · 5 members</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:12px; color:#a3a3a3;">3 hours ago</div>
+        <div style="font-size:12px; color:#2563eb; margin-top:2px;">12 nodes</div>
+      </div>
+    </div>
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid #f5f5f5; display:flex; gap:16px;">
+      <span style="font-size:12px; color:#737373;">图谱: 竞品树 · 技术栈</span>
+      <span style="font-size:12px; background:#eff6ff; color:#2563eb; padding:2px 8px; border-radius:3px;">Creator</span>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <h3>聊天气泡预览</h3>
+  <div style="background:#fafafa; border:1px solid #e5e5e5; border-radius:8px; padding:20px; margin-top:12px;">
+    <div style="display:flex; gap:10px; margin-bottom:16px;">
+      <div style="width:28px; height:28px; border-radius:50%; background:#2563eb; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:600; flex-shrink:0;">K</div>
+      <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:10px 14px; max-width:380px;">
+        <div style="font-size:13px; color:#171717; line-height:1.5;">帮我把今天的会议纪要整理一下，归档到图谱的「会议记录」节点下</div>
+        <div style="font-size:11px; color:#a3a3a3; margin-top:4px;">14:32</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:10px;">
+      <div style="width:28px; height:28px; border-radius:50%; background:#f5f5f5; border:1px solid #e5e5e5; display:flex; align-items:center; justify-content:center; font-size:12px; flex-shrink:0;">AI</div>
+      <div style="background:#fff; border:1px solid #e5e5e5; border-radius:8px; padding:10px 14px; max-width:380px;">
+        <div style="font-size:13px; color:#171717; line-height:1.5;">已整理完成。我建议创建一个新的子节点「2026-04-09 周会」挂载到「会议记录」下，是否确认？</div>
+        <div style="font-size:11px; color:#a3a3a3; margin-top:4px;">14:32</div>
+      </div>
+    </div>
+  </div>
+</div>

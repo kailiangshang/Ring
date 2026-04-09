@@ -61,13 +61,13 @@ export function SetupWizard() {
 
         <div className="setup-steps">
           {STEPS.map((label, i) => (
-            <span key={label} className="setup-step-row" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <span key={label} className="setup-step-row">
               {i > 0 && <span className={`setup-step-line${i <= step ? ' completed' : ''}`} />}
               <span className={`setup-step-dot${i === step ? ' active' : ''}`} />
             </span>
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+        <div className="setup-step-labels">
           {STEPS.map((label, i) => (
             <span key={label} className={`setup-step-label${i === step ? ' active' : ''}`}>
               {label}
