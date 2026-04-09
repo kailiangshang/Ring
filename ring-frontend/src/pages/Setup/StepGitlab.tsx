@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useSetupStore } from '../../stores/setupStore'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
 import type { GitlabConfig } from '../../types'
+import './Setup.css'
 
 export function StepGitlab() {
   const [repo_url, set_repo_url] = useState('')
@@ -18,38 +21,49 @@ export function StepGitlab() {
 
   return (
     <form onSubmit={handle_submit}>
-      <h2>Configure GitLab</h2>
-      <div>
+      <h2 className="setup-title" style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-4)' }}>
+        Configure GitLab
+      </h2>
+      <div className="setup-field">
         <label>Repository URL</label>
-        <input
+        <Input
           type="text"
           value={repo_url}
           onChange={(e) => set_repo_url(e.target.value)}
           placeholder="git@gitlab.com:group/repo.git"
         />
       </div>
-      <div>
+      <div className="setup-field">
         <label>Auth Type</label>
-        <select value={auth_type} onChange={(e) => set_auth_type(e.target.value)}>
+        <Input
+          input_type="select"
+          value={auth_type}
+          onChange={(e) => set_auth_type(e.target.value)}
+        >
           <option value="ssh_key">SSH Key</option>
           <option value="https">HTTPS</option>
-        </select>
+        </Input>
       </div>
-      <div>
+      <div className="setup-field">
         <label>SSH Key Path</label>
-        <input
+        <Input
           type="text"
           value={ssh_key_path}
           onChange={(e) => set_ssh_key_path(e.target.value)}
         />
       </div>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={loading}>
-        Next
-      </button>
-      <button type="button" disabled={loading} onClick={() => submit_gitlab({ repo_url: '', auth_type: 'local', ssh_key_path: null })}>
-        Skip
-      </button>
+      {error && <p className="setup-error" role="alert">{error}</p>}
+      <div className="setup-actions-end">
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={loading}
+          onClick={() => submit_gitlab({ repo_url: '', auth_type: 'local', ssh_key_path: null })}
+        >
+          Skip
+        </Button>
+        <Button type="submit" disabled={loading}>Next</Button>
+      </div>
     </form>
   )
 }

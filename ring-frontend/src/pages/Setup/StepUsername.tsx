@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { useSetupStore } from '../../stores/setupStore'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
+import './Setup.css'
 
 export function StepUsername() {
   const [display_name, set_display_name] = useState('')
@@ -19,18 +22,22 @@ export function StepUsername() {
 
   return (
     <form onSubmit={handle_submit}>
-      <h2>Set Your Display Name</h2>
-      <input
-        type="text"
-        value={display_name}
-        onChange={(e) => set_display_name(e.target.value)}
-        placeholder="Your name"
-        disabled={loading}
-      />
-      {local_error && <p role="alert">{local_error}</p>}
-      <button type="submit" disabled={loading}>
-        Next
-      </button>
+      <h2 className="setup-title" style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-4)' }}>
+        Set Your Display Name
+      </h2>
+      <div className="setup-field">
+        <Input
+          type="text"
+          value={display_name}
+          onChange={(e) => set_display_name(e.target.value)}
+          placeholder="Your name"
+          disabled={loading}
+        />
+      </div>
+      {local_error && <p className="setup-error" role="alert">{local_error}</p>}
+      <div className="setup-actions-end">
+        <Button type="submit" disabled={loading}>Next</Button>
+      </div>
     </form>
   )
 }

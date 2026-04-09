@@ -3,7 +3,9 @@ import { useSetupStore } from '../../stores/setupStore'
 import { StepUsername } from './StepUsername'
 import { StepLlm } from './StepLlm'
 import { StepGitlab } from './StepGitlab'
+import { Button } from '../../components/ui/Button'
 import { useNavigate } from 'react-router-dom'
+import './Setup.css'
 
 const STEPS = ['Username', 'LLM', 'GitLab']
 
@@ -24,36 +26,59 @@ export function SetupWizard() {
     navigate('/')
   }
 
+  const render_step = () => {
+    switch (step) {
+      case 0:
+        return <StepUsername />
+      case 1:
+        return (
+          <>
+            <StepLlm />
+            <div className="setup-actions">
+              <Button variant="secondary" onClick={() => set_step(0)}>Back</Button>
+            </div>
+          </>
+        )
+      case 2:
+        return (
+          <>
+            <StepGitlab />
+            <div className="setup-actions">
+              <Button variant="secondary" onClick={() => set_step(1)}>Back</Button>
+              <Button variant="primary" onClick={handle_complete}>Complete Setup</Button>
+            </div>
+          </>
+        )
+      default:
+        return null
+    }
+  }
+
   return (
-    <div>
-      <h1>Welcome to Ring</h1>
-      <div>
-        {STEPS.map((label, i) => (
-          <span
-            key={label}
-            style={{ fontWeight: i === step ? 'bold' : 'normal', marginRight: 8 }}
-          >
-            {i + 1}. {label}
-          </span>
-        ))}
+    <div className="setup-wrapper">
+      <div className="setup-card">
+        <h1 className="setup-title">Welcome to Ring</h1>
+
+        <div className="setup-steps">
+          {STEPS.map((label, i) => (
+            <span key={label} className="setup-step-row" style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+              {i > 0 && <span className={`setup-step-line${i <= step ? ' completed' : ''}`} />}
+              <span className={`setup-step-dot${i === step ? ' active' : ''}`} />
+            </span>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-4)' }}>
+          {STEPS.map((label, i) => (
+            <span key={label} className={`setup-step-label${i === step ? ' active' : ''}`}>
+              {label}
+            </span>
+          ))}
+        </div>
+
+        {render_step()}
+
+        {error && <p className="setup-error" role="alert">{error}</p>}
       </div>
-      {step === 0 && <StepUsername />}
-      {step === 1 && (
-        <>
-          <StepLlm />
-          <button onClick={() => set_step(0)}>Back</button>
-        </>
-      )}
-      {step === 2 && (
-        <>
-          <StepGitlab />
-          <button onClick={() => set_step(1)}>Back</button>
-        </>
-      )}
-      {error && <p role="alert">{error}</p>}
-      {step === 2 && (
-        <button onClick={handle_complete}>Complete Setup</button>
-      )}
     </div>
   )
 }

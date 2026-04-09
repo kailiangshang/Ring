@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { useSetupStore } from '../../stores/setupStore'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
 import type { LlmConfig } from '../../types'
+import './Setup.css'
 
 export function StepLlm() {
   const [provider, set_provider] = useState('openai')
@@ -24,43 +27,49 @@ export function StepLlm() {
 
   return (
     <form onSubmit={handle_submit}>
-      <h2>Configure LLM</h2>
-      <div>
+      <h2 className="setup-title" style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--space-4)' }}>
+        Configure LLM
+      </h2>
+      <div className="setup-field">
         <label>Provider</label>
-        <select value={provider} onChange={(e) => set_provider(e.target.value)}>
+        <Input
+          input_type="select"
+          value={provider}
+          onChange={(e) => set_provider(e.target.value)}
+        >
           <option value="openai">OpenAI</option>
           <option value="ollama">Ollama</option>
           <option value="anthropic">Anthropic</option>
-        </select>
+        </Input>
       </div>
-      <div>
+      <div className="setup-field">
         <label>Model</label>
-        <input
+        <Input
           type="text"
           value={model}
           onChange={(e) => set_model(e.target.value)}
         />
       </div>
-      <div>
+      <div className="setup-field">
         <label>API Key</label>
-        <input
+        <Input
           type="password"
           value={api_key}
           onChange={(e) => set_api_key(e.target.value)}
         />
       </div>
-      <div>
+      <div className="setup-field">
         <label>Base URL (optional)</label>
-        <input
+        <Input
           type="text"
           value={base_url}
           onChange={(e) => set_base_url(e.target.value)}
         />
       </div>
-      {error && <p role="alert">{error}</p>}
-      <button type="submit" disabled={loading}>
-        Next
-      </button>
+      {error && <p className="setup-error" role="alert">{error}</p>}
+      <div className="setup-actions-end">
+        <Button type="submit" disabled={loading}>Next</Button>
+      </div>
     </form>
   )
 }
