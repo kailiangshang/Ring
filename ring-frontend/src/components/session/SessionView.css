@@ -1,0 +1,90 @@
+.session-view {
+  padding: var(--space-6);
+}
+
+.session-view-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.session-view-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.session-back {
+  margin-bottom: var(--space-3);
+}
+
+.session-create-form {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.session-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.session-card:hover {
+  border-color: var(--color-accent);
+}
+
+.session-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-card-title {
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.session-card-meta {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-tertiary);
+}
+
+.session-card-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.session-chat {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+}
+
+.session-chat-messages {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+.session-chat-typing {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-2);
+}
+
+.session-chat-input {
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-border-light);
+}

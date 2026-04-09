@@ -4,6 +4,11 @@ import { useSessionStore } from '../../stores/sessionStore'
 import { useSessionChatStore } from '../../stores/sessionChatStore'
 import { ChatBubble } from '../../components/chat/ChatBubble'
 import { ChatInput } from '../../components/chat/ChatInput'
+import { Button } from '../../components/ui/Button'
+import { Badge } from '../../components/ui/Badge'
+import { Input } from '../../components/ui/Input'
+import { EmptyState } from '../../components/ui/EmptyState'
+import './SessionView.css'
 
 const SCENARIOS = [
   { value: 'discussion', label: 'Discussion' },
@@ -60,133 +65,102 @@ export function SessionView() {
     send_message(ringId, sessionId, content)
   }
 
-  const status_badge_color = (status: string) => {
-    switch (status) {
-      case 'active':
-        return '#28a745'
-      case 'closed':
-        return '#888'
-      default:
-        return '#888'
-    }
-  }
-
-  return (
-    <div style={{ padding: '1.5rem', maxWidth: '800px', margin: '0 auto' }}>
-      {sessionId && (
-        <button
-          onClick={() => navigate(`/ring/${ringId}/sessions`)}
-          style={{ marginBottom: '1rem', padding: '0.3rem 0.8rem', cursor: 'pointer' }}
-        >
-          &larr; Back to Sessions
-        </button>
-      )}
-
-      {!sessionId && (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h2>Sessions</h2>
-            <button
-              onClick={() => set_show_create(!show_create)}
-              style={{
-                padding: '0.5rem 1rem',
-                background: '#0366d6',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer',
-              }}
-            >
-              {show_create ? 'Cancel' : 'New Session'}
-            </button>
-          </div>
-
-          {show_create && (
-            <div style={{ padding: '1rem', border: '1px solid #ddd', borderRadius: '4px', marginBottom: '1rem' }}>
-              <input
-                placeholder="Session title (optional)"
-                value={title}
-                onChange={(e) => set_title(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
-              />
-              <select
-                value={scenario}
-                onChange={(e) => set_scenario(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', marginBottom: '0.5rem', border: '1px solid #ddd', borderRadius: '4px' }}
-              >
-                {SCENARIOS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
-              <button
-                onClick={handle_create}
-                style={{ padding: '0.5rem 1rem', background: '#28a745', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                Create
-              </button>
-            </div>
-          )}
-
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          {loading && <p>Loading...</p>}
-          {!loading && sessions.length === 0 && <p style={{ color: '#888' }}>No sessions yet</p>}
-
-          {!loading && sessions.map((s) => (
-            <div
-              key={s.id}
-              style={{ padding: '1rem', border: '1px solid #e0e0e0', borderRadius: '4px', marginBottom: '0.5rem', cursor: 'pointer' }}
-              onClick={() => navigate(`/ring/${ringId}/sessions/${s.id}`)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
-                <span style={{ padding: '2px 8px', borderRadius: '3px', fontSize: '0.75rem', fontWeight: 600, color: '#fff', background: status_badge_color(s.status) }}>
-                  {s.status}
-                </span>
-                <span style={{ fontWeight: 500 }}>{s.title || s.scenario}</span>
-                <span style={{ color: '#888', fontSize: '0.85rem' }}>
-                  {s.member_count ?? s.members?.length ?? 0} members
-                </span>
-                {s.archive_enabled && (
-                  <span style={{ padding: '2px 6px', borderRadius: '3px', fontSize: '0.7rem', background: '#0366d6', color: '#fff' }}>
-                    Archive
-                  </span>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }} onClick={(e) => e.stopPropagation()}>
-                {s.status === 'active' && ringId && (
-                  <button onClick={() => close_session(ringId, s.id)} style={{ padding: '0.3rem 0.6rem', background: '#ffc107', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    Close
-                  </button>
-                )}
-                {ringId && (
-                  <button onClick={() => toggle_archive(ringId, s.id, !s.archive_enabled)} style={{ padding: '0.3rem 0.6rem', background: s.archive_enabled ? '#0366d6' : '#28a745', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    {s.archive_enabled ? 'Archive On' : 'Auto Archive'}
-                  </button>
-                )}
-                {ringId && (
-                  <button onClick={() => { if (confirm('Delete this session?')) delete_session(ringId, s.id) }} style={{ padding: '0.3rem 0.6rem', background: '#dc3545', color: '#fff', border: 'none', borderRadius: '3px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </>
-      )}
-
-      {sessionId && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '70vh' }}>
-          <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+  if (sessionId) {
+    return (
+      <div className="session-view">
+        <div className="session-back">
+          <Button variant="ghost" onClick={() => navigate(`/ring/${ringId}/sessions`)}>
+            &larr; Back to Sessions
+          </Button>
+        </div>
+        <div className="session-chat">
+          <div className="session-chat-messages">
             {messages.map((msg) => (
               <ChatBubble key={msg.id} role={msg.role as 'user' | 'assistant'} content={msg.content} />
             ))}
-            {is_streaming && <div style={{ color: '#888', marginBottom: 8 }}>AI is typing...</div>}
+            {is_streaming && <div className="session-chat-typing">AI is typing...</div>}
           </div>
-          {chat_error && <p style={{ color: 'red' }}>{chat_error}</p>}
-          <div style={{ padding: 16, borderTop: '1px solid #eee' }}>
+          {chat_error && <p className="setup-error" role="alert">{chat_error}</p>}
+          <div className="session-chat-input">
             <ChatInput on_send={handle_send} disabled={is_streaming} />
           </div>
         </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="session-view">
+      <div className="session-view-header">
+        <h2 className="session-view-title">Sessions</h2>
+        <Button onClick={() => set_show_create(!show_create)}>
+          {show_create ? 'Cancel' : 'New Session'}
+        </Button>
+      </div>
+
+      {show_create && (
+        <div className="session-create-form">
+          <Input
+            placeholder="Session title (optional)"
+            value={title}
+            onChange={(e) => set_title(e.target.value)}
+          />
+          <Input
+            input_type="select"
+            value={scenario}
+            onChange={(e) => set_scenario(e.target.value)}
+          >
+            {SCENARIOS.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
+          </Input>
+          <Button onClick={handle_create}>Create</Button>
+        </div>
       )}
+
+      {error && <p className="setup-error" role="alert">{error}</p>}
+      {loading && <p>Loading...</p>}
+      {!loading && sessions.length === 0 && (
+        <EmptyState
+          icon="💬"
+          title="No sessions yet"
+          description="Start a new session to collaborate with AI."
+        />
+      )}
+
+      {!loading && sessions.map((s) => (
+        <div
+          key={s.id}
+          className="session-card"
+          onClick={() => navigate(`/ring/${ringId}/sessions/${s.id}`)}
+        >
+          <Badge status={s.status === 'active' ? 'active' : 'closed'}>{s.status}</Badge>
+          <div className="session-card-info">
+            <div className="session-card-title">{s.title || s.scenario}</div>
+            <div className="session-card-meta">
+              {s.member_count ?? s.members?.length ?? 0} members
+            </div>
+          </div>
+          {s.archive_enabled && <Badge variant="accent">Archive</Badge>}
+          <div className="session-card-actions" onClick={(e) => e.stopPropagation()}>
+            {s.status === 'active' && ringId && (
+              <Button size="sm" variant="secondary" onClick={() => close_session(ringId, s.id)}>
+                Close
+              </Button>
+            )}
+            {ringId && (
+              <Button size="sm" variant={s.archive_enabled ? 'primary' : 'secondary'} onClick={() => toggle_archive(ringId, s.id, !s.archive_enabled)}>
+                {s.archive_enabled ? 'Archive On' : 'Auto Archive'}
+              </Button>
+            )}
+            {ringId && (
+              <Button size="sm" variant="danger" onClick={() => { if (confirm('Delete this session?')) delete_session(ringId, s.id) }}>
+                Delete
+              </Button>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
