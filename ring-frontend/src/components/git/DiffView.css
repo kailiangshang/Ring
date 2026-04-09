@@ -1,0 +1,66 @@
+.diff-file {
+  margin-bottom: var(--space-4);
+}
+
+.diff-file-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+.diff-status-badge {
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+}
+
+.diff-status-added {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.diff-status-deleted {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+.diff-status-modified {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.diff-file-name {
+  color: var(--color-text-primary);
+}
+
+.diff-additions {
+  margin-left: auto;
+  color: var(--color-success);
+}
+
+.diff-deletions {
+  color: var(--color-danger);
+}
+
+.diff-content {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  padding: var(--space-3);
+  overflow: auto;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  max-height: 400px;
+  font-family: var(--font-mono);
+}
+
+.diff-empty {
+  color: var(--color-text-tertiary);
+}

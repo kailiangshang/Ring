@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGitStore } from '../../stores/gitStore'
+import { Tabs } from '../../components/ui/Tabs'
+import { Badge } from '../../components/ui/Badge'
+import { EmptyState } from '../../components/ui/EmptyState'
+import './PrPages.css'
+
+const STATE_TABS = [
+  { key: 'opened', label: 'Opened' },
+  { key: 'merged', label: 'Merged' },
+  { key: 'closed', label: 'Closed' },
+]
 
 export function PrList() {
   const { ringId } = useParams<{ ringId: string }>()
@@ -12,81 +22,35 @@ export function PrList() {
     if (ringId) load_prs(ringId, state_filter)
   }, [ringId, state_filter, load_prs])
 
-  const state_badge_color = (state: string) => {
-    switch (state) {
-      case 'opened':
-        return '#28a745'
-      case 'merged':
-        return '#6f42c1'
-      case 'closed':
-        return '#cb2431'
-      default:
-        return '#888'
-    }
-  }
-
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '800px', margin: '0 auto' }}>
-      <h2>PRs</h2>
-
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        {['opened', 'merged', 'closed'].map((s) => (
-          <button
-            key={s}
-            onClick={() => set_state_filter(s)}
-            style={{
-              padding: '0.4rem 0.8rem',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              background: state_filter === s ? '#0366d6' : '#fff',
-              color: state_filter === s ? '#fff' : '#333',
-              cursor: 'pointer',
-            }}
-          >
-            {s}
-          </button>
-        ))}
+    <div className="pr-list">
+      <div className="pr-list-header">
+        <h2 className="pr-list-title">PRs</h2>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      <Tabs tabs={STATE_TABS} active_key={state_filter} on_change={set_state_filter} />
+
+      {error && <p className="setup-error" role="alert">{error}</p>}
       {loading && <p>Loading...</p>}
 
       {!loading && prs.length === 0 && (
-        <p style={{ color: '#888' }}>No PRs found</p>
+        <EmptyState
+          icon="📋"
+          title="No PRs found"
+          description="No pull requests match the selected filter."
+        />
       )}
 
       {!loading &&
         prs.map((pr) => (
           <div
             key={pr.pr_id}
+            className="pr-row"
             onClick={() => navigate(`/ring/${ringId}/prs/${pr.pr_id}`)}
-            style={{
-              padding: '0.75rem',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px',
-              marginBottom: '0.5rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.75rem',
-            }}
           >
-            <span
-              style={{
-                padding: '2px 8px',
-                borderRadius: '3px',
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: '#fff',
-                background: state_badge_color(pr.state),
-              }}
-            >
-              {pr.state}
-            </span>
-            <span style={{ fontWeight: 500 }}>{pr.title}</span>
-            <span style={{ marginLeft: 'auto', color: '#888', fontSize: '0.85rem' }}>
-              {pr.author}
-            </span>
+            <Badge status={pr.state}>{pr.state}</Badge>
+            <span className="pr-row-title">{pr.title}</span>
+            <span className="pr-row-author">{pr.author}</span>
           </div>
         ))}
     </div>

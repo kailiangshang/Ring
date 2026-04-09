@@ -1,7 +1,9 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useGitStore } from '../../stores/gitStore'
+import { Button } from '../../components/ui/Button'
 import { DiffView } from '../../components/git/DiffView'
+import './PrPages.css'
 
 export function PrDetail() {
   const { ringId, prId } = useParams<{ ringId: string; prId: string }>()
@@ -29,59 +31,28 @@ export function PrDetail() {
     }
   }
 
-  if (loading) return <p style={{ padding: '1.5rem' }}>Loading...</p>
-  if (error) return <p style={{ padding: '1.5rem', color: 'red' }}>{error}</p>
+  if (loading) return <div className="pr-detail"><p>Loading...</p></div>
+  if (error) return <div className="pr-detail"><p className="setup-error" role="alert">{error}</p></div>
   if (!current_pr) return null
 
   return (
-    <div style={{ padding: '1.5rem', maxWidth: '900px', margin: '0 auto' }}>
+    <div className="pr-detail">
       <button
+        className="pr-detail-back"
         onClick={() => navigate(`/ring/${ringId}/prs`)}
-        style={{
-          background: 'none',
-          border: 'none',
-          color: '#0366d6',
-          cursor: 'pointer',
-          marginBottom: '1rem',
-          fontSize: '0.9rem',
-        }}
       >
         &larr; Back to PRs
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+      <div className="pr-detail-title-row">
         <h2>#{current_pr.pr_id}</h2>
-        <h3 style={{ margin: 0 }}>{current_pr.title}</h3>
-        <span style={{ color: '#888' }}>by {current_pr.author}</span>
+        <h3>{current_pr.title}</h3>
+        <span className="pr-detail-author">by {current_pr.author}</span>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
-        <button
-          onClick={handle_merge}
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#28a745',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Merge
-        </button>
-        <button
-          onClick={handle_reject}
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#dc3545',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Reject
-        </button>
+      <div className="pr-detail-actions">
+        <Button onClick={handle_merge}>Merge</Button>
+        <Button variant="danger" onClick={handle_reject}>Reject</Button>
       </div>
 
       <DiffView changes={current_pr.changes} />
