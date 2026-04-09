@@ -1,0 +1,17 @@
+.input-field {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: border-color 150ms ease;
+  line-height: var(--line-height-normal);
+}
+.input-field::placeholder { color: var(--color-text-tertiary); }
+.input-field:focus { border-color: var(--color-accent); }
+.input-field:disabled { background: var(--color-bg-tertiary); opacity: 0.6; }
+.textarea-field { min-height: 80px; resize: vertical; }
