@@ -1,3 +1,6 @@
+import { Button } from '../ui/Button'
+import './ArchiveSuggestion.css'
+
 export function ArchiveSuggestion({ data, on_accept, on_dismiss }: {
   data: unknown
   on_accept: () => void
@@ -5,17 +8,11 @@ export function ArchiveSuggestion({ data, on_accept, on_dismiss }: {
 }) {
   const suggestion = data as { reason?: string; suggested_title?: string }
   return (
-    <div style={{
-      padding: '10px 14px',
-      borderRadius: 8,
-      backgroundColor: '#fff3e0',
-      borderLeft: '3px solid #ff9800',
-      marginBottom: 8,
-    }}>
-      <div style={{ marginBottom: 8 }}>{suggestion.reason || 'AI suggests archiving this conversation'}</div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button onClick={on_accept} style={{ padding: '4px 12px', cursor: 'pointer' }}>Accept</button>
-        <button onClick={on_dismiss} style={{ padding: '4px 12px', cursor: 'pointer' }}>Dismiss</button>
+    <div className="archive-suggestion">
+      <div className="archive-suggestion-text">{suggestion.reason || 'AI suggests archiving this conversation'}</div>
+      <div className="archive-suggestion-actions">
+        <Button size="sm" onClick={on_accept}>Accept</Button>
+        <Button size="sm" variant="secondary" onClick={on_dismiss}>Dismiss</Button>
       </div>
     </div>
   )

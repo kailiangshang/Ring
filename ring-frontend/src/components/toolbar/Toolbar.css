@@ -1,0 +1,30 @@
+.toolbar {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--color-border-light);
+  margin-bottom: var(--space-2);
+}
+
+.toolbar-btn {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-family: var(--font-sans);
+  transition: background 100ms ease, border-color 100ms ease, color 100ms ease;
+}
+
+.toolbar-btn:hover {
+  border-color: var(--color-text-tertiary);
+}
+
+.toolbar-btn-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}

@@ -9,6 +9,7 @@ import { ToolResultBubble } from '../../components/chat/ToolResultBubble'
 import { ArchiveSuggestion } from '../../components/chat/ArchiveSuggestion'
 import { Toolbar } from '../../components/toolbar/Toolbar'
 import type { ToolStatus } from '../../components/toolbar/Toolbar'
+import './ChatView.css'
 
 const DEFAULT_TOOLS: ToolStatus[] = [
   { name: 'search', description: 'Search the knowledge graph', active: false },
@@ -75,8 +76,9 @@ export function ChatView() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '80vh' }}>
-      <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
+    <div className="chat-view">
+      <div className="chat-header">Chat</div>
+      <div className="chat-messages">
         {messages.map((msg) => (
           <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
         ))}
@@ -116,15 +118,11 @@ export function ChatView() {
           }
           return null
         })}
-        {is_streaming && (
-          <div style={{ textAlign: 'left', marginBottom: 8, color: '#888' }}>
-            AI is typing...
-          </div>
-        )}
+        {is_streaming && <div className="chat-typing">AI is typing...</div>}
         <div ref={bottom_ref} />
       </div>
-      {error && <p role="alert">{error}</p>}
-      <div style={{ padding: 16, borderTop: '1px solid #eee' }}>
+      {error && <p className="chat-error" role="alert">{error}</p>}
+      <div className="chat-bottom">
         <Toolbar tools={tools} on_toggle={handle_toggle} />
         <ChatInput on_send={handle_send} disabled={is_streaming} />
       </div>

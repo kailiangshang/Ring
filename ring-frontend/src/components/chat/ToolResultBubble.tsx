@@ -1,22 +1,17 @@
+import './ToolResultBubble.css'
+
 export function ToolResultBubble({ tool_name, output, success }: {
   tool_name: string
   output?: unknown
   success?: boolean
 }) {
   return (
-    <div style={{
-      padding: '8px 12px',
-      borderRadius: 8,
-      backgroundColor: success ? '#e8f5e9' : '#fbe9e7',
-      borderLeft: `3px solid ${success ? '#4caf50' : '#f44336'}`,
-      marginBottom: 4,
-      fontSize: 13,
-    }}>
+    <div className={`tool-result-bubble ${success ? 'tool-result-success' : 'tool-result-error'}`}>
       <span>{tool_name} → {success ? 'Success' : 'Error'}</span>
       {output != null && (
-        <details style={{ marginTop: 4, cursor: 'pointer' }}>
+        <details className="tool-result-details">
           <summary>Output</summary>
-          <pre style={{ fontSize: 11, margin: 0, maxHeight: 200, overflow: 'auto' }}>
+          <pre className="tool-result-pre">
             {typeof output === 'string' ? output : String(JSON.stringify(output, null, 2))}
           </pre>
         </details>

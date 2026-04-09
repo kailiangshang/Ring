@@ -1,0 +1,8 @@
+.chat-input-form {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.chat-input-field {
+  flex: 1;
+}

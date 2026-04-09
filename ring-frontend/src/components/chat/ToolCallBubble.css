@@ -1,0 +1,18 @@
+.tool-call-bubble {
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  background: #e8f4f8;
+  border-left: 3px solid var(--color-accent);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.tool-call-details {
+  margin-top: var(--space-1);
+  cursor: pointer;
+}
+
+.tool-call-pre {
+  font-size: var(--font-size-xs);
+  margin: 0;
+}

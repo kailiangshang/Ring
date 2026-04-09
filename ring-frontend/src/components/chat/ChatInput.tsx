@@ -1,4 +1,7 @@
 import { useState } from 'react'
+import { Input } from '../ui/Input'
+import { Button } from '../ui/Button'
+import './ChatInput.css'
 
 interface ChatInputProps {
   on_send: (content: string) => void
@@ -17,18 +20,16 @@ export function ChatInput({ on_send, disabled }: ChatInputProps) {
   }
 
   return (
-    <form onSubmit={handle_submit} style={{ display: 'flex', gap: 8 }}>
-      <input
+    <form className="chat-input-form" onSubmit={handle_submit}>
+      <Input
         type="text"
         value={value}
         onChange={(e) => set_value(e.target.value)}
         placeholder="Type a message..."
         disabled={disabled}
-        style={{ flex: 1 }}
+        className="chat-input-field"
       />
-      <button type="submit" disabled={disabled || !value.trim()}>
-        Send
-      </button>
+      <Button type="submit" disabled={disabled || !value.trim()}>Send</Button>
     </form>
   )
 }

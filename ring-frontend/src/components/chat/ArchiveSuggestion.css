@@ -1,0 +1,18 @@
+.archive-suggestion {
+  padding: 10px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--color-accent-light);
+  border-left: 3px solid var(--color-accent);
+  margin-bottom: var(--space-2);
+}
+
+.archive-suggestion-text {
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.archive-suggestion-actions {
+  display: flex;
+  gap: var(--space-2);
+}

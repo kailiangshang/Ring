@@ -3,6 +3,7 @@ import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
 import { useEffect, useRef, useMemo } from 'react'
 import mermaid from 'mermaid'
+import './ChatView.css'
 
 mermaid.initialize({ startOnLoad: false, theme: 'default' })
 
@@ -28,7 +29,7 @@ function MermaidBlock({ code }: { code: string }) {
         if (mounted) {
           console.error('mermaid render error:', err)
           el.style.whiteSpace = 'pre-wrap'
-          el.style.color = 'var(--text-h)'
+          el.style.color = 'var(--color-text-primary)'
           el.style.fontSize = '0.85em'
           el.textContent = code
         }
@@ -40,19 +41,7 @@ function MermaidBlock({ code }: { code: string }) {
     }
   }, [code])
 
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        background: 'var(--bg, #fff)',
-        padding: 12,
-        borderRadius: 8,
-        margin: '8px 0',
-        overflow: 'auto',
-        minHeight: 40,
-      }}
-    />
-  )
+  return <div ref={containerRef} className="chat-bubble-mermaid" />
 }
 
 type Segment = { type: 'text'; content: string } | { type: 'mermaid'; content: string }
@@ -87,26 +76,10 @@ export function ChatBubble({ role, content }: ChatBubbleProps) {
   }, [content, is_user])
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        justifyContent: is_user ? 'flex-end' : 'flex-start',
-        marginBottom: 8,
-      }}
-    >
-      <div
-        className={is_user ? 'chat-bubble-user' : 'chat-bubble-assistant'}
-        style={{
-          maxWidth: '70%',
-          padding: '10px 14px',
-          borderRadius: 12,
-          backgroundColor: is_user ? 'var(--accent)' : 'var(--accent-bg)',
-          color: is_user ? '#fff' : 'var(--text-h)',
-          wordBreak: 'break-word',
-        }}
-      >
+    <div className={`chat-bubble-row ${is_user ? 'chat-bubble-row-user' : 'chat-bubble-row-assistant'}`}>
+      <div className={`chat-bubble ${is_user ? 'chat-bubble-user' : 'chat-bubble-assistant'}`}>
         {is_user ? (
-          <span style={{ whiteSpace: 'pre-wrap' }}>{content}</span>
+          <span>{content}</span>
         ) : segments.length > 0 ? (
           segments.map((seg, i) =>
             seg.type === 'mermaid' ? (

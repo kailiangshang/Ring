@@ -1,0 +1,28 @@
+.tool-result-bubble {
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
+}
+
+.tool-result-success {
+  background: var(--color-success-light);
+  border-left: 3px solid var(--color-success);
+}
+
+.tool-result-error {
+  background: var(--color-danger-light);
+  border-left: 3px solid var(--color-danger);
+}
+
+.tool-result-details {
+  margin-top: var(--space-1);
+  cursor: pointer;
+}
+
+.tool-result-pre {
+  font-size: var(--font-size-xs);
+  margin: 0;
+  max-height: 200px;
+  overflow: auto;
+}
