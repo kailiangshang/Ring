@@ -12,6 +12,7 @@ import { MemberList } from './components/member/MemberList'
 import { SessionView } from './components/session/SessionView'
 import { SettingsPage } from './pages/Settings/SettingsPage'
 import { AppShell } from './components/layout/AppShell'
+import { RingSpaceLayout } from './components/layout/RingSpaceLayout'
 import { get_setup_status } from './api/client'
 import { Toast } from './components/Toast'
 
@@ -53,14 +54,6 @@ function SetupWizardRedirect() {
   return <SetupWizard />
 }
 
-function RingSpacePlaceholder() {
-  return (
-    <div style={{ padding: 'var(--space-6)', color: 'var(--color-text-secondary)' }}>
-      Ring Space layout placeholder — will be implemented in Task 7
-    </div>
-  )
-}
-
 export default function App() {
   return (
     <BrowserRouter>
@@ -72,7 +65,7 @@ export default function App() {
           <Route path="/super-ring" element={<SuperRingChat />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
-        <Route path="/ring/:ringId" element={<SetupGuard><RingSpacePlaceholder /></SetupGuard>}>
+        <Route path="/ring/:ringId" element={<SetupGuard><RingSpaceLayout /></SetupGuard>}>
           <Route index element={<ChatView />} />
           <Route path="blueprint" element={<BlueprintWizard />} />
           <Route path="graph" element={<GraphView />} />
