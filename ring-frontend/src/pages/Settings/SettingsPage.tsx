@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
+import './SettingsPage.css'
 
 const LLM_PROVIDERS = [
   { value: 'openai', label: 'OpenAI' },
@@ -37,80 +40,77 @@ export function SettingsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
+    <div className="settings-page">
       <h2>Settings</h2>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="setup-error" role="alert">{error}</p>}
 
-      <section style={{ marginBottom: 32 }}>
-        <h3 style={{ marginBottom: 12, fontSize: 16, color: 'var(--text-h)' }}>Profile</h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-            <span>Display Name</span>
-            <strong style={{ color: 'var(--text-h)' }}>{settings.display_name || '—'}</strong>
+      <div className="settings-card">
+        <h3>Profile</h3>
+        <div className="settings-row">
+          <span className="settings-row-label">Display Name</span>
+          <span className="settings-row-value">{settings.display_name || '—'}</span>
+        </div>
+        <div className="settings-row">
+          <span className="settings-row-label">User ID</span>
+          <code className="settings-row-value">{settings.user_id || '—'}</code>
+        </div>
+      </div>
+
+      <form onSubmit={handle_save} className="settings-form">
+        <div className="settings-card">
+          <h3>LLM Configuration</h3>
+          <div className="settings-field">
+            <label>Provider</label>
+            <Input
+              input_type="select"
+              value={form.llm_provider}
+              onChange={(e) => set_form({ ...form, llm_provider: e.target.value })}
+            >
+              <option value="">Select provider...</option>
+              {LLM_PROVIDERS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </Input>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
-            <span>User ID</span>
-            <code style={{ fontSize: 13 }}>{settings.user_id || '—'}</code>
+          <div className="settings-field">
+            <label>Model</label>
+            <Input
+              value={form.llm_model}
+              onChange={(e) => set_form({ ...form, llm_model: e.target.value })}
+              placeholder="gpt-4o / llama3 / claude-3-sonnet"
+            />
+          </div>
+          <div className="settings-field">
+            <label>API Key</label>
+            <Input
+              type="password"
+              value={form.llm_api_key}
+              onChange={(e) => set_form({ ...form, llm_api_key: e.target.value })}
+              placeholder="sk-..."
+            />
+          </div>
+          <div className="settings-field">
+            <label>Base URL (optional)</label>
+            <Input
+              value={form.llm_base_url}
+              onChange={(e) => set_form({ ...form, llm_base_url: e.target.value })}
+              placeholder="http://localhost:11434/v1"
+            />
+          </div>
+          <div className="settings-field settings-checkbox">
+            <input
+              type="checkbox"
+              checked={form.privacy_enabled === 'true'}
+              onChange={(e) =>
+                set_form({ ...form, privacy_enabled: e.target.checked ? 'true' : 'false' })
+              }
+            />
+            <label>Enable Privacy Filter</label>
           </div>
         </div>
-      </section>
-
-      <form onSubmit={handle_save} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <h3 style={{ marginBottom: 4, fontSize: 16, color: 'var(--text-h)' }}>LLM Configuration</h3>
-        <label>
-          Provider
-          <select
-            value={form.llm_provider}
-            onChange={(e) => set_form({ ...form, llm_provider: e.target.value })}
-            style={{ width: '100%', marginTop: 4, padding: 8 }}
-          >
-            <option value="">Select provider...</option>
-            {LLM_PROVIDERS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Model
-          <input
-            value={form.llm_model}
-            onChange={(e) => set_form({ ...form, llm_model: e.target.value })}
-            placeholder="gpt-4o / llama3 / claude-3-sonnet"
-            style={{ width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label>
-          API Key
-          <input
-            type="password"
-            value={form.llm_api_key}
-            onChange={(e) => set_form({ ...form, llm_api_key: e.target.value })}
-            placeholder="sk-..."
-            style={{ width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label>
-          Base URL (optional)
-          <input
-            value={form.llm_base_url}
-            onChange={(e) => set_form({ ...form, llm_base_url: e.target.value })}
-            placeholder="http://localhost:11434/v1"
-            style={{ width: '100%', marginTop: 4 }}
-          />
-        </label>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <input
-            type="checkbox"
-            checked={form.privacy_enabled === 'true'}
-            onChange={(e) =>
-              set_form({ ...form, privacy_enabled: e.target.checked ? 'true' : 'false' })
-            }
-          />
-          Enable Privacy Filter
-        </label>
-        <button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading}>
           {loading ? 'Saving...' : 'Save Settings'}
-        </button>
+        </Button>
       </form>
     </div>
   )

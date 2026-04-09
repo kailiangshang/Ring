@@ -4,7 +4,11 @@ import { useBlueprintStore } from '../../stores/blueprintStore'
 import * as api from '../../api/client'
 import { ChatBubble } from '../../components/chat/ChatBubble'
 import { ChatInput } from '../../components/chat/ChatInput'
+import { Tabs } from '../../components/ui/Tabs'
+import { Button } from '../../components/ui/Button'
+import { EmptyState } from '../../components/ui/EmptyState'
 import type { BlueprintTemplate, GraphDef } from '../../types'
+import './BlueprintWizard.css'
 
 type TabMode = 'templates' | 'custom'
 
@@ -42,36 +46,33 @@ export function BlueprintWizard() {
   }
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Blueprint Wizard</h2>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button
-          onClick={() => set_tab('templates')}
-          style={{ fontWeight: tab === 'templates' ? 'bold' : 'normal' }}
-        >
-          Templates
-        </button>
-        <button
-          onClick={() => set_tab('custom')}
-          style={{ fontWeight: tab === 'custom' ? 'bold' : 'normal' }}
-        >
-          Custom
-        </button>
+    <div className="blueprint-wizard">
+      <div className="blueprint-header">
+        <h2>Blueprint Wizard</h2>
+        <Tabs
+          tabs={[
+            { key: 'templates', label: '模板' },
+            { key: 'custom', label: '自定义' },
+          ]}
+          active_key={tab}
+          on_change={(k) => set_tab(k as TabMode)}
+        />
       </div>
 
       {tab === 'templates' && (
-        <div>
-          {templates.length === 0 && <p>No templates available.</p>}
+        <div className="blueprint-templates">
+          {templates.length === 0 && (
+            <EmptyState
+              icon="📐"
+              title="No templates available"
+              description="Blueprint templates will appear here when configured."
+            />
+          )}
           {templates.map((t) => (
             <div
               key={t.id}
+              className="blueprint-template-card"
               onClick={() => handle_template_click(t)}
-              style={{
-                border: '1px solid #ccc',
-                padding: 12,
-                marginBottom: 8,
-                cursor: 'pointer',
-              }}
             >
               <h3>{t.name}</h3>
               <p>{t.description}</p>
@@ -81,35 +82,34 @@ export function BlueprintWizard() {
       )}
 
       {tab === 'custom' && (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '60vh' }}>
-          <div style={{ flex: 1, overflow: 'auto' }}>
+        <div className="blueprint-custom">
+          <div className="blueprint-custom-messages">
             {messages.map((msg) => (
               <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
             ))}
-            {is_streaming && (
-              <div style={{ color: '#888', marginBottom: 8 }}>AI is typing...</div>
-            )}
+            {is_streaming && <div className="blueprint-custom-typing">AI is typing...</div>}
           </div>
-          <ChatInput on_send={handle_custom_send} disabled={is_streaming} />
+          <div className="blueprint-custom-input">
+            <ChatInput on_send={handle_custom_send} disabled={is_streaming} />
+          </div>
         </div>
       )}
 
       {preview_graphs && (
-        <div style={{ marginTop: 16, border: '1px solid #aa3bff', padding: 12, background: 'var(--bg, #fff)', color: 'var(--text-h, #000)', borderRadius: 8 }}>
+        <div className="blueprint-preview">
           <h3>Blueprint Preview</h3>
           {preview_graphs.map((g, i) => (
-            <div key={i}>
-              <strong>{g.name}</strong> ({g.graph_type}) —{' '}
-              {g.categories.join(', ')}
+            <div key={i} className="blueprint-preview-item">
+              <strong>{g.name}</strong> ({g.graph_type}) — {g.categories.join(', ')}
             </div>
           ))}
-          <button onClick={() => ringId && confirm(ringId)} style={{ marginTop: 8 }}>
+          <Button onClick={() => ringId && confirm(ringId)} style={{ marginTop: 'var(--space-3)' }}>
             Confirm Blueprint
-          </button>
+          </Button>
         </div>
       )}
 
-      {(error || store_error) && <p role="alert">{error || store_error}</p>}
+      {(error || store_error) && <p className="setup-error" role="alert">{error || store_error}</p>}
     </div>
   )
 }
