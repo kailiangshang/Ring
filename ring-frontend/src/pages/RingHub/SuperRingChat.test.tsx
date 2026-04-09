@@ -10,7 +10,7 @@ describe('SuperRingChat', () => {
   it('renders chat input', () => {
     render(<SuperRingChat />)
     expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument()
-    expect(screen.getByText('Ring Super Chat')).toBeInTheDocument()
+    expect(screen.getByText('Super Ring')).toBeInTheDocument()
   })
 
   it('renders send button', () => {

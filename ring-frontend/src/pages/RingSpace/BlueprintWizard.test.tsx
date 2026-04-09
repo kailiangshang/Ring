@@ -40,14 +40,14 @@ describe('BlueprintWizard', () => {
 
   it('renders template and custom tabs', () => {
     render(<BlueprintWizard />)
-    expect(screen.getByText('Templates')).toBeInTheDocument()
-    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.getByText('模板')).toBeInTheDocument()
+    expect(screen.getByText('自定义')).toBeInTheDocument()
   })
 
   it('switches to custom tab', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     render(<BlueprintWizard />)
-    await user.click(screen.getByText('Custom'))
+    await user.click(screen.getByText('自定义'))
     expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument()
   })
 })

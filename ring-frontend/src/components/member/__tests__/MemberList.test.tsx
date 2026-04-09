@@ -54,12 +54,12 @@ describe('MemberList', () => {
 
   it('renders generate invite button', () => {
     render(<MemberList />)
-    expect(screen.getByText('Generate Invite')).toBeInTheDocument()
+    expect(screen.getByText('Invite')).toBeInTheDocument()
   })
 
-  it('shows token IDs', () => {
+  it('renders members with avatar and joined time', () => {
     render(<MemberList />)
-    expect(screen.getByText('#1')).toBeInTheDocument()
-    expect(screen.getByText('#2')).toBeInTheDocument()
+    expect(screen.getByText('Joined 2025-01-01T00:00:00Z')).toBeInTheDocument()
+    expect(screen.getByText('Joined 2025-01-02T00:00:00Z')).toBeInTheDocument()
   })
 })

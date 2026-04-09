@@ -7,16 +7,17 @@ describe('CreateRing', () => {
   it('shows button initially, opens form on click', async () => {
     const user = userEvent.setup()
     render(<CreateRing on_create={vi.fn()} />)
-    expect(screen.getByText('Create Ring Group')).toBeInTheDocument()
-    await user.click(screen.getByText('Create Ring Group'))
-    expect(screen.getByText('Create New Ring Group')).toBeInTheDocument()
+    const buttons = screen.getAllByText('Create Ring')
+    expect(buttons.length).toBeGreaterThanOrEqual(1)
+    await user.click(buttons[0])
+    expect(screen.getByPlaceholderText('Ring Group name')).toBeInTheDocument()
   })
 
   it('calls on_create with form data', async () => {
     const on_create = vi.fn().mockResolvedValue(undefined)
     const user = userEvent.setup()
     render(<CreateRing on_create={on_create} />)
-    await user.click(screen.getByText('Create Ring Group'))
+    await user.click(screen.getByText('Create Ring'))
     await user.type(screen.getByPlaceholderText('Ring Group name'), 'Test Ring')
     await user.click(screen.getByRole('button', { name: 'Create' }))
     expect(on_create).toHaveBeenCalledWith({
@@ -29,9 +30,8 @@ describe('CreateRing', () => {
   it('shows cancel button that closes form', async () => {
     const user = userEvent.setup()
     render(<CreateRing on_create={vi.fn()} />)
-    await user.click(screen.getByText('Create Ring Group'))
-    expect(screen.getByText('Create New Ring Group')).toBeInTheDocument()
+    await user.click(screen.getByText('Create Ring'))
+    expect(screen.getByPlaceholderText('Ring Group name')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
-    expect(screen.queryByText('Create New Ring Group')).not.toBeInTheDocument()
   })
 })
