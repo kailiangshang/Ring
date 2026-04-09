@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { GraphNode } from '../../types'
+import './NodeTree.css'
 
 const TYPE_ICONS: Record<string, string> = {
   concept: '\u{1F4A1}',
@@ -14,6 +15,7 @@ interface NodeTreeProps {
   nodes: GraphNode[]
   selected_node_id: string | null
   on_select: (node_id: string) => void
+  highlighted_node_id?: string | null
 }
 
 interface TreeNode {
@@ -41,57 +43,49 @@ function build_tree(nodes: GraphNode[]): TreeNode[] {
 function TreeNodeItem({
   tree_node,
   selected_node_id,
+  highlighted_node_id,
   on_select,
   depth,
 }: {
   tree_node: TreeNode
   selected_node_id: string | null
+  highlighted_node_id?: string | null
   on_select: (node_id: string) => void
   depth: number
 }) {
   const [expanded, set_expanded] = useState(true)
   const is_selected = tree_node.node.id === selected_node_id
+  const is_highlighted = tree_node.node.id === highlighted_node_id
   const has_children = tree_node.children.length > 0
   const icon = TYPE_ICONS[tree_node.node.node_type] || '\u{1F4CB}'
+
+  const cls = [
+    'node-tree-item',
+    is_selected && 'node-tree-item-selected',
+    is_highlighted && !is_selected && 'node-tree-item-highlighted',
+  ].filter(Boolean).join(' ')
 
   return (
     <div>
       <div
+        className={cls}
         onClick={() => on_select(tree_node.node.id)}
-        style={{
-          padding: '4px 8px',
-          paddingLeft: depth * 16 + 8,
-          cursor: 'pointer',
-          background: is_selected ? '#e0e7ff' : 'transparent',
-          fontWeight: is_selected ? 600 : 400,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          userSelect: 'none',
-        }}
-        onMouseEnter={(e) => {
-          if (!is_selected) (e.currentTarget.style.background = '#f3f4f6')
-        }}
-        onMouseLeave={(e) => {
-          if (!is_selected) (e.currentTarget.style.background = 'transparent')
-        }}
+        style={{ paddingLeft: depth * 16 + 8 }}
       >
         {has_children && (
           <span
+            className="node-tree-toggle"
             onClick={(e) => {
               e.stopPropagation()
               set_expanded(!expanded)
             }}
-            style={{ width: 16, textAlign: 'center', fontSize: 10 }}
           >
             {expanded ? '\u25BC' : '\u25B6'}
           </span>
         )}
-        {!has_children && <span style={{ width: 16 }} />}
+        {!has_children && <span className="node-tree-spacer" />}
         <span>{icon}</span>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {tree_node.node.label}
-        </span>
+        <span className="node-tree-label">{tree_node.node.label}</span>
       </div>
       {expanded &&
         tree_node.children.map((child) => (
@@ -99,6 +93,7 @@ function TreeNodeItem({
             key={child.node.id}
             tree_node={child}
             selected_node_id={selected_node_id}
+            highlighted_node_id={highlighted_node_id}
             on_select={on_select}
             depth={depth + 1}
           />
@@ -107,16 +102,17 @@ function TreeNodeItem({
   )
 }
 
-export function NodeTree({ nodes, selected_node_id, on_select }: NodeTreeProps) {
+export function NodeTree({ nodes, selected_node_id, on_select, highlighted_node_id }: NodeTreeProps) {
   const tree = build_tree(nodes)
 
   return (
-    <div data-testid="node-tree" style={{ overflow: 'auto', height: '100%' }}>
+    <div className="node-tree" data-testid="node-tree">
       {tree.map((tn) => (
         <TreeNodeItem
           key={tn.node.id}
           tree_node={tn}
           selected_node_id={selected_node_id}
+          highlighted_node_id={highlighted_node_id}
           on_select={on_select}
           depth={0}
         />

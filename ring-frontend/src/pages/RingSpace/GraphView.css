@@ -1,0 +1,58 @@
+.graph-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-light);
+}
+
+.graph-header-title {
+  font-weight: 600;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.graph-body {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.graph-detail-panel {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--color-bg-primary);
+  border-left: 1px solid var(--color-border-light);
+  padding: var(--space-4);
+  overflow: auto;
+  z-index: 10;
+}
+
+.graph-detail-panel h3 {
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--space-3);
+}
+
+.graph-detail-content {
+  white-space: pre-wrap;
+  font-size: var(--font-size-sm);
+}
+
+.graph-loading {
+  padding: var(--space-4);
+}
+
+.graph-error {
+  color: var(--color-danger);
+  padding: var(--space-4);
+}

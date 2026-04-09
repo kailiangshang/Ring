@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useGraphStore } from '../../stores/graphStore'
 import { ForceGraph } from '../../components/graph/ForceGraph'
-import { NodeTree } from '../../components/graph/NodeTree'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
+import './GraphView.css'
 
 export function GraphView() {
   const { ringId } = useParams<{ ringId: string }>()
@@ -51,72 +53,52 @@ export function GraphView() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh' }}>
-      <div
-        style={{
-          width: 240,
-          borderRight: '1px solid #e5e7eb',
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
-        <div style={{ padding: 8 }}>
-          <select
+    <div className="graph-view">
+      <div className="graph-header">
+        <span className="graph-header-title">Graph{current_graph_id ? ` — ${current_graph_id}` : ''}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+          <Input
+            input_type="select"
             value={current_graph_id || ''}
             onChange={(e) => {
               if (ringId && e.target.value) select_graph(ringId, e.target.value)
             }}
-            style={{ width: '100%', padding: 4 }}
           >
             {graphs.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
+              <option key={g} value={g}>{g}</option>
             ))}
-          </select>
-        </div>
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <NodeTree
-            nodes={nodes}
-            selected_node_id={selected_node_id}
-            on_select={(node_id) => {
-              if (ringId && current_graph_id) select_node(ringId, current_graph_id, node_id)
-            }}
-          />
-        </div>
-        <div style={{ padding: 8, borderTop: '1px solid #e5e7eb' }}>
-          <button onClick={() => set_show_add_form(!show_add_form)}>
-            Add Node
-          </button>
-          {show_add_form && (
-            <div style={{ marginTop: 8 }}>
-              <input
-                value={new_label}
-                onChange={(e) => set_new_label(e.target.value)}
-                placeholder="Node label"
-                style={{ width: '100%', marginBottom: 4, padding: 4 }}
-              />
-              <select
-                value={new_type}
-                onChange={(e) => set_new_type(e.target.value)}
-                style={{ width: '100%', marginBottom: 4, padding: 4 }}
-              >
-                <option value="concept">Concept</option>
-                <option value="category">Category</option>
-                <option value="document">Document</option>
-                <option value="event">Event</option>
-                <option value="person">Person</option>
-                <option value="task">Task</option>
-              </select>
-              <button onClick={handle_add_node}>Create</button>
-            </div>
-          )}
+          </Input>
+          <Button size="sm" onClick={() => set_show_add_form(!show_add_form)}>Add Node</Button>
         </div>
       </div>
 
-      <div style={{ flex: 1, position: 'relative' }}>
-        {loading && <p>Loading graph...</p>}
-        {error && <p role="alert">{error}</p>}
+      {show_add_form && (
+        <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--color-border-light)', display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+          <Input
+            value={new_label}
+            onChange={(e) => set_new_label(e.target.value)}
+            placeholder="Node label"
+            className="graph-add-input"
+          />
+          <Input
+            input_type="select"
+            value={new_type}
+            onChange={(e) => set_new_type(e.target.value)}
+          >
+            <option value="concept">Concept</option>
+            <option value="category">Category</option>
+            <option value="document">Document</option>
+            <option value="event">Event</option>
+            <option value="person">Person</option>
+            <option value="task">Task</option>
+          </Input>
+          <Button size="sm" onClick={handle_add_node}>Create</Button>
+        </div>
+      )}
+
+      <div className="graph-body">
+        {loading && <p className="graph-loading">Loading graph...</p>}
+        {error && <p className="graph-error" role="alert">{error}</p>}
         <ForceGraph
           nodes={nodes}
           edges={edges}
@@ -125,25 +107,16 @@ export function GraphView() {
           }}
           selected_node_id={selected_node_id}
         />
-      </div>
 
-      {selected_node_content && (
-        <div
-          style={{
-            width: 280,
-            borderLeft: '1px solid #e5e7eb',
-            padding: 16,
-            overflow: 'auto',
-          }}
-        >
-          <h3>{selected_node_content.label}</h3>
-          {selected_node_content.content && (
-            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>
-              {selected_node_content.content}
-            </pre>
-          )}
-        </div>
-      )}
+        {selected_node_content && (
+          <div className="graph-detail-panel">
+            <h3>{selected_node_content.label}</h3>
+            {selected_node_content.content && (
+              <pre className="graph-detail-content">{selected_node_content.content}</pre>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

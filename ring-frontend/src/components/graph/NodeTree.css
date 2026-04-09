@@ -1,0 +1,47 @@
+.node-tree {
+  overflow: auto;
+  height: 100%;
+}
+
+.node-tree-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 100ms ease;
+}
+
+.node-tree-item:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.node-tree-item-selected,
+.node-tree-item-highlighted {
+  background: var(--color-accent-light);
+  font-weight: 600;
+}
+
+.node-tree-item-selected:hover,
+.node-tree-item-highlighted:hover {
+  background: var(--color-accent-light);
+}
+
+.node-tree-toggle {
+  width: 16px;
+  text-align: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.node-tree-spacer {
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.node-tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

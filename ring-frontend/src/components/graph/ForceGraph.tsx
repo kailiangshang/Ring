@@ -3,12 +3,12 @@ import * as d3 from 'd3'
 import type { GraphNode, GraphEdge } from '../../types'
 
 const NODE_COLORS: Record<string, string> = {
-  concept: '#4a90d9',
-  category: '#e8913a',
-  document: '#5cb85c',
-  event: '#9b59b6',
-  person: '#17a2b8',
-  task: '#d9534f',
+  concept: '#2563EB',
+  category: '#D97706',
+  document: '#16A34A',
+  event: '#7C3AED',
+  person: '#0891B2',
+  task: '#DC2626',
 }
 
 interface SimNode extends d3.SimulationNodeDatum {
@@ -154,12 +154,12 @@ export function ForceGraph({ nodes, edges, on_node_click, selected_node_id }: Fo
         nodes.map((n) => ({ id: n.id, label: n.label, node_type: n.node_type })),
         (d) => d.id,
       )
-      .attr('stroke', (d) => (d.id === selected_node_id ? '#000' : 'none'))
+      .attr('stroke', (d) => (d.id === selected_node_id ? '#2563EB' : 'none'))
       .attr('stroke-width', (d) => (d.id === selected_node_id ? 3 : 0))
   }, [selected_node_id, nodes])
 
   return (
-    <div ref={container_ref} data-testid="graph-container" style={{ width: '100%', height: '100%' }}>
+    <div ref={container_ref} data-testid="graph-container" className="graph-container">
       <svg ref={svg_ref} />
     </div>
   )
