@@ -4,7 +4,6 @@ import type {
   LlmConfig,
   GitlabConfig,
   Ring,
-  RingListItem,
   CreateRingRequest,
   Conversation,
   Message,
@@ -20,13 +19,16 @@ import type {
   ArchiveResponse,
   ArchiveQueueResponse,
   PrListItem,
-  PrDetail,
   CommitLogEntry,
   Member,
-  SessionData,
+  SessionDetail,
+  SessionListItem,
+  SessionMessage,
   CreateSessionRequest,
   InviteRequest,
   InviteToken,
+  Notification,
+  Settings,
 } from '../types'
 
 import { toast_error } from '../components/Toast'
@@ -87,8 +89,8 @@ export async function complete_setup(): Promise<void> {
   return request<void>('/setup/complete', { method: 'POST' })
 }
 
-export async function list_rings(): Promise<RingListItem[]> {
-  const data = await request<{ rings: RingListItem[] }>('/rings')
+export async function list_rings(): Promise<Ring[]> {
+  const data = await request<{ rings: Ring[] }>('/rings')
   return data.rings
 }
 
@@ -136,11 +138,12 @@ export function send_message(
   ring_id: string,
   conv_id: string,
   content: string,
+  active_tools?: string[],
 ): Promise<Response> {
   return fetch(`${BASE_URL}/rings/${ring_id}/conversations/${conv_id}/messages`, {
     method: 'POST',
     headers: get_auth_headers(),
-    body: JSON.stringify({ message: content }),
+    body: JSON.stringify({ message: content, active_tools }),
   })
 }
 
@@ -296,8 +299,8 @@ export async function list_prs(
 export async function get_pr_diff(
   ring_id: string,
   pr_id: number,
-): Promise<PrDetail> {
-  return request<PrDetail>(`/rings/${ring_id}/git/prs/${pr_id}/diff`)
+): Promise<PrListItem> {
+  return request<PrListItem>(`/rings/${ring_id}/git/prs/${pr_id}/diff`)
 }
 
 export async function merge_pr(
@@ -376,8 +379,8 @@ export async function join_ring(
 export async function create_session(
   ring_id: string,
   req: CreateSessionRequest,
-): Promise<SessionData> {
-  return request<SessionData>(`/rings/${ring_id}/sessions`, {
+): Promise<SessionDetail> {
+  return request<SessionDetail>(`/rings/${ring_id}/sessions`, {
     method: 'POST',
     body: JSON.stringify(req),
   })
@@ -386,8 +389,8 @@ export async function create_session(
 export async function list_sessions(
   ring_id: string,
   status?: string,
-): Promise<SessionData[]> {
-  const data = await request<{ sessions: SessionData[] }>(
+): Promise<SessionListItem[]> {
+  const data = await request<{ sessions: SessionListItem[] }>(
     `/rings/${ring_id}/sessions${status ? `?status=${status}` : ''}`,
   )
   return data.sessions
@@ -396,8 +399,8 @@ export async function list_sessions(
 export async function get_session(
   ring_id: string,
   session_id: string,
-): Promise<SessionData> {
-  return request<SessionData>(`/rings/${ring_id}/sessions/${session_id}`)
+): Promise<SessionDetail> {
+  return request<SessionDetail>(`/rings/${ring_id}/sessions/${session_id}`)
 }
 
 export async function close_session(
@@ -436,8 +439,8 @@ export async function invite_to_session(
   ring_id: string,
   session_id: string,
   member_ids: string[],
-): Promise<void> {
-  return request<void>(
+): Promise<{ invited: string[] }> {
+  return request<{ invited: string[] }>(
     `/rings/${ring_id}/sessions/${session_id}/invite`,
     {
       method: 'POST',
@@ -458,8 +461,8 @@ export async function delete_session(
 export async function get_session_messages(
   ring_id: string,
   session_id: string,
-): Promise<Message[]> {
-  const data = await request<{ messages: Message[] }>(
+): Promise<SessionMessage[]> {
+  const data = await request<{ messages: SessionMessage[] }>(
     `/rings/${ring_id}/sessions/${session_id}/messages`,
   )
   return data.messages
@@ -477,13 +480,22 @@ export function send_session_message(
   })
 }
 
-export async function get_settings(): Promise<Record<string, string>> {
-  return request<Record<string, string>>('/settings')
+export async function get_settings(): Promise<Settings> {
+  return request<Settings>('/settings')
 }
 
-export async function update_settings(settings: Record<string, string>): Promise<void> {
-  return request<void>('/settings', {
+export async function update_settings(settings: Settings): Promise<{ ok: boolean }> {
+  return request<{ ok: boolean }>('/settings', {
     method: 'PUT',
     body: JSON.stringify(settings),
   })
+}
+
+export async function list_notifications(): Promise<Notification[]> {
+  const data = await request<{ notifications: Notification[] }>('/notifications')
+  return data.notifications
+}
+
+export async function mark_notification_read(notification_id: string): Promise<void> {
+  return request<void>(`/notifications/${notification_id}`, { method: 'POST' })
 }

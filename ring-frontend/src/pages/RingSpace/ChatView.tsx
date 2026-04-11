@@ -72,7 +72,8 @@ export function ChatView() {
 
   const handle_send = (content: string) => {
     if (!ringId || !current_conversation_id) return
-    send_message(ringId, content)
+    const active_tool_names = tools.filter((t) => t.active).map((t) => t.name)
+    send_message(ringId, content, active_tool_names.length > 0 ? active_tool_names : undefined)
   }
 
   return (

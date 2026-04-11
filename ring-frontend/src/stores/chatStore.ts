@@ -12,7 +12,7 @@ interface ChatState {
 
   create_conversation: (ring_id: string, title: string) => Promise<string>
   load_history: (ring_id: string, conv_id: string) => Promise<void>
-  send_message: (ring_id: string, content: string) => Promise<void>
+  send_message: (ring_id: string, content: string, active_tools?: string[]) => Promise<void>
   reset: () => void
 }
 
@@ -35,7 +35,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ messages: msgs })
   },
 
-  send_message: async (ring_id, content) => {
+  send_message: async (ring_id, content, active_tools) => {
     const conv_id = get().current_conversation_id
     if (!conv_id) return
 
@@ -45,6 +45,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
       role: 'user',
       content,
       sender_id: '',
+      tool_calls: null,
+      archived: false,
       created_at: new Date().toISOString(),
     }
 
@@ -55,7 +57,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }))
 
     try {
-      const res = await api.send_message(ring_id, conv_id, content)
+      const res = await api.send_message(ring_id, conv_id, content, active_tools)
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -76,7 +78,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             conversation_id: conv_id,
             role: 'assistant',
             content: assistant_content,
-            sender_id: '',
+            sender_id: null,
+            tool_calls: null,
+            archived: false,
             created_at: new Date().toISOString(),
           }
           set((s) => ({
