@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -16,6 +17,7 @@ pub struct AiService {
     db: Arc<dyn Repository>,
     llm: Arc<dyn LlmProvider>,
     tool_dispatcher: Arc<ToolDispatcher>,
+    data_dir: PathBuf,
 }
 
 impl AiService {
@@ -23,11 +25,13 @@ impl AiService {
         db: Arc<dyn Repository>,
         llm: Arc<dyn LlmProvider>,
         tool_dispatcher: Arc<ToolDispatcher>,
+        data_dir: PathBuf,
     ) -> Self {
         AiService {
             db,
             llm,
             tool_dispatcher,
+            data_dir,
         }
     }
 
@@ -107,11 +111,14 @@ impl AiService {
 
         let all_messages = self.db.get_messages(conv_id, 200, None).await?;
 
-        let role_md = "(未设置角色定义)";
+        let role_md = read_ring_file(&self.data_dir, &ring.name, "role.md")
+            .unwrap_or_else(|| "(未设置角色定义)".into());
+        let conventions_md = read_ring_file(&self.data_dir, &ring.name, "conventions.md")
+            .unwrap_or_else(|| "(未设置团队约定)".into());
         let system_prompt = build_group_ring_prompt(
             &ring.name,
-            role_md,
-            "(未设置团队约定)",
+            &role_md,
+            &conventions_md,
             conv.title.as_deref().unwrap_or("(无活跃上下文)"),
         );
 
@@ -317,6 +324,15 @@ impl AiService {
 
         Ok(Box::pin(tokio_stream::wrappers::ReceiverStream::new(rx)))
     }
+}
+
+fn read_ring_file(data_dir: &std::path::Path, ring_name: &str, filename: &str) -> Option<String> {
+    let path = data_dir
+        .join("repos")
+        .join(format!("ring-{}", ring_name))
+        .join(".ring")
+        .join(filename);
+    std::fs::read_to_string(path).ok()
 }
 
 fn estimate_tokens(text: &str) -> usize {
@@ -758,7 +774,8 @@ mod tests {
         let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
             crate::services::tool_engine::ToolRegistry::new(),
         )));
-        let svc = AiService::new(db, llm, dispatcher);
+        let data_dir = tempfile::tempdir().unwrap().path().to_path_buf();
+        let svc = AiService::new(db, llm, dispatcher, data_dir);
         let stream = svc
             .super_ring_chat("user-1".into(), "hi".into(), vec![], None)
             .await
@@ -777,7 +794,8 @@ mod tests {
         let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
             crate::services::tool_engine::ToolRegistry::new(),
         )));
-        let svc = AiService::new(db.clone(), llm, dispatcher);
+        let data_dir = tempfile::tempdir().unwrap().path().to_path_buf();
+        let svc = AiService::new(db.clone(), llm, dispatcher, data_dir);
         let _stream = svc
             .group_ring_chat("ring-1", "conv-1", "hello".into(), None)
             .await
@@ -797,7 +815,8 @@ mod tests {
         let dispatcher = Arc::new(ToolDispatcher::new(Arc::new(
             crate::services::tool_engine::ToolRegistry::new(),
         )));
-        let svc = AiService::new(db, llm, dispatcher);
+        let data_dir = tempfile::tempdir().unwrap().path().to_path_buf();
+        let svc = AiService::new(db, llm, dispatcher, data_dir);
         let _stream = svc
             .super_ring_chat("user-1".into(), "test".into(), vec![], None)
             .await

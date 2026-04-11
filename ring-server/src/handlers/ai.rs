@@ -35,7 +35,12 @@ pub async fn super_ring_chat(
 
     let llm = state.rebuild_llm().await;
     let dispatcher = Arc::new(ToolDispatcher::new(state.tool_registry.clone()));
-    let ai = AiService::new(state.db.clone(), llm, dispatcher);
+    let ai = AiService::new(
+        state.db.clone(),
+        llm,
+        dispatcher,
+        state.config.data_dir.clone(),
+    );
     let history = req.history.unwrap_or_default();
     let history: Vec<LlmMessage> = history
         .into_iter()

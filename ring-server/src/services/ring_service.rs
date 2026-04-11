@@ -51,6 +51,8 @@ impl RingService {
             }
         };
 
+        let role_description = req.role_description.clone();
+
         let new_ring = NewRing {
             name: req.name.clone(),
             description: req.description,
@@ -74,7 +76,105 @@ impl RingService {
         let json = serde_json::to_string_pretty(&empty_graph)?;
         std::fs::write(repo_dir.join("graph.json"), json)?;
 
+        Self::init_ring_templates(&repo_dir, &role_description)?;
+
         Ok(ring)
+    }
+
+    fn init_ring_templates(
+        repo_dir: &std::path::Path,
+        role_description: &str,
+    ) -> std::result::Result<(), std::io::Error> {
+        let dot_ring = repo_dir.join(".ring");
+        std::fs::create_dir_all(&dot_ring)?;
+
+        std::fs::write(
+            dot_ring.join("role.md"),
+            format!(
+                r#"# 角色定义
+
+{role_description}
+
+## 行为准则
+
+- 回复使用中文
+- 优先基于 Ring 内已有的知识回答问题
+- 不确定时明确告知，不猜测
+- 归档推荐时说明理由
+"#
+            ),
+        )?;
+
+        std::fs::write(
+            dot_ring.join("conventions.md"),
+            r#"# 团队约定
+
+## 命名规范
+
+- 节点名称使用中文
+- Markdown 文件名使用英文小写 + 连字符
+
+## 术语表
+
+（暂无，使用中积累）
+
+## 分类偏好
+
+（暂无，使用中积累）
+"#,
+        )?;
+
+        std::fs::write(
+            dot_ring.join("active-context.md"),
+            r#"# 当前活跃上下文
+
+（系统自动维护，用户无需编辑）
+
+最近活动：Ring 刚创建，等待首次使用。
+"#,
+        )?;
+
+        std::fs::write(
+            dot_ring.join("archive-patterns.md"),
+            r#"# 归档模式
+
+（AI 自动积累，记录用户的归档偏好）
+
+## 归档粒度偏好
+
+（暂无数据）
+
+## 归档位置偏好
+
+（暂无数据）
+
+## 更新 vs 新建偏好
+
+（暂无数据）
+"#,
+        )?;
+
+        std::fs::write(
+            dot_ring.join("corrections.md"),
+            r#"# 修正记录
+
+（AI 自动积累，记录用户对 AI 行为的修正）
+
+（暂无修正记录）
+"#,
+        )?;
+
+        std::fs::write(
+            dot_ring.join("knowledge-summary.md"),
+            r#"# 知识总结
+
+（AI 定期生成，总结 Ring 的知识全貌）
+
+（暂无数据，使用后由 AI 定期更新）
+"#,
+        )?;
+
+        Ok(())
     }
 
     pub async fn get_ring(&self, id: &str) -> Result<Ring> {
@@ -188,6 +288,26 @@ mod tests {
             RingError::NotFound(msg) => assert!(msg.contains("nonexistent")),
             _ => panic!("expected NotFound error, got {:?}", err),
         }
+    }
+
+    #[tokio::test]
+    async fn create_ring_initializes_templates() {
+        let svc = setup_service().await;
+        let user_id = create_test_user(&svc, "user-tpl").await;
+        let ring = svc.create_ring(valid_request(&user_id)).await.unwrap();
+        let repo_dir = svc
+            .data_dir
+            .join("repos")
+            .join(format!("ring-{}", ring.name));
+        let dot_ring = repo_dir.join(".ring");
+        assert!(dot_ring.join("role.md").exists());
+        assert!(dot_ring.join("conventions.md").exists());
+        assert!(dot_ring.join("active-context.md").exists());
+        assert!(dot_ring.join("archive-patterns.md").exists());
+        assert!(dot_ring.join("corrections.md").exists());
+        assert!(dot_ring.join("knowledge-summary.md").exists());
+        let role = std::fs::read_to_string(dot_ring.join("role.md")).unwrap();
+        assert!(role.contains("expert"));
     }
 
     #[tokio::test]
