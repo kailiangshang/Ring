@@ -1,5 +1,9 @@
 # Future Features — 新功能规划
 
+> **Affects**: [implementation-roadmap.md](implementation-roadmap.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [known-gaps.md](known-gaps.md)
+> **Last verified**: 2026-04-11
+
 本文档记录**尚未实现的新功能**。每条含用户故事、范围界定、验收标准和前置依赖。
 
 已知缺陷修复见 [known-gaps.md](./known-gaps.md)。

@@ -35,16 +35,21 @@ Ring 是一个面向公司内网的群组知识协作空间。Rust + Axum 后端
 
 | 内容 | 路径 |
 |------|------|
-| 设计文档 | `docs/product/` + `docs/technical/` |
-| 开发者指南 | `docs/technical/developer-guide.md` |
+| 文档导航 | `docs/README.md` |
+| 产品需求 | `docs/product/PRD.md`（含权限、用户流程） |
+| AI 行为设计 | `docs/product/ai-behavior.md` |
+| 技术架构 + 开发者指南 | `docs/technical/architecture.md` |
 | 数据模型 | `docs/technical/data-model.md` |
 | API 设计 | `docs/technical/api-design.md` |
-| SQLite 迁移 | `docs/technical/developer-guide.md` 第 3 节 |
-| 错误类型 | `docs/technical/developer-guide.md` 第 4 节 |
-| 路由注册 | `docs/technical/developer-guide.md` 第 6 节 |
+| 前端 API 参考 | `docs/api/frontend.md` |
+| 后端 API 参考 | `docs/api/backend.md` |
+| SQLite 迁移 | `docs/technical/architecture.md` 第 5 节 |
+| 错误类型 | `docs/technical/architecture.md` 第 4.4 节 |
+| 路由注册 | `docs/technical/architecture.md` 第 6 节 |
 | 知识图谱设计 | `docs/technical/knowledge-graph.md` |
 | LLM prompt 模板 | `docs/technical/llm-prompts.md` |
 | .ring/ 初始模板 | `docs/technical/ring-templates.md` |
+| 已知缺陷 | `docs/technical/known-gaps.md` |
 
 ## 测试
 

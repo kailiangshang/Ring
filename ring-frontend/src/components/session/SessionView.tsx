@@ -136,9 +136,9 @@ export function SessionView() {
         >
           <Badge status={s.status === 'active' ? 'active' : 'closed'}>{s.status}</Badge>
           <div className="session-card-info">
-            <div className="session-card-title">{s.title || s.scenario}</div>
+            <div className="session-card-title">{s.title || 'Untitled Session'}</div>
             <div className="session-card-meta">
-              {s.member_count ?? s.members?.length ?? 0} members
+              {s.member_count} members
             </div>
           </div>
           {s.archive_enabled && <Badge variant="accent">Archive</Badge>}

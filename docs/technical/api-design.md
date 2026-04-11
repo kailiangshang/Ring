@@ -1,5 +1,9 @@
 # Ring API 设计
 
+> **Affects**: [frontend.md](../api/frontend.md) · [backend.md](../api/backend.md) · [sse-protocol.md](sse-protocol.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [architecture.md](architecture.md) · [data-model.md](data-model.md)
+> **Last verified**: 2026-04-11
+
 ## 1. API 概述
 
 - **基础 URL**：`http://{host}:7420/api/v1`
@@ -9,7 +13,7 @@
 
 ---
 
-## 1.1 公共页面（无需认证）
+## 1.1 公共页面（无需认证） `[已实现]`
 
 ### 1.1.1 安装导航页（去中心化）
 
@@ -59,7 +63,7 @@ GET /join?token={inviteToken}&creator_ip={creatorIP}
 
 ---
 
-## 1.5 首次启动 API
+## 1.5 首次启动 API `[已实现]`
 
 ### 1.5.1 检查初始化状态
 
@@ -134,7 +138,7 @@ POST /api/v1/setup/complete
 
 ---
 
-## 2. Ring Hub API
+## 2. Ring Hub API `[已实现]`
 
 ### 2.1 获取 Ring 列表
 
@@ -210,7 +214,7 @@ DELETE /api/v1/rings/{ringId}
 
 ---
 
-## 3. 蓝图 API
+## 3. 蓝图 API `[已实现]`
 
 ### 3.1 获取蓝图模板列表
 
@@ -304,7 +308,7 @@ POST /api/v1/rings/{ringId}/blueprint/confirm
 
 ---
 
-## 4. 对话 API
+## 4. 对话 API `[已实现]`
 
 ### 4.1 获取对话列表
 
@@ -398,7 +402,7 @@ GET /api/v1/rings/{ringId}/conversations/{convId}/messages?limit=50&before={msgI
 
 ---
 
-## 5. 图谱 API
+## 5. 图谱 API `[部分实现]`
 
 ### 5.1 获取 Ring 的所有图谱
 
@@ -524,7 +528,7 @@ POST /api/v1/rings/{ringId}/search
 }
 ```
 
-### 5.10 全局搜索（跨图谱）
+### 5.10 全局搜索（跨图谱） `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/search/global
@@ -547,7 +551,7 @@ POST /api/v1/rings/{ringId}/search/global
 
 ---
 
-## 6. 归档 API
+## 6. 归档 API `[已实现]`
 
 ### 6.1 标记归档
 
@@ -621,7 +625,7 @@ POST /api/v1/rings/{ringId}/conversations/{convId}/export
 
 ---
 
-## 7. Git API
+## 7. Git API `[已实现]`
 
 ### 7.1 获取 PR 列表
 
@@ -680,7 +684,7 @@ GET /api/v1/rings/{ringId}/commits?limit=20
 
 ---
 
-## 8. 成员 API
+## 8. 成员 API `[已实现]`
 
 ### 8.1 生成邀请链接
 
@@ -776,7 +780,7 @@ DELETE /api/v1/rings/{ringId}/members/{memberId}
 
 ---
 
-## 9. Session API（多人讨论会话）
+## 9. Session API（多人讨论会话） `[已实现]`
 
 > Session 是 Ring 内的多人实时讨论空间。区别于 Ring 级邀请（仓库同步），Session 级邀请仅限 Ring 内已有成员，消息通过 Session owner 的后端 WebSocket 中转，共享一个 Session Ring 实例。
 
@@ -986,7 +990,7 @@ DELETE /api/v1/rings/{ringId}/sessions/{sessionId}
 
 ---
 
-## 10. Super Ring API（全局助手）
+## 10. Super Ring API（全局助手） `[部分实现]`
 
 > Super Ring 是 Ring Hub 级的全局 AI 助手，具备跨 Ring 分析、问答、总结、合并能力。按需只读访问本机所有 Ring 内容。
 
@@ -1005,7 +1009,7 @@ POST /api/v1/super-ring/chat
 
 **响应**：流式 SSE，同对话 API。
 
-### 10.2 跨 Ring 分析
+### 10.2 跨 Ring 分析 `⚠️ 计划中`
 
 ```
 POST /api/v1/super-ring/analyze
@@ -1021,7 +1025,7 @@ POST /api/v1/super-ring/analyze
 
 **响应**：流式 SSE，Super Ring 按需读取相关 Ring 的图谱和归档内容进行分析。
 
-### 10.3 跨 Ring 总结
+### 10.3 跨 Ring 总结 `⚠️ 计划中`
 
 ```
 POST /api/v1/super-ring/summarize
@@ -1035,7 +1039,7 @@ POST /api/v1/super-ring/summarize
 }
 ```
 
-### 10.4 跨 Ring 合并推荐
+### 10.4 跨 Ring 合并推荐 `⚠️ 计划中`
 
 ```
 POST /api/v1/super-ring/merge-suggest
@@ -1067,11 +1071,11 @@ POST /api/v1/super-ring/merge-suggest
 
 ---
 
-## 12. Export API（导出中心）
+## 11. Export API（导出中心） `[计划中]`
 
 > 提供七种导出选项，支持 Ring 内容的多种输出形式。
 
-### 12.1 导出图谱为图片
+### 11.1 导出图谱为图片 `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/exports/graph-image
@@ -1092,7 +1096,7 @@ POST /api/v1/rings/{ringId}/exports/graph-image
 
 > `format` 可选：`png`、`svg`、`pdf`。返回对应格式的二进制文件。
 
-### 12.2 导出单篇 Markdown
+### 11.2 导出单篇 Markdown `⚠️ 计划中`
 
 ```
 GET /api/v1/rings/{ringId}/exports/markdown/{nodeId}
@@ -1100,7 +1104,7 @@ GET /api/v1/rings/{ringId}/exports/markdown/{nodeId}
 
 > 返回该节点对应的 Markdown 文件内容，以 `attachment` 形式下载。
 
-### 12.3 导出对话记录
+### 11.3 导出对话记录 `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/exports/conversation
@@ -1117,7 +1121,7 @@ POST /api/v1/rings/{ringId}/exports/conversation
 
 > `format` 可选：`markdown`、`pdf`。
 
-### 12.4 导出 AI 结构化报告
+### 11.4 导出 AI 结构化报告 `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/exports/report
@@ -1135,7 +1139,7 @@ POST /api/v1/rings/{ringId}/exports/report
 
 > Group Ring 基于指定节点的内容，生成结构化报告。`format` 可选：`markdown`、`pdf`。
 
-### 12.5 导出 Session 讨论记录
+### 11.5 导出 Session 讨论记录 `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/exports/session
@@ -1151,7 +1155,7 @@ POST /api/v1/rings/{ringId}/exports/session
 
 > `format` 可选：`markdown`、`pdf`。
 
-### 12.6 导出整 Ring 数据备份
+### 11.6 导出整 Ring 数据备份 `⚠️ 计划中`
 
 ```
 POST /api/v1/rings/{ringId}/exports/backup
@@ -1164,7 +1168,7 @@ POST /api/v1/rings/{ringId}/exports/backup
 - SQLite 数据库快照（元数据、成员、对话历史）
 - assets/ 目录
 
-### 12.7 导出 graph.json 原始数据
+### 11.7 导出 graph.json 原始数据 `⚠️ 计划中`
 
 ```
 GET /api/v1/rings/{ringId}/exports/graph-json/{graphId}
@@ -1174,15 +1178,15 @@ GET /api/v1/rings/{ringId}/exports/graph-json/{graphId}
 
 ---
 
-## 13. 设置 API
+## 12. 设置 API `[已实现]`
 
-### 13.1 获取设置
+### 12.1 获取设置
 
 ```
 GET /api/v1/settings
 ```
 
-### 13.2 更新设置
+### 12.2 更新设置
 
 ```
 PUT /api/v1/settings
@@ -1205,15 +1209,15 @@ PUT /api/v1/settings
 
 ---
 
-## 14. WebSocket
+## 13. WebSocket `[已实现]`
 
-### 14.1 连接
+### 13.1 连接
 
 ```
 ws://{host}:7420/api/v1/ws?ringId={ringId}
 ```
 
-### 14.2 消息类型
+### 13.2 消息类型
 
 | 类型 | 方向 | 描述 |
 |------|------|------|
@@ -1225,7 +1229,7 @@ ws://{host}:7420/api/v1/ws?ringId={ringId}
 | `mode_change` | 客户端 → 服务端 | 切换交互模式（chat/archive/auto） |
 | `mode_changed` | 服务端 → 客户端 | 模式切换确认 |
 
-### 14.3 Session WebSocket 消息类型
+### 13.3 Session WebSocket 消息类型
 
 > Session 消息通过 Session owner 的后端 WebSocket hub 中转。成员连接到 Session owner 后端的 session WebSocket 频道。
 

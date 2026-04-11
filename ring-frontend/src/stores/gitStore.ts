@@ -1,10 +1,10 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
-import type { PrListItem, PrDetail, CommitLogEntry, ArchiveQueueResponse } from '../types'
+import type { PrListItem, CommitLogEntry, ArchiveQueueResponse } from '../types'
 
 interface GitState {
   prs: PrListItem[]
-  current_pr: PrDetail | null
+  current_pr: PrListItem | null
   commit_log: CommitLogEntry[]
   archive_queue: ArchiveQueueResponse | null
   loading: boolean

@@ -7,7 +7,7 @@ import { BlueprintWizard } from './pages/RingSpace/BlueprintWizard'
 import { GraphView } from './pages/RingSpace/GraphView'
 import { PrList } from './pages/RingSpace/PrList'
 import { PrDetail } from './pages/RingSpace/PrDetail'
-import { SuperRingChat } from './pages/RingHub/SuperRingChat'
+import { RingSuperChat } from './pages/RingHub/RingSuperChat'
 import { MemberList } from './components/member/MemberList'
 import { SessionView } from './components/session/SessionView'
 import { SettingsPage } from './pages/Settings/SettingsPage'
@@ -62,7 +62,7 @@ export default function App() {
         <Route path="/setup" element={<SetupWizardRedirect />} />
         <Route element={<SetupGuard><AppShell /></SetupGuard>}>
           <Route path="/" element={<RingHub />} />
-          <Route path="/super-ring" element={<SuperRingChat />} />
+          <Route path="/ring-super" element={<RingSuperChat />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
         <Route path="/ring/:ringId" element={<SetupGuard><RingSpaceLayout /></SetupGuard>}>

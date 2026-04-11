@@ -147,8 +147,8 @@ export function send_message(
   })
 }
 
-export function super_ring_chat(message: string, history: { role: string; content: string }[] = []): Promise<Response> {
-  return fetch(`${BASE_URL}/super-ring/chat`, {
+export function ring_super_chat(message: string, history: { role: string; content: string }[] = []): Promise<Response> {
+  return fetch(`${BASE_URL}/ring-super/chat`, {
     method: 'POST',
     headers: get_auth_headers(),
     body: JSON.stringify({ message, history }),

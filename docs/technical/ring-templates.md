@@ -1,5 +1,9 @@
 # Ring .ring/ 初始模板
 
+> **Affects**: [data-model.md](data-model.md) · [backend.md](../api/backend.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [git-integration.md](git-integration.md)
+> **Last verified**: 2026-04-11
+
 创建 Ring 时，后端初始化 `.ring/` 目录下的 6 个文件。`role.md` 和 `conventions.md` 由用户输入填充，其余由系统生成默认内容。
 
 ---

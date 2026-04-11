@@ -1,5 +1,9 @@
 # Ring 知识图谱设计
 
+> **Affects**: [graphStore (frontend)](../api/frontend.md) · [backend.md](../api/backend.md) · [blueprint (frontend)](../api/frontend.md)
+> **Depends on**: [data-model.md](data-model.md) · [PRD.md](../product/PRD.md) · [architecture.md](architecture.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 图谱模型
 
 ### 1.1 核心概念

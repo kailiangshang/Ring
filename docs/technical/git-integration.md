@@ -1,5 +1,9 @@
 # Ring Git 集成方案
 
+> **Affects**: [backend.md](../api/backend.md) · [data-model.md](data-model.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [data-model.md](data-model.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 概述
 
 Ring 使用公司内部 GitLab 作为归档内容的版本管理平台。所有 Git 操作在 Ring 内完成，用户无需跳转到 GitLab。

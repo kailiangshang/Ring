@@ -21,12 +21,14 @@ export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
     try {
       const msgs = await api.get_session_messages(ring_id, session_id)
       set({
-        messages: msgs.map((m: any) => ({
+        messages: msgs.map((m) => ({
           id: m.id,
           conversation_id: m.session_id,
           role: m.role,
           content: m.content,
           sender_id: m.sender_id,
+          tool_calls: null,
+          archived: false,
           created_at: m.created_at,
         })),
       })
@@ -42,6 +44,8 @@ export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
       role: 'user',
       content,
       sender_id: '',
+      tool_calls: null,
+      archived: false,
       created_at: new Date().toISOString(),
     }
 
@@ -73,7 +77,9 @@ export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
                   conversation_id: session_id,
                   role: 'assistant',
                   content: assistant_content,
-                  sender_id: '',
+                  sender_id: null,
+                  tool_calls: null,
+                  archived: false,
                   created_at: new Date().toISOString(),
                 },
               ],

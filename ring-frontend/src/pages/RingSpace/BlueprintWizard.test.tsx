@@ -8,16 +8,20 @@ vi.mock('../../api/client', () => ({
       id: 't1',
       name: 'Team Wiki',
       description: 'A wiki blueprint for teams',
-      graphs: [
-        { name: 'docs', graph_type: 'tree', categories: ['documentation'] },
-      ],
+      graphs: JSON.stringify([{ name: 'docs', graph_type: 'tree', categories: ['documentation'] }]),
+      is_system: true,
+      created_by: null,
+      created_at: '2026-04-01T00:00:00Z',
     },
   ] as BlueprintTemplate[]),
   blueprint_preview: vi.fn().mockResolvedValue({
-    graphs: [{ name: 'docs', graph_type: 'tree', categories: ['documentation'] }],
-    preview: 'preview text',
+    graphs: [{
+      name: 'docs',
+      nodes: [{ id: 'n1', label: 'docs', node_type: 'topic' }],
+      edges: [],
+    }],
   }),
-  blueprint_confirm: vi.fn().mockResolvedValue({ success: true, message: 'ok' }),
+  blueprint_confirm: vi.fn().mockResolvedValue({ blueprint_id: 'bp-1', graphs: [{ id: 'g1', name: 'docs', graph_type: 'tree' }], status: 'confirmed' }),
   blueprint_chat: vi.fn(),
 }))
 

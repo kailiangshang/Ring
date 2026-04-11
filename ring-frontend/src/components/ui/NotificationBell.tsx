@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import type { Notification } from '../../types'
 import './NotificationBell.css'
 
 export interface NotificationItem {
@@ -6,6 +7,15 @@ export interface NotificationItem {
   title: string
   time: string
   target_path: string
+}
+
+export function notification_to_item(n: Notification): NotificationItem {
+  return {
+    id: n.id,
+    title: n.title,
+    time: n.created_at,
+    target_path: n.related_id || '',
+  }
 }
 
 interface NotificationBellProps {

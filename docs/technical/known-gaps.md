@@ -1,5 +1,9 @@
 # Known Gaps — 已实现但存在缺陷的修复清单
 
+> **Affects**: [implementation-roadmap.md](implementation-roadmap.md) · [future-features.md](future-features.md)
+> **Depends on**: [architecture.md](architecture.md) · [backend.md](../api/backend.md)
+> **Last verified**: 2026-04-11
+
 本文档记录**已有代码但未正确工作**的功能缺陷。每条含根因分析、修复方案和验收标准。
 
 ---

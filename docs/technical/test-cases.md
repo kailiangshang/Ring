@@ -1,5 +1,9 @@
 # Ring 测试用例设计
 
+> **Affects**: (test files in ring-server/tests/ and ring-frontend/src/)
+> **Depends on**: [PRD.md](../product/PRD.md) · [api-design.md](api-design.md) · [permissions.md](../product/permissions.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 概述
 
 ### 1.1 测试策略

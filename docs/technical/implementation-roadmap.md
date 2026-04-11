@@ -1,5 +1,9 @@
 # Ring 实施路线图
 
+> **Affects**: [known-gaps.md](known-gaps.md) · [future-features.md](future-features.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [architecture.md](architecture.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 总体规划
 
 完整多人版一步到位，不分阶段简化。按功能模块划分为 6 个实施阶段，每个阶段可独立交付和验证。

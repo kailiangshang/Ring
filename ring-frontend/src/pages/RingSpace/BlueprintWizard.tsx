@@ -7,7 +7,7 @@ import { ChatInput } from '../../components/chat/ChatInput'
 import { Tabs } from '../../components/ui/Tabs'
 import { Button } from '../../components/ui/Button'
 import { EmptyState } from '../../components/ui/EmptyState'
-import type { BlueprintTemplate } from '../../types'
+import type { BlueprintTemplate, GraphDef } from '../../types'
 import './BlueprintWizard.css'
 
 type TabMode = 'templates' | 'custom'
@@ -33,7 +33,8 @@ export function BlueprintWizard() {
   const handle_template_click = async (t: BlueprintTemplate) => {
     if (!ringId) return
     try {
-      const res = await api.blueprint_preview(ringId, t.graphs)
+      const parsed_graphs: GraphDef[] = JSON.parse(t.graphs)
+      const res = await api.blueprint_preview(ringId, parsed_graphs)
       useBlueprintStore.setState({ preview_graphs: res.graphs })
     } catch (e) {
       set_error((e as Error).message)
@@ -100,7 +101,7 @@ export function BlueprintWizard() {
           <h3>Blueprint Preview</h3>
           {preview_graphs.map((g, i) => (
             <div key={i} className="blueprint-preview-item">
-              <strong>{g.name}</strong> ({g.graph_type}) — {g.categories.join(', ')}
+              <strong>{g.name}</strong> — {g.nodes.length} nodes, {g.edges.length} edges
             </div>
           ))}
           <Button onClick={() => ringId && confirm(ringId)} className="blueprint-confirm-btn">

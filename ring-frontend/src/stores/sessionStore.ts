@@ -1,15 +1,15 @@
 import { create } from 'zustand'
 import * as api from '../api/client'
-import type { SessionData, CreateSessionRequest } from '../types'
+import type { SessionListItem, SessionDetail, CreateSessionRequest } from '../types'
 
 interface SessionState {
-  sessions: SessionData[]
-  current_session: SessionData | null
+  sessions: SessionListItem[]
+  current_session: SessionDetail | null
   loading: boolean
   error: string | null
 
   load_sessions: (ring_id: string, status?: string) => Promise<void>
-  create_session: (ring_id: string, req: CreateSessionRequest) => Promise<SessionData | null>
+  create_session: (ring_id: string, req: CreateSessionRequest) => Promise<SessionDetail | null>
   close_session: (ring_id: string, session_id: string) => Promise<void>
   leave_session: (ring_id: string, session_id: string) => Promise<void>
   toggle_archive: (ring_id: string, session_id: string, enabled: boolean) => Promise<void>

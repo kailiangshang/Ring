@@ -1,5 +1,9 @@
 # Ring LLM Prompt 模板
 
+> **Affects**: [backend.md](../api/backend.md) · [ai-behavior.md](../product/ai-behavior.md)
+> **Depends on**: [ai-behavior.md](../product/ai-behavior.md) · [PRD.md](../product/PRD.md)
+> **Last verified**: 2026-04-11
+
 ## 1. Super Ring（Hub 级全局助手）
 
 ```

@@ -1,20 +1,20 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { SuperRingChat } from './SuperRingChat'
+import { RingSuperChat } from './RingSuperChat'
 
 vi.mock('../../api/client', () => ({
-  super_ring_chat: vi.fn(),
+  ring_super_chat: vi.fn(),
 }))
 
-describe('SuperRingChat', () => {
+describe('RingSuperChat', () => {
   it('renders chat input', () => {
-    render(<SuperRingChat />)
+    render(<RingSuperChat />)
     expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument()
-    expect(screen.getByText('Super Ring')).toBeInTheDocument()
+    expect(screen.getByText('Ring Super')).toBeInTheDocument()
   })
 
   it('renders send button', () => {
-    render(<SuperRingChat />)
+    render(<RingSuperChat />)
     expect(screen.getByText('Send')).toBeInTheDocument()
   })
 })

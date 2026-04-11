@@ -4,14 +4,14 @@ import * as api from '../api/client'
 import { parseSseStream } from '../components/chat/SseParser'
 import type { Message, SseEvent } from '../types'
 
-interface SuperRingState {
+interface RingSuperState {
   messages: Message[]
   is_streaming: boolean
   error: string | null
   send_message: (content: string) => Promise<void>
 }
 
-export const useSuperRingStore = create<SuperRingState>()(
+export const useRingSuperStore = create<RingSuperState>()(
   persist(
     (set, get) => ({
       messages: [],
@@ -25,6 +25,8 @@ export const useSuperRingStore = create<SuperRingState>()(
       role: 'user',
       content,
       sender_id: '',
+      tool_calls: null,
+      archived: false,
       created_at: new Date().toISOString(),
     }
 
@@ -34,7 +36,7 @@ export const useSuperRingStore = create<SuperRingState>()(
     const history = prev_messages.map((m) => ({ role: m.role, content: m.content }))
 
     try {
-      const res = await api.super_ring_chat(content, history)
+      const res = await api.ring_super_chat(content, history)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `request failed: ${res.status}`)
@@ -59,7 +61,9 @@ export const useSuperRingStore = create<SuperRingState>()(
                   conversation_id: '',
                   role: 'assistant',
                   content: assistant_content,
-                  sender_id: '',
+                  sender_id: null,
+                  tool_calls: null,
+                  archived: false,
                   created_at: new Date().toISOString(),
                 },
               ],

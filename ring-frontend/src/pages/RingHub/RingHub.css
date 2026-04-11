@@ -106,42 +106,42 @@
   color: var(--color-text-secondary);
 }
 
-.super-ring-header {
+.ring-super-header {
   margin-bottom: var(--space-4);
 }
 
-.super-ring-title {
+.ring-super-title {
   font-size: var(--font-size-xl);
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
 }
 
-.super-ring-subtitle {
+.ring-super-subtitle {
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin-top: var(--space-1);
 }
 
-.super-ring-chat {
+.ring-super-chat {
   display: flex;
   flex-direction: column;
   height: 70vh;
 }
 
-.super-ring-messages {
+.ring-super-messages {
   flex: 1;
   overflow: auto;
   padding: var(--space-4);
 }
 
-.super-ring-typing {
+.ring-super-typing {
   color: var(--color-text-tertiary);
   font-size: var(--font-size-sm);
   margin-bottom: var(--space-2);
 }
 
-.super-ring-input-area {
+.ring-super-input-area {
   padding: var(--space-4);
   border-top: 1px solid var(--color-border-light);
 }

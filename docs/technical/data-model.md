@@ -1,5 +1,9 @@
 # Ring 数据模型
 
+> **Affects**: [knowledge-graph.md](knowledge-graph.md) · [backend.md](../api/backend.md) · [git-integration.md](git-integration.md)
+> **Depends on**: [PRD.md](../product/PRD.md) · [architecture.md](architecture.md)
+> **Last verified**: 2026-04-11
+
 ## 0. 存储策略概览
 
 Ring 采用**双存储架构**，均通过 trait 抽象层访问，可替换底层实现：

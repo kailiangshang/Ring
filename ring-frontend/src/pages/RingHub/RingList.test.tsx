@@ -2,24 +2,32 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { RingList } from './RingList'
-import type { RingListItem } from '../../types'
+import type { Ring } from '../../types'
 
-const mock_rings: RingListItem[] = [
+const mock_rings: Ring[] = [
   {
     id: '1',
     name: 'Ring A',
-    member_count: 5,
-    graph_node_count: 10,
-    last_activity_at: '2026-04-05T10:00:00Z',
-    role: 'creator',
+    description: 'Ring A description',
+    creator_id: 'user-1',
+    gitlab_repo: 'git@gitlab.corp:user/a.git',
+    local_path: '/home/.ring/repos/a',
+    next_token_id: 2,
+    status: 'active',
+    created_at: '2026-04-05T10:00:00Z',
+    updated_at: '2026-04-05T10:00:00Z',
   },
   {
     id: '2',
     name: 'Ring B',
-    member_count: 3,
-    graph_node_count: 7,
-    last_activity_at: '2026-04-04T08:00:00Z',
-    role: 'member',
+    description: 'Ring B description',
+    creator_id: 'user-2',
+    gitlab_repo: 'git@gitlab.corp:user/b.git',
+    local_path: '/home/.ring/repos/b',
+    next_token_id: 1,
+    status: 'active',
+    created_at: '2026-04-04T08:00:00Z',
+    updated_at: '2026-04-04T08:00:00Z',
   },
 ]
 

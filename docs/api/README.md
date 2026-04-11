@@ -1,5 +1,9 @@
 # Ring API 参考文档
 
+> **Affects**: All api reference docs
+> **Depends on**: [PRD.md](../product/PRD.md) · [api-design.md](../technical/api-design.md)
+> **Last verified**: 2026-04-11
+
 > 面向内网的群组知识协作空间 — 全栈 API 索引手册
 
 ## 文档索引
@@ -8,26 +12,13 @@
 
 | 文档 | 覆盖范围 |
 |------|---------|
-| [backend-core.md](backend-core.md) | Config、Error、State、Routes（所有 API 路由表） |
-| [backend-models.md](backend-models.md) | 所有数据结构体（User/Ring/Member/Session/Conversation/Graph/Git/Notification/Tool） |
-| [backend-db.md](backend-db.md) | Repository trait + SqliteRepository 所有方法 |
-| [backend-services.md](backend-services.md) | 业务逻辑层：Ring/Member/Session/Search/Archive/Graph/Settings/Notification/Permission/Credential/Workflow/Trigger/WsHub |
-| [backend-ai.md](backend-ai.md) | AiService + ContextLoader（Super Ring / Group Ring / Blueprint / Session 对话） |
-| [backend-graph.md](backend-graph.md) | GraphStore trait + PetgraphStore + 类型定义 |
-| [backend-llm.md](backend-llm.md) | LlmProvider trait + OpenAiProvider + AnthropicProvider + MockLlmProvider |
-| [backend-tool-engine.md](backend-tool-engine.md) | Tool trait + ToolRegistry + ToolDispatcher + 5 工具实现 |
-| [backend-git.md](backend-git.md) | GitService + GitlabService |
-| [backend-handlers.md](backend-handlers.md) | 所有 Handler 函数签名和路由 |
-| [backend-middleware.md](backend-middleware.md) | Auth 中间件（X-User-Id header） |
+| [backend.md](backend.md) | 合并文档：Config、Error、State、Routes、所有数据结构体、Repository trait、所有 Service、AiService、GraphStore、LlmProvider、ToolEngine、GitService、所有 Handler、Auth 中间件 |
 
 ### 前端（React + TypeScript + Zustand）
 
 | 文档 | 覆盖范围 |
 |------|---------|
-| [frontend-types.md](frontend-types.md) | 所有 TypeScript 接口定义 |
-| [frontend-api-client.md](frontend-api-client.md) | API client 所有函数（含 SSE 请求说明） |
-| [frontend-stores.md](frontend-stores.md) | Zustand store 状态和 actions |
-| [frontend-pages-components.md](frontend-pages-components.md) | 页面路由 + 组件 props |
+| [frontend.md](frontend.md) | 合并文档：所有 TypeScript 接口、API client 所有函数（含 SSE）、Zustand store 状态和 actions、页面路由 + 组件 props |
 
 ---
 
@@ -55,7 +46,7 @@
 → [backend-llm.md](backend-llm.md) + [backend-ai.md](backend-ai.md)
 
 ### 想了解图谱存储
-→ [backend-graph.md](backend-graph.md) + [backend-services.md](backend-graph.md) GraphService
+→ [backend.md#图谱引擎](backend.md#图谱引擎) + [backend.md#服务层](backend.md#服务层) GraphService
 
 ---
 

@@ -1,5 +1,9 @@
 # Ring 三层 AI 行为设计
 
+> **Affects**: [llm-prompts.md](../technical/llm-prompts.md) · [sse-protocol.md](../technical/sse-protocol.md) · [backend.md](../api/backend.md)
+> **Depends on**: [PRD.md](PRD.md) · [permissions.md](permissions.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 三层 AI 架构
 
 Ring 系统包含三个层级的 AI 实例，严格分层，各自独立运行。
@@ -219,7 +223,7 @@ System prompt（蓝图阶段）=
 3. 每次调整后展示可视化预览
 4. 用户点击"确认蓝图"后建立图谱
 
-### 4.2 蓝图模板预设
+### 4.3 蓝图模板预设
 
 系统预设模板供用户选择或定制：
 

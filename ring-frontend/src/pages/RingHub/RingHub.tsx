@@ -4,11 +4,11 @@ import * as api from '../../api/client'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { RingList } from './RingList'
 import { CreateRing } from './CreateRing'
-import type { RingListItem, CreateRingRequest } from '../../types'
+import type { Ring, CreateRingRequest } from '../../types'
 import './RingHub.css'
 
 export function RingHub() {
-  const [rings, set_rings] = useState<RingListItem[]>([])
+  const [rings, set_rings] = useState<Ring[]>([])
   const [loading, set_loading] = useState(true)
   const [error, set_error] = useState<string | null>(null)
   const navigate = useNavigate()

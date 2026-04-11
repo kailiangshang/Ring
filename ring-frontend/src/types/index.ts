@@ -6,7 +6,7 @@ export interface User {
 export interface SetupStatus {
   setup_completed: boolean
   step: string
-  user_id?: string
+  user_id?: string | null
 }
 
 export interface LlmConfig {
@@ -26,17 +26,14 @@ export interface GitlabConfig {
 export interface Ring {
   id: string
   name: string
-  description?: string
+  description: string | null
+  creator_id: string
+  gitlab_repo: string
+  local_path: string
+  next_token_id: number
   status: string
-}
-
-export interface RingListItem {
-  id: string
-  name: string
-  member_count: number
-  graph_node_count: number
-  last_activity_at: string
-  role: string
+  created_at: string
+  updated_at: string
 }
 
 export interface CreateRingRequest {
@@ -48,9 +45,17 @@ export interface CreateRingRequest {
 export interface Conversation {
   id: string
   ring_id: string
-  title: string
+  title: string | null
+  mode: string
   context_mode: string
+  token_count: number
+  token_limit: number
+  auto_compact: boolean
+  summary: string | null
+  compacted_at: string | null
+  created_by: string
   created_at: string
+  updated_at: string
 }
 
 export interface Message {
@@ -58,7 +63,9 @@ export interface Message {
   conversation_id: string
   role: 'user' | 'assistant'
   content: string
-  sender_id: string
+  sender_id: string | null
+  tool_calls: string | null
+  archived: boolean
   created_at: string
 }
 
@@ -77,7 +84,7 @@ export interface SseEvent {
   tool_name?: string
   tool_args?: Record<string, unknown>
   result?: unknown
-  graphs?: GraphDef[]
+  graphs?: GraphPreview[]
   message?: string
   tool_call_id?: string
   tool?: string
@@ -85,6 +92,15 @@ export interface SseEvent {
   output?: unknown
   success?: boolean
   data?: unknown
+  code?: string
+  message_id?: string | null
+  token_usage?: TokenUsage | null
+}
+
+export interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
 }
 
 export interface ToolEvent {
@@ -108,18 +124,45 @@ export interface GraphDef {
 export interface BlueprintTemplate {
   id: string
   name: string
-  description: string
-  graphs: GraphDef[]
+  description: string | null
+  graphs: string
+  is_system: boolean
+  created_by: string | null
+  created_at: string
+}
+
+export interface GraphPreviewNode {
+  id: string
+  label: string
+  node_type: string
+}
+
+export interface GraphPreviewEdge {
+  source_id: string
+  target_id: string
+  relation: string
+}
+
+export interface GraphPreview {
+  name: string
+  nodes: GraphPreviewNode[]
+  edges: GraphPreviewEdge[]
 }
 
 export interface PreviewResponse {
-  graphs: GraphDef[]
-  preview: string
+  graphs: GraphPreview[]
+}
+
+export interface GraphInfo {
+  id: string
+  name: string
+  graph_type: string
 }
 
 export interface ConfirmResponse {
-  success: boolean
-  message: string
+  blueprint_id: string
+  graphs: GraphInfo[]
+  status: string
 }
 
 export interface GraphNode {
@@ -198,12 +241,6 @@ export interface PrListItem {
   title: string
   author: string
   state: string
-}
-
-export interface PrDetail {
-  pr_id: number
-  title: string
-  author: string
   changes: FileChange[]
 }
 
@@ -223,11 +260,18 @@ export interface CommitLogEntry {
 }
 
 export interface InviteToken {
+  id: string
+  ring_id: string
   token: string
   token_type: string
   role: string
+  inviter_id: string
   max_uses: number
-  used_count: number
+  use_count: number
+  max_members: number | null
+  expires_at: string
+  used_at: string | null
+  revoked_at: string | null
   created_at: string
 }
 
@@ -251,21 +295,31 @@ export interface SessionMessage {
   created_at: string
 }
 
-export interface SessionMemberData {
+export interface SessionMemberBrief {
   user_id: string
   role: string
   status: string
 }
 
-export interface SessionData {
+export interface SessionListItem {
+  id: string
+  title: string | null
+  created_by: string
+  member_count: number
+  archive_enabled: boolean
+  status: string
+  created_at: string
+}
+
+export interface SessionDetail {
   id: string
   ring_id: string
-  title: string
+  title: string | null
   scenario: string
-  status: string
+  created_by: string
   archive_enabled: boolean
-  member_count?: number
-  members?: SessionMemberData[]
+  status: string
+  members: SessionMemberBrief[]
   created_at: string
 }
 
@@ -283,10 +337,16 @@ export interface InviteRequest {
   max_members?: number
 }
 
-export interface Settings {
-  llm_provider?: string
-  llm_model?: string
-  llm_api_key?: string
-  llm_base_url?: string
-  privacy_enabled?: string
+export interface Notification {
+  id: string
+  ring_id: string
+  user_id: string
+  type: string
+  title: string
+  body: string | null
+  related_id: string | null
+  is_read: boolean
+  created_at: string
 }
+
+export type Settings = Record<string, string>

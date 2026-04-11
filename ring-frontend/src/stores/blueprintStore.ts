@@ -2,13 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import * as api from '../api/client'
 import { parseSseStream } from '../components/chat/SseParser'
-import type { Message, SseEvent, GraphDef } from '../types'
+import type { Message, SseEvent, GraphPreview } from '../types'
 
 interface BlueprintState {
   messages: Message[]
   is_streaming: boolean
   error: string | null
-  preview_graphs: GraphDef[] | null
+  preview_graphs: GraphPreview[] | null
   send_message: (ringId: string, content: string) => Promise<void>
   confirm: (ringId: string) => Promise<void>
   dismiss_preview: () => void
@@ -29,6 +29,8 @@ export const useBlueprintStore = create<BlueprintState>()(
       role: 'user',
       content,
       sender_id: '',
+      tool_calls: null,
+      archived: false,
       created_at: new Date().toISOString(),
     }
 
@@ -63,7 +65,9 @@ export const useBlueprintStore = create<BlueprintState>()(
                   conversation_id: '',
                   role: 'assistant',
                   content: assistant_content,
-                  sender_id: '',
+                  sender_id: null,
+                  tool_calls: null,
+                  archived: false,
                   created_at: new Date().toISOString(),
                 },
               ],

@@ -13,6 +13,11 @@ import {
 
 beforeEach(() => {
   vi.restoreAllMocks()
+  vi.stubGlobal('localStorage', {
+    getItem: vi.fn().mockReturnValue(null),
+    setItem: vi.fn(),
+    removeItem: vi.fn(),
+  })
 })
 
 function mock_fetch(response: unknown, status = 200) {
@@ -84,7 +89,7 @@ describe('complete_setup', () => {
 
 describe('list_rings', () => {
   it('fetches and unwraps rings array', async () => {
-    const rings = [{ id: '1', name: 'Ring A', member_count: 5, graph_node_count: 10, last_activity_at: '', role: 'creator' }]
+    const rings = [{ id: '1', name: 'Ring A', description: null, creator_id: 'u1', gitlab_repo: '', local_path: '', next_token_id: 1, status: 'active', created_at: '', updated_at: '' }]
     mock_fetch({ rings })
     const result = await list_rings()
     expect(fetch).toHaveBeenCalledWith('/api/v1/rings', expect.any(Object))

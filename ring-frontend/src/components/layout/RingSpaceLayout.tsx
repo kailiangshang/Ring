@@ -5,7 +5,6 @@ import { NotificationBell } from '../ui/NotificationBell'
 import { RingSidebar } from './RingSidebar'
 import { RightPanel } from './RightPanel'
 import * as api from '../../api/client'
-import type { Member } from '../../types'
 import './RingSpaceLayout.css'
 
 interface RightPanelState {
@@ -31,8 +30,7 @@ export function RingSpaceLayout() {
   useEffect(() => {
     if (!ringId) return
     api.get_ring(ringId).then((ring) => set_ring_name(ring.name)).catch(() => {})
-    api.list_members(ringId).then((data) => {
-      const members: Member[] = (data as unknown as { members: Member[] }).members || (data as Member[])
+    api.list_members(ringId).then((members) => {
       set_member_names(members.map((m) => m.display_name))
     }).catch(() => {})
   }, [ringId])

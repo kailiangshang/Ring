@@ -1,10 +1,10 @@
 import { Badge } from '../../components/ui/Badge'
 import { EmptyState } from '../../components/ui/EmptyState'
-import type { RingListItem } from '../../types'
+import type { Ring } from '../../types'
 import './RingHub.css'
 
 interface RingListProps {
-  rings: RingListItem[]
+  rings: Ring[]
   on_select: (id: string) => void
 }
 
@@ -34,15 +34,15 @@ export function RingList({ rings, on_select }: RingListProps) {
             <span className="ring-card-name">{ring.name}</span>
           </div>
           <div className="ring-card-desc">
-            {ring.member_count} members
+            {ring.description || 'No description'}
           </div>
           <div className="ring-card-activity">
-            Last activity: {ring.last_activity_at}
+            Created: {new Date(ring.created_at).toLocaleDateString()}
           </div>
           <div className="ring-card-divider" />
           <div className="ring-card-footer">
-            <span className="ring-card-meta">{ring.graph_node_count} nodes</span>
-            <Badge status={ring.role}>{ring.role}</Badge>
+            <span className="ring-card-meta">{ring.status}</span>
+            <Badge status={ring.status}>{ring.status}</Badge>
           </div>
         </div>
       ))}

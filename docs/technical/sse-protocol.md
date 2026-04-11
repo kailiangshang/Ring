@@ -1,5 +1,9 @@
 # Ring SSE 流式协议设计
 
+> **Affects**: [frontend.md](../api/frontend.md) · [backend.md](../api/backend.md)
+> **Depends on**: [api-design.md](api-design.md) · [architecture.md](architecture.md)
+> **Last verified**: 2026-04-11
+
 ## 1. 概述
 
 LLM 响应通过 SSE（Server-Sent Events）流式返回前端。适用于 Group Ring 对话、Super Ring 对话、蓝图构建对话和 Session 消息。
