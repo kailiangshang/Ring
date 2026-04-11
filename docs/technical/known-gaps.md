@@ -2,7 +2,7 @@
 
 > **Affects**: [implementation-roadmap.md](implementation-roadmap.md) · [future-features.md](future-features.md)
 > **Depends on**: [architecture.md](architecture.md) · [backend.md](../api/backend.md)
-> **Last verified**: 2026-04-11
+> **Last verified**: 2026-04-12
 
 本文档记录**已有代码但未正确工作**的功能缺陷。每条含根因分析、修复方案和验收标准。
 
@@ -10,125 +10,53 @@
 
 ## P0 — 致命缺陷（不修则产品不可用）
 
-### GAP-01: graph.json 无持久化生命周期
+### GAP-01: graph.json 无持久化生命周期 — ✅ 已修复
 
-**现象**：服务重启后所有图谱数据丢失。`PetgraphStore` 在 `main.rs` 中以 `new()` 创建空图，没有加载已有 `graph.json` 的逻辑。节点变更后也不会写回文件。
+**状态**：已修复（2026-04-12）。
 
-**根因**：
-- `main.rs:38` 只做 `PetgraphStore::new()`，不扫描 `~/.ring/repos/ring-*/graph.json`
-- `GraphService` 的 create/update/delete 操作不触发持久化
-- `export_graph_json` / `import_graph_json` 方法存在但无调用方
+启动加载、node CRUD 持久化、Ring 创建时初始化均已实现。edge CRUD 原先绕过 `GraphService` 直接调用 `graph_store`，已改为走 `GraphService`，edge 变更现在也会触发 `persist_graph()`。
 
-**修复方案**：
-1. `main.rs` 启动时：遍历 `{data_dir}/repos/ring-*/graph.json`，对每个文件调用 `import_graph_json` 加载到内存图
-2. `GraphService` 的每次写操作（create_node、update_node、delete_node、create_edge、delete_edge）成功后，调用 `export_graph_json` 写回对应的 `graph.json`
-3. Ring 创建时（`ring_service.create_ring`）确保 `repos/ring-{name}/` 目录和空 `graph.json` 存在
-
-**验收标准**：
-- [ ] 创建节点 → 重启服务 → 节点仍存在
-- [ ] 删除节点 → 重启服务 → 节点确实不存在
-- [ ] 多个 Ring 的图谱互不干扰
-- [ ] `graph.json` 文件内容与内存图一致
-
-**涉及文件**：`main.rs`、`services/graph_service.rs`、`services/ring_service.rs`、`graph/petgraph_store.rs`
+**涉及文件**：`main.rs`、`services/graph_service.rs`、`handlers/graph.rs`、`services/ring_service.rs`
 
 ---
 
-### GAP-02: 搜索索引不会自动填充
+### GAP-02: 搜索索引不会自动填充 — ✅ 已修复
 
-**现象**：FTS5 搜索功能已实现（jieba 分词 + MATCH 查询 + snippet 高亮），但 `GraphService::create_node()` 不调用 `SearchService::index_node()`。搜索结果永远为空。
+**状态**：已修复（启动加载和 node CRUD 时已自动重建）。
 
-**根因**：`graph_service.rs` 的 `create_node` 方法只操作 petgraph，不触发索引。
+`GraphService` 持有 `Arc<SearchService>`，`create_node`/`update_node`/`delete_node` 均已接入搜索索引。jieba 分词 + FTS5 完整工作。
 
-**修复方案**：
-1. `GraphService` 持有 `Arc<SearchService>` 引用
-2. `create_node` 成功后调用 `search_service.index_node(node_id, graph_id, label, content)`
-3. `update_node` 成功后先 `delete_node_index` 再 `index_node`（重建索引）
-4. `delete_node` 成功后调用 `search_service.delete_node_index(node_id)`
-
-**验收标准**：
-- [ ] 创建节点后立即可通过关键词搜索到
-- [ ] 更新节点标签/内容后搜索结果反映最新值
-- [ ] 删除节点后搜索不到
-
-**涉及文件**：`services/graph_service.rs`、`state.rs`（注入依赖）
+**涉及文件**：`services/graph_service.rs`、`services/search_service.rs`
 
 ---
 
-### GAP-03: 工具系统未接入（死代码）
+### GAP-03: 工具系统未接入（死代码） — ✅ 已修复
 
-**现象**：
-- `ToolDispatcher`、5 个系统工具（Search、TextClean、WebScrape、PrivacyFilter、MarkdownGen）、`chat_with_tools()` 全部已实现但从未被调用
-- `ai_service.rs:70` 和 `ai_service.rs:121` 的 `group_ring_chat` / `super_ring_chat` 调用 `self.llm.chat_stream(messages, None)` 传 `None` 给 tools
-- 前端 `Toolbar` 组件的 toggle 只改本地 `useState`，不传给 API
+**状态**：已修复（2026-04-12）。
 
-**修复方案**：
-1. 后端：`group_ring_chat` 和 `super_ring_chat` 改为调用 `chat_with_tools`，传入 `ToolRegistry` 中已注册的工具
-2. 后端：`POST /api/v1/rings/{ringId}/conversations/{convId}/messages` 接受可选参数 `active_tools: Option<Vec<String>>`
-3. 前端：`chatStore.sendMessage()` 从 toolbar 状态读取 active tools，拼入请求 body
-4. 前端：已有 `ToolCallBubble` / `ToolResultBubble` 组件，SSE 事件 `tool_call` / `tool_result` 已在 `chatStore` 中处理，无需额外 UI 工作
+后端 `ToolDispatcher` 已注册 5 个工具，`AiService` 的 `super_ring_chat`/`group_ring_chat` 使用 `definitions_filtered(active_tools)` 调用 `chat_with_tools`。后端 request struct 支持 `active_tools: Option<Vec<String>>`。前端 Toolbar 状态通过 `chatStore` → `api/client.ts` 传递到后端。
 
-**验收标准**：
-- [ ] 前端开启 Search 工具 → 发消息 → LLM 调用 SearchTool → 返回带 tool_call/tool_result 事件的流式响应
-- [ ] 前端关闭所有工具 → 发消息 → LLM 正常回复不调工具
-- [ ] 工具调用最多 5 轮（现有 `chat_with_tools` 的 max_rounds 限制生效）
-
-**涉及文件**：`services/ai_service.rs`、`handlers/conversation.rs`、`stores/chatStore.ts`、`components/toolbar/Toolbar.tsx`
+**涉及文件**：`services/ai_service.rs`、`handlers/conversation.rs`、`handlers/ai.rs`、`services/tool_engine/dispatcher.rs`、前端 `chatStore.ts`/`ChatView.tsx`/`client.ts`
 
 ---
 
-### GAP-04: 节点无 markdown 文档（知识闭环断裂）
+### GAP-04: 节点无 markdown 文档（知识闭环断裂） — ✅ 已修复
 
-**现象**：
-- `NodeData.markdown_path` 始终为 `None`
-- `GraphService::get_node_content()` 始终返回 `None`
-- 节点只有 label/type/categories，没有实际内容
+**状态**：已修复（启动加载时已自动完成）。
 
-**根因**：节点创建流程不包含文件写入步骤。
-
-**修复方案**：
-1. `GraphService::create_node` 成功后，在 `{ring_local_path}/nodes/` 目录下创建 `{node_id}.md`
-2. 文件格式：YAML frontmatter（node_id、type、labels、created_at）+ body（初始为空或从参数填入 content）
-3. `NodeData.markdown_path` 设为 `Some(format!("nodes/{node_id}.md"))`
-4. `get_node_content` 读取 markdown 文件内容返回
-5. `update_node` 同步更新 md 文件
-6. `delete_node` 同时删除 md 文件
-
-**验收标准**：
-- [ ] 创建节点 → `nodes/{node_id}.md` 文件存在且 frontmatter 正确
-- [ ] `get_node_content` 返回文件内容
-- [ ] 更新节点 → md 文件同步更新
-- [ ] 删除节点 → md 文件同步删除
+`GraphService::create_node` 创建 `{node_id}.md` 文件（YAML frontmatter + description body），`update_node` 同步更新，`delete_node` 级联删除。`get_node_content` 正确读取文件。
 
 **涉及文件**：`services/graph_service.rs`、`graph/types.rs`
 
 ---
 
-### GAP-05: 命名层级不一致
+### GAP-05: 命名层级不一致 — ✅ 已修复
 
-**现象**：代码和 UI 中 "Group Ring"、"Ring" 混用，缺乏统一层级。
+**状态**：已修复（2026-04-12）。
 
-**目标层级**：
+后端 prompt：`Super Ring` → `Ring Super`、`Group Ring` → `Ring Group`。路由 `/super-ring` → `/ring-super`。前端组件 `SuperRingChat` → `RingSuperChat`、store `superRingStore` → `ringSuperStore`、CSS classes `.super-ring-*` → `.ring-super-*`、mock data `group_ring` → `ring_group`。
 
-| 层级 | 名称 | 代码标识 | 说明 |
-|------|------|----------|------|
-| 整体平台 | Ring Hub | `ring_hub` | 所有 Ring Group 的入口 |
-| 跨 Ring AI | Ring Super | `ring_super` | 跨 Ring 的 meta AI 助手 |
-| 群组空间 | Ring Group | `ring_group` | 一个知识协作空间（当前 "Ring"） |
-| 协作会话 | Ring Session | `ring_session` | Ring Group 内的协作会话 |
-
-**修复方案**：
-1. 全局替换：`Group Ring` → `Ring Group`、代码中 `group_ring` 保持不变（已是 snake_case 正确形式）
-2. UI 文案：所有用户可见文本遵循层级表
-3. 组件重命名：`RingHub` → 确认为 `RingHub`（整体平台入口，名正确），`SuperRingChat` → `RingSuperChat`
-4. 路由标签：`/super-ring` → `/ring-super`，`/rings/{id}/sessions` 保持
-
-**验收标准**：
-- [ ] `rg "Group Ring" --type ts --type rust` 无结果
-- [ ] 所有页面标题和导航文本符合层级表
-- [ ] 组件名 PascalCase 遵循 `RingHub`/`RingSuper`/`RingGroup`/`RingSession` 前缀
-
-**涉及文件**：全局搜索替换，主要在 `ring-frontend/src/pages/`、`ring-frontend/src/components/`
+**涉及文件**：`services/context_loader.rs`、`routes.rs`、前端约 10 个文件
 
 ---
 
@@ -192,13 +120,13 @@
 
 ## 验收总览
 
-| ID | 优先级 | 简述 | 涉及层 |
-|----|--------|------|--------|
-| GAP-01 | P0 | graph.json 持久化生命周期 | 后端 |
-| GAP-02 | P0 | 搜索索引自动填充 | 后端 |
-| GAP-03 | P0 | 工具系统接入 | 全栈 |
-| GAP-04 | P0 | 节点 markdown 文档闭环 | 后端 |
-| GAP-05 | P0 | 命名层级统一 | 前端 |
-| GAP-06 | P1 | .ring/ 目录初始化 | 后端 |
-| GAP-07 | P1 | Archive git merge 实现 | 后端 |
-| GAP-08 | P1 | SSE stream abort | 前端 |
+| ID | 优先级 | 简述 | 涉及层 | 状态 |
+|----|--------|------|--------|------|
+| GAP-01 | P0 | graph.json 持久化生命周期 | 后端 | ✅ 已修复 |
+| GAP-02 | P0 | 搜索索引自动填充 | 后端 | ✅ 已修复 |
+| GAP-03 | P0 | 工具系统接入 | 全栈 | ✅ 已修复 |
+| GAP-04 | P0 | 节点 markdown 文档闭环 | 后端 | ✅ 已修复 |
+| GAP-05 | P0 | 命名层级统一 | 前端 | ✅ 已修复 |
+| GAP-06 | P1 | .ring/ 目录初始化 | 后端 | 待修 |
+| GAP-07 | P1 | Archive git merge 实现 | 后端 | 待修 |
+| GAP-08 | P1 | SSE stream abort | 前端 | 待修 |
