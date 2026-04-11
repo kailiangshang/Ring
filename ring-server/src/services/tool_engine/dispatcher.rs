@@ -16,6 +16,18 @@ impl ToolDispatcher {
         self.registry.definitions()
     }
 
+    pub fn definitions_filtered(&self, names: Option<&[String]>) -> Vec<ToolDefinition> {
+        let all = self.definitions();
+        match names {
+            Some(filter) if !filter.is_empty() => {
+                all.into_iter()
+                    .filter(|t| filter.contains(&t.name))
+                    .collect()
+            }
+            _ => all,
+        }
+    }
+
     pub async fn dispatch(&self, call: ToolCallRequest) -> ToolResultRecord {
         match self.registry.get(&call.tool_name) {
             Some(tool) => match tool.execute(call.input.clone()).await {

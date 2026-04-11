@@ -36,6 +36,7 @@ impl AiService {
         user_id: String,
         message: String,
         history: Vec<LlmMessage>,
+        active_tools: Option<Vec<String>>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let system_prompt = build_super_ring_prompt();
         let mut context = system_prompt;
@@ -71,7 +72,7 @@ impl AiService {
             content: message,
         });
 
-        let tools = self.tool_dispatcher.definitions();
+        let tools = self.tool_dispatcher.definitions_filtered(active_tools.as_deref());
         if tools.is_empty() {
             self.llm.chat_stream(messages, None).await
         } else {
@@ -84,6 +85,7 @@ impl AiService {
         ring_id: &str,
         conv_id: &str,
         message: String,
+        active_tools: Option<Vec<String>>,
     ) -> Result<Pin<Box<dyn Stream<Item = LlmEvent> + Send>>> {
         let ring = self
             .db
@@ -127,7 +129,7 @@ impl AiService {
             });
         }
 
-        let tools = self.tool_dispatcher.definitions();
+        let tools = self.tool_dispatcher.definitions_filtered(active_tools.as_deref());
         if tools.is_empty() {
             self.llm.chat_stream(messages, None).await
         } else {
@@ -754,7 +756,7 @@ mod tests {
         )));
         let svc = AiService::new(db, llm, dispatcher);
         let stream = svc
-            .super_ring_chat("user-1".into(), "hi".into(), vec![])
+            .super_ring_chat("user-1".into(), "hi".into(), vec![], None)
             .await
             .unwrap();
         let collected: Vec<LlmEvent> = stream.collect().await;
@@ -773,7 +775,7 @@ mod tests {
         )));
         let svc = AiService::new(db.clone(), llm, dispatcher);
         let _stream = svc
-            .group_ring_chat("ring-1", "conv-1", "hello".into())
+            .group_ring_chat("ring-1", "conv-1", "hello".into(), None)
             .await
             .unwrap();
         assert_eq!(
@@ -793,7 +795,7 @@ mod tests {
         )));
         let svc = AiService::new(db, llm, dispatcher);
         let _stream = svc
-            .super_ring_chat("user-1".into(), "test".into(), vec![])
+            .super_ring_chat("user-1".into(), "test".into(), vec![], None)
             .await
             .unwrap();
         let prompt = build_super_ring_prompt();

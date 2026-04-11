@@ -20,6 +20,7 @@ pub struct CreateConvRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SendMessageRequest {
     pub message: String,
+    pub active_tools: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,7 +97,7 @@ pub async fn send_message(
     let llm = state.rebuild_llm().await;
     let dispatcher = Arc::new(ToolDispatcher::new(state.tool_registry.clone()));
     let ai = AiService::new(state.db.clone(), llm, dispatcher);
-    let llm_stream = ai.group_ring_chat(&ring_id, &conv_id, req.message).await?;
+    let llm_stream = ai.group_ring_chat(&ring_id, &conv_id, req.message, req.active_tools).await?;
 
     let db = state.db.clone();
     let conv_id_clone = conv_id.clone();

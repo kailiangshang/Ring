@@ -15,6 +15,7 @@ use crate::state::AppState;
 pub struct SuperRingRequest {
     pub message: String,
     pub history: Option<Vec<HistoryMessage>>,
+    pub active_tools: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,7 +46,7 @@ pub async fn super_ring_chat(
         })
         .collect();
     let llm_stream = ai
-        .super_ring_chat(auth_user.user_id.clone(), req.message, history)
+        .super_ring_chat(auth_user.user_id.clone(), req.message, history, req.active_tools)
         .await?;
 
     Ok(spawn_sse_stream(llm_stream))
