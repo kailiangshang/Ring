@@ -16,6 +16,8 @@ interface ChatState {
   reset: () => void
 }
 
+let abort_controller: AbortController | null = null
+
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   tool_events: [],
@@ -24,12 +26,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   error: null,
 
   create_conversation: async (ring_id, title) => {
+    if (abort_controller) { abort_controller.abort(); abort_controller = null }
     const conv = await api.create_conversation(ring_id, title)
     set({ current_conversation_id: conv.id, messages: [] })
     return conv.id
   },
 
   load_history: async (ring_id, conv_id) => {
+    if (abort_controller) { abort_controller.abort(); abort_controller = null }
     set({ current_conversation_id: conv_id })
     const msgs = await api.get_messages(ring_id, conv_id)
     set({ messages: msgs })
@@ -56,8 +60,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       error: null,
     }))
 
+    if (abort_controller) abort_controller.abort()
+    abort_controller = new AbortController()
+
     try {
-      const res = await api.send_message(ring_id, conv_id, content, active_tools)
+      const res = await api.send_message(ring_id, conv_id, content, active_tools, abort_controller!.signal)
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -125,19 +132,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       set({ is_streaming: false })
     } catch (e) {
-      set({
-        is_streaming: false,
-        error: (e as Error).message,
-      })
+      if ((e as Error).name === 'AbortError') return
+      set({ is_streaming: false, error: (e as Error).message })
     }
   },
 
-  reset: () =>
+  reset: () => {
+    if (abort_controller) { abort_controller.abort(); abort_controller = null }
     set({
       messages: [],
       tool_events: [],
       is_streaming: false,
       current_conversation_id: null,
       error: null,
-    }),
+    })
+  },
 }))

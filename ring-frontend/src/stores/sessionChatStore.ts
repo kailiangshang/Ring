@@ -12,12 +12,15 @@ interface SessionChatState {
   reset: () => void
 }
 
+let abort_controller: AbortController | null = null
+
 export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
   messages: [],
   is_streaming: false,
   error: null,
 
   load_history: async (ring_id, session_id) => {
+    if (abort_controller) { abort_controller.abort(); abort_controller = null }
     try {
       const msgs = await api.get_session_messages(ring_id, session_id)
       set({
@@ -51,8 +54,11 @@ export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
 
     set((s) => ({ messages: [...s.messages, user_msg], is_streaming: true, error: null }))
 
+    if (abort_controller) abort_controller.abort()
+    abort_controller = new AbortController()
+
     try {
-      const res = await api.send_session_message(ring_id, session_id, content)
+      const res = await api.send_session_message(ring_id, session_id, content, abort_controller!.signal)
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `request failed: ${res.status}`)
@@ -90,11 +96,14 @@ export const useSessionChatStore = create<SessionChatState>((set, _get) => ({
         }
       }
     } catch (e) {
+      if ((e as Error).name === 'AbortError') return
       set({ error: (e as Error).message })
-    } finally {
-      set({ is_streaming: false })
     }
+    set({ is_streaming: false })
   },
 
-  reset: () => set({ messages: [], is_streaming: false, error: null }),
+  reset: () => {
+    if (abort_controller) { abort_controller.abort(); abort_controller = null }
+    set({ messages: [], is_streaming: false, error: null })
+  },
 }))

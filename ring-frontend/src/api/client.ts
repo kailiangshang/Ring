@@ -139,11 +139,13 @@ export function send_message(
   conv_id: string,
   content: string,
   active_tools?: string[],
+  signal?: AbortSignal,
 ): Promise<Response> {
   return fetch(`${BASE_URL}/rings/${ring_id}/conversations/${conv_id}/messages`, {
     method: 'POST',
     headers: get_auth_headers(),
     body: JSON.stringify({ message: content, active_tools }),
+    signal,
   })
 }
 
@@ -472,11 +474,13 @@ export function send_session_message(
   ring_id: string,
   session_id: string,
   message: string,
+  signal?: AbortSignal,
 ): Promise<Response> {
   return fetch(`${BASE_URL}/rings/${ring_id}/sessions/${session_id}/messages`, {
     method: 'POST',
     headers: get_auth_headers(),
     body: JSON.stringify({ message }),
+    signal,
   })
 }
 
