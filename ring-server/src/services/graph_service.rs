@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use crate::error::{Result, RingError};
 use crate::graph::store_trait::GraphStore;
-use crate::graph::types::{EdgeData, NewNode, NodeData};
+use crate::graph::types::{EdgeData, NewEdge, NewNode, NodeData};
 use crate::models::graph_model::{CreateNodeRequest, NodeContentResponse, UpdateNodeRequest};
 use crate::services::search_service::SearchService;
 
@@ -199,6 +199,32 @@ impl GraphService {
 
         self.persist_graph(graph_id).await;
 
+        Ok(())
+    }
+
+    pub async fn create_edge(&self, graph_id: &str, input: NewEdge) -> Result<EdgeData> {
+        let source = self.store.get_node(graph_id, &input.source_id).await?;
+        if source.is_none() {
+            return Err(RingError::NotFound(format!(
+                "source node {} not found",
+                input.source_id
+            )));
+        }
+        let target = self.store.get_node(graph_id, &input.target_id).await?;
+        if target.is_none() {
+            return Err(RingError::NotFound(format!(
+                "target node {} not found",
+                input.target_id
+            )));
+        }
+        let edge = self.store.create_edge(graph_id, input).await?;
+        self.persist_graph(graph_id).await;
+        Ok(edge)
+    }
+
+    pub async fn delete_edge(&self, graph_id: &str, edge_id: &str) -> Result<()> {
+        self.store.delete_edge(graph_id, edge_id).await?;
+        self.persist_graph(graph_id).await;
         Ok(())
     }
 
@@ -572,18 +598,17 @@ mod tests {
             .await
             .unwrap();
 
-        svc.store
-            .create_edge(
-                "graph-1",
-                NewEdge {
-                    source_id: n1.id.clone(),
-                    target_id: n2.id.clone(),
-                    relation: "depends_on".into(),
-                    label: Some("A depends on B".into()),
-                },
-            )
-            .await
-            .unwrap();
+        svc.create_edge(
+            "graph-1",
+            NewEdge {
+                source_id: n1.id.clone(),
+                target_id: n2.id.clone(),
+                relation: "depends_on".into(),
+                label: Some("A depends on B".into()),
+            },
+        )
+        .await
+        .unwrap();
 
         let neighbors = svc.get_neighbors("graph-1", &n1.id).await.unwrap();
         assert_eq!(neighbors.len(), 1);
