@@ -233,6 +233,63 @@ impl GitService {
         .map_err(|e| RingError::Internal(format!("spawn blocking failed: {}", e)))?
     }
 
+    pub async fn checkout(&self, repo_path: &Path, refname: &str) -> Result<()> {
+        let repo_path = repo_path.to_path_buf();
+        let refname = refname.to_string();
+        tokio::task::spawn_blocking(move || {
+            let repo = git2::Repository::open(&repo_path)?;
+            let obj = repo.revparse_single(&refname)?;
+            repo.checkout_tree(&obj, None)?;
+            repo.set_head(&format!("refs/heads/{}", refname))?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| RingError::Internal(format!("spawn blocking failed: {}", e)))?
+    }
+
+    pub async fn merge_branch(&self, repo_path: &Path, branch: &str) -> Result<()> {
+        let repo_path = repo_path.to_path_buf();
+        let branch = branch.to_string();
+        tokio::task::spawn_blocking(move || {
+            let repo = git2::Repository::open(&repo_path)?;
+
+            let branch_ref = repo.find_branch(&branch, git2::BranchType::Local)?;
+            let branch_commit = branch_ref.get().peel_to_commit()?;
+
+            let head_commit = repo.head()?.peel_to_commit()?;
+
+            let annotated = repo.find_annotated_commit(branch_commit.id())?;
+            let _head_annotated = repo.find_annotated_commit(head_commit.id())?;
+
+            repo.merge(&[&annotated], None, None)?;
+
+            let sig = repo.signature()?;
+            let mut index = repo.index()?;
+
+            if index.has_conflicts() {
+                repo.cleanup_state()?;
+                return Err(RingError::Internal("merge conflict detected".into()));
+            }
+
+            let tree_id = index.write_tree()?;
+            let tree = repo.find_tree(tree_id)?;
+            let message = format!("Merge branch '{}'", branch);
+            repo.commit(
+                Some("HEAD"),
+                &sig,
+                &sig,
+                &message,
+                &tree,
+                &[&head_commit, &branch_commit],
+            )?;
+
+            repo.cleanup_state()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| RingError::Internal(format!("spawn blocking failed: {}", e)))?
+    }
+
     pub async fn has_changes(&self, repo_path: &Path) -> Result<bool> {
         let repo_path = repo_path.to_path_buf();
         tokio::task::spawn_blocking(move || {

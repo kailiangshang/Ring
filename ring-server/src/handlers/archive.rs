@@ -15,6 +15,12 @@ pub async fn archive(
     Path(ring_id): Path<String>,
     Json(req): Json<ArchiveRequest>,
 ) -> Result<(StatusCode, Json<ArchiveResponse>), RingError> {
+    let ring = state
+        .db
+        .get_ring(&ring_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound(format!("ring {}", ring_id)))?;
+    let is_creator = ring.creator_id == auth_user.user_id;
     let git_service = std::sync::Arc::new(GitService::new());
     let service = ArchiveService::new(
         state.db.clone(),
@@ -23,7 +29,7 @@ pub async fn archive(
         None,
     );
     let resp = service
-        .archive(&ring_id, &req, &auth_user.user_id, true)
+        .archive(&ring_id, &req, &auth_user.user_id, is_creator)
         .await?;
     Ok((StatusCode::CREATED, Json(resp)))
 }

@@ -127,11 +127,13 @@ impl ArchiveService {
                 .commit(&repo_path, &format!("archive: {}", request.label))
                 .await?;
 
-            let pr_url = self.gitlab_service.as_ref().map(|gl| {
+            let pr_url = Some(if let Some(gl) = &self.gitlab_service {
                 format!(
-                    "{}/-/merge_requests/new?source_branch={}",
+                    "gl://{}/-/merge_requests/new?source_branch={}",
                     gl.base_url, branch_name
                 )
+            } else {
+                format!("branch://{}", branch_name)
             });
 
             self.db
@@ -219,19 +221,27 @@ impl ArchiveService {
     }
 
     pub async fn merge_pr(&self, ring_id: &str, archive_id: &str) -> Result<()> {
-        let _record = self
+        let record = self
             .db
             .get_archive_record(archive_id)
             .await?
             .ok_or_else(|| RingError::NotFound(format!("archive {}", archive_id)))?;
 
-        if let Some(ref _gl) = self.gitlab_service {
-            let ring = self
-                .db
-                .get_ring(ring_id)
-                .await?
-                .ok_or_else(|| RingError::NotFound(format!("ring {}", ring_id)))?;
-            let _ = ring;
+        if let Some(ref pr_url) = record.pr_url {
+            if let Some(branch_name) = pr_url.strip_prefix("branch://") {
+                let ring = self
+                    .db
+                    .get_ring(ring_id)
+                    .await?
+                    .ok_or_else(|| RingError::NotFound(format!("ring {}", ring_id)))?;
+                let repo_path = PathBuf::from(&ring.local_path);
+                if repo_path.exists() {
+                    self.git_service.checkout(&repo_path, "main").await.ok();
+                    self.git_service
+                        .merge_branch(&repo_path, branch_name)
+                        .await?;
+                }
+            }
         }
 
         self.db.update_archive_pr_status(archive_id, "merged").await
