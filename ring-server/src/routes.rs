@@ -128,7 +128,7 @@ pub fn build_router(state: AppState) -> Router {
         .nest("/api/v1/rings/{ringId}/git", git_routes)
         .nest("/api/v1/notifications", notification_routes)
         .nest("/api/v1/settings", settings_routes)
-        .route("/api/v1/super-ring/chat", post(ai::super_ring_chat))
+        .route("/api/v1/ring-super/chat", post(ai::super_ring_chat))
         .route("/api/v1/ws/{ringId}", get(ws::ws_handler))
         .layer(middleware::from_fn(auth_middleware));
 

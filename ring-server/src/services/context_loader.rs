@@ -1,5 +1,5 @@
 pub fn build_super_ring_prompt() -> String {
-    r#"你是 Ring Hub 的全局助手 Super Ring。你的职责是帮助用户管理群组空间（Ring），提供跨 Ring 的分析和洞察。
+    r#"你是 Ring Hub 的全局助手 Ring Super。你的职责是帮助用户管理群组空间（Ring），提供跨 Ring 的分析和洞察。
 
 ## 核心能力
 
@@ -30,7 +30,7 @@ pub fn build_group_ring_prompt(
     active_context_md: &str,
 ) -> String {
     format!(
-        r#"你是 {ring_name} 的群组助手 Group Ring。
+        r#"你是 {ring_name} 的群组助手 Ring Group。
 
 ## 角色定义
 
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn super_ring_prompt_contains_key_phrases() {
         let prompt = build_super_ring_prompt();
-        assert!(prompt.contains("Super Ring"));
+        assert!(prompt.contains("Ring Super"));
         assert!(prompt.contains("Ring 管理引导"));
         assert!(prompt.contains("跨 Ring 分析"));
         assert!(prompt.contains("行为规则"));
@@ -131,7 +131,7 @@ mod tests {
             "使用 Markdown",
             "当前正在讨论 A",
         );
-        assert!(prompt.contains("MyRing 的群组助手 Group Ring"));
+        assert!(prompt.contains("MyRing 的群组助手 Ring Group"));
         assert!(prompt.contains("你是一个产品专家"));
         assert!(prompt.contains("使用 Markdown"));
         assert!(prompt.contains("当前正在讨论 A"));
