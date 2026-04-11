@@ -62,59 +62,33 @@
 
 ## P1 — 重要缺陷（核心体验受损）
 
-### GAP-06: .ring/ 模板目录不初始化
+### GAP-06: .ring/ 模板目录不初始化 — ✅ 已修复
 
-**现象**：创建 Ring 时只创建数据库记录，不创建文件系统目录和初始模板文件。
+**状态**：已修复（2026-04-12）。
 
-**修复方案**：
-1. `ring_service.create_ring` 成功后创建目录结构：
-   ```
-   {data_dir}/repos/ring-{name}/
-   ├── graph.json        # 空图谱 {"nodes":[], "edges":[]}
-   └── nodes/            # 空，等待节点创建
-   ```
-2. 确保目录权限正确
+`create_ring` 现在创建 `repos/ring-{name}/.ring/` 目录并写入 6 个模板文件（role.md, conventions.md, active-context.md, archive-patterns.md, corrections.md, knowledge-summary.md）。`AiService` 从 `.ring/` 读取 role.md 和 conventions.md 构建系统提示。
 
-**验收标准**：
-- [ ] 创建 Ring → 目录存在、graph.json 可解析
-- [ ] 删除 Ring → 目录保留（数据安全），或按用户选择清理
-
-**涉及文件**：`services/ring_service.rs`
+**涉及文件**：`services/ring_service.rs`、`services/ai_service.rs`
 
 ---
 
-### GAP-07: Archive git merge 未实现
+### GAP-07: Archive git merge 未实现 — ✅ 已修复
 
-**现象**：`archive_service.merge_pr()` 只更新数据库状态为 "merged"，不实际 merge git 分支，不调用 GitLab merge API。
+**状态**：已修复（2026-04-12）。
 
-**修复方案**：
-1. 本地 merge：调用 `git_service` 执行 branch merge（checkout main → merge branch）
-2. GitLab merge：调用 `gitlab_service.merge_mr()` 执行远程 MR merge
-3. 两者都成功后更新数据库状态
+`merge_pr()` 现在执行实际的本地 git merge：解析 `pr_url` 中的 `branch://` 前缀获取分支名，checkout main，merge 分支（含冲突检测），然后更新 DB 状态。`GitService` 新增 `checkout()` 和 `merge_branch()` 方法。Handler 现在通过 `ring.creator_id` 正确判断 `is_creator`。
 
-**验收标准**：
-- [ ] Creator confirm archive → git 分支合入 main → 远程 MR 状态变为 merged
-- [ ] merge 失败 → 状态不变，返回错误信息
-
-**涉及文件**：`services/archive_service.rs`、`services/git_service.rs`、`services/gitlab_service.rs`
+**涉及文件**：`services/archive_service.rs`、`services/git_service.rs`、`handlers/archive.rs`
 
 ---
 
-### GAP-08: SSE stream 切换会话时无 abort
+### GAP-08: SSE stream 切换会话时无 abort — ✅ 已修复
 
-**现象**：用户在对话 A 流式输出过程中切换到对话 B，对话 A 的 stream 仍在后台运行，可能覆盖 chatStore 状态。
+**状态**：已修复（2026-04-12）。
 
-**修复方案**：
-1. `chatStore` 维护 `AbortController` 引用
-2. `sendMessage` 开始前 abort 上一个 controller
-3. 切换 conversation 时 abort 当前 stream
-4. 后端：利用 Axum 的 `axum::body::BodyDataStream` 自然断开（客户端断开时 drop sender）
+`chatStore` 和 `sessionChatStore` 现在使用 `AbortController`。每次发送新消息或切换对话/会话时，旧的 stream 被 abort。API 函数接受 `signal` 参数传递给 `fetch()`。
 
-**验收标准**：
-- [ ] 流式输出中切换会话 → 旧 stream 停止 → 无状态残留
-- [ ] 连续快速切换多次 → 不崩溃、不错乱
-
-**涉及文件**：`stores/chatStore.ts`、`stores/sessionChatStore.ts`
+**涉及文件**：`stores/chatStore.ts`、`stores/sessionChatStore.ts`、`api/client.ts`
 
 ---
 
@@ -127,6 +101,6 @@
 | GAP-03 | P0 | 工具系统接入 | 全栈 | ✅ 已修复 |
 | GAP-04 | P0 | 节点 markdown 文档闭环 | 后端 | ✅ 已修复 |
 | GAP-05 | P0 | 命名层级统一 | 前端 | ✅ 已修复 |
-| GAP-06 | P1 | .ring/ 目录初始化 | 后端 | 待修 |
-| GAP-07 | P1 | Archive git merge 实现 | 后端 | 待修 |
-| GAP-08 | P1 | SSE stream abort | 前端 | 待修 |
+| GAP-06 | P1 | .ring/ 目录初始化 + AI 读取 | 后端 | ✅ 已修复 |
+| GAP-07 | P1 | Archive git merge 实现 | 后端 | ✅ 已修复 |
+| GAP-08 | P1 | SSE stream abort | 前端 | ✅ 已修复 |
