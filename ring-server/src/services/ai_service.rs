@@ -72,7 +72,9 @@ impl AiService {
             content: message,
         });
 
-        let tools = self.tool_dispatcher.definitions_filtered(active_tools.as_deref());
+        let tools = self
+            .tool_dispatcher
+            .definitions_filtered(active_tools.as_deref());
         if tools.is_empty() {
             self.llm.chat_stream(messages, None).await
         } else {
@@ -129,7 +131,9 @@ impl AiService {
             });
         }
 
-        let tools = self.tool_dispatcher.definitions_filtered(active_tools.as_deref());
+        let tools = self
+            .tool_dispatcher
+            .definitions_filtered(active_tools.as_deref());
         if tools.is_empty() {
             self.llm.chat_stream(messages, None).await
         } else {
@@ -799,7 +803,7 @@ mod tests {
             .await
             .unwrap();
         let prompt = build_super_ring_prompt();
-        assert!(prompt.contains("Super Ring"));
+        assert!(prompt.contains("Ring Super"));
         assert!(prompt.contains("核心能力"));
     }
 }

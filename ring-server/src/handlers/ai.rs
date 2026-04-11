@@ -46,7 +46,12 @@ pub async fn super_ring_chat(
         })
         .collect();
     let llm_stream = ai
-        .super_ring_chat(auth_user.user_id.clone(), req.message, history, req.active_tools)
+        .super_ring_chat(
+            auth_user.user_id.clone(),
+            req.message,
+            history,
+            req.active_tools,
+        )
         .await?;
 
     Ok(spawn_sse_stream(llm_stream))

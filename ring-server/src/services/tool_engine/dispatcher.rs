@@ -19,11 +19,10 @@ impl ToolDispatcher {
     pub fn definitions_filtered(&self, names: Option<&[String]>) -> Vec<ToolDefinition> {
         let all = self.definitions();
         match names {
-            Some(filter) if !filter.is_empty() => {
-                all.into_iter()
-                    .filter(|t| filter.contains(&t.name))
-                    .collect()
-            }
+            Some(filter) if !filter.is_empty() => all
+                .into_iter()
+                .filter(|t| filter.contains(&t.name))
+                .collect(),
             _ => all,
         }
     }
