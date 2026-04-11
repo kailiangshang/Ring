@@ -102,7 +102,7 @@ async fn super_ring_chat_returns_sse() {
         .oneshot(
             Request::builder()
                 .method(Method::POST)
-                .uri("/api/v1/super-ring/chat")
+                .uri("/api/v1/ring-super/chat")
                 .header("content-type", "application/json")
                 .header("X-User-Id", &user_id)
                 .body(json_body(&serde_json::json!({ "message": "Hello" })))
