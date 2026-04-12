@@ -10,6 +10,7 @@ import { ToolCallBubble } from '../../components/chat/ToolCallBubble'
 import { ToolResultBubble } from '../../components/chat/ToolResultBubble'
 import { ArchiveSuggestion, type ArchiveSuggestionData } from '../../components/chat/ArchiveSuggestion'
 import { ArchiveConfirmDialog } from '../../components/archive/ArchiveConfirmDialog'
+import { TokenUsageBar } from '../../components/chat/TokenUsageBar'
 import { useTools } from '../../components/layout/RingSpaceLayout'
 import './ChatView.css'
 
@@ -29,6 +30,13 @@ export function ChatView() {
     trigger_archive,
     dismiss_suggestion,
     clear_archive_pending,
+    token_count,
+    token_limit,
+    context_mode,
+    auto_compact,
+    compacting,
+    trigger_compact,
+    toggle_auto_compact,
   } = useChatStore()
   const { graphs, current_graph_id, nodes, load_graphs, select_graph } = useGraphStore()
   const mode = useModeStore((s) => s.mode)
@@ -135,10 +143,35 @@ export function ChatView() {
   }
 
   const show_export = mode === 'manual_archive'
+  const usage_pct = token_limit > 0 ? (token_count / token_limit) * 100 : 0
 
   return (
     <div className="chat-view">
-      <div className="chat-header">Chat</div>
+      <div className="chat-header">
+        <span>Chat</span>
+        <div className="chat-header-controls">
+          {context_mode === 'storage' && (
+            <>
+              <TokenUsageBar token_count={token_count} token_limit={token_limit} />
+              {usage_pct >= 80 && !compacting && (
+                <button className="chat-compact-btn" onClick={() => trigger_compact(ringId!)} title="压缩上下文">
+                  压缩
+                </button>
+              )}
+              {compacting && <span className="chat-compacting">正在压缩对话上下文...</span>}
+              <label className="chat-auto-compact">
+                <input
+                  type="checkbox"
+                  checked={auto_compact}
+                  onChange={() => toggle_auto_compact(ringId!)}
+                />
+                <span>自动压缩</span>
+              </label>
+            </>
+          )}
+          {context_mode === 'ephemeral' && <span className="chat-ephemeral-badge">临时会话</span>}
+        </div>
+      </div>
       <div className="chat-messages">
         {messages.map((msg) => (
           <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
