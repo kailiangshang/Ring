@@ -73,7 +73,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         context_mode: stats.context_mode,
         auto_compact: stats.auto_compact,
       })
-    } catch {}
+    } catch (_e) {}
   },
 
   send_message: async (ring_id, content, active_tools) => {
@@ -245,7 +245,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         context_mode: stats.context_mode,
         auto_compact: stats.auto_compact,
       })
-    } catch {}
+    } catch (_e) {}
   },
 
   trigger_compact: async (ring_id) => {
