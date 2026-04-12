@@ -4,6 +4,7 @@ import { useGitStore } from '../../stores/gitStore'
 import { Tabs } from '../../components/ui/Tabs'
 import { Badge } from '../../components/ui/Badge'
 import { EmptyState } from '../../components/ui/EmptyState'
+import { ArchiveQueueBar } from '../../components/archive/ArchiveQueueBar'
 import './PrPages.css'
 
 const STATE_TABS = [
@@ -29,6 +30,8 @@ export function PrList() {
       </div>
 
       <Tabs tabs={STATE_TABS} active_key={state_filter} on_change={set_state_filter} />
+
+      <ArchiveQueueBar ring_id={ringId!} />
 
       {error && <p className="setup-error" role="alert">{error}</p>}
       {loading && <p>Loading...</p>}
