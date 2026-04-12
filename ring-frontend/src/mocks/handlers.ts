@@ -34,6 +34,9 @@ const mock_rings: Ring[] = [
     status: 'active',
     created_at: '2026-04-01T00:00:00Z',
     updated_at: new Date().toISOString(),
+    member_count: 5,
+    graph_node_count: 12,
+    last_active_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
   },
   {
     id: 'ring-2',
@@ -46,6 +49,9 @@ const mock_rings: Ring[] = [
     status: 'active',
     created_at: '2026-04-01T00:00:00Z',
     updated_at: new Date(Date.now() - 3600000).toISOString(),
+    member_count: 3,
+    graph_node_count: 8,
+    last_active_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
   },
 ]
 
@@ -159,6 +165,9 @@ export const handlers = [
       status: 'active',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
+      member_count: 1,
+      graph_node_count: 0,
+      last_active_at: new Date().toISOString(),
     }
     mock_rings.push(ring)
     return HttpResponse.json(ring, { status: 201 })
@@ -206,6 +215,7 @@ export const handlers = [
         const encoder = new TextEncoder()
         const chunks = [
           `event: message\ndata: ${JSON.stringify({ type: 'text', content: '这是 mock 回复。在实际环境中，AI 会根据上下文生成回复。' })}\n\n`,
+          `event: message\ndata: ${JSON.stringify({ type: 'archive_suggestion', data: { reason: '这段对话包含了有价值的产品决策信息', suggested_title: '产品决策记录', suggested_parent: { id: 'n4', label: '产品决策' }, action_preview: '将创建新节点「产品决策记录」在「产品决策」下', target_node_id: null } })}\n\n`,
           `event: message\ndata: ${JSON.stringify({ type: 'done', message_id: null, token_usage: null })}\n\n`,
         ]
         let i = 0
@@ -314,12 +324,25 @@ export const handlers = [
     return HttpResponse.json({ results: [], total: 0 })
   }),
 
-  http.post(`${BASE}/rings/:ringId/archive`, () => {
-    return HttpResponse.json({ archive_id: 'arch-1', markdown_path: '.ring/docs/mock.md', git_status: 'pending', pr_url: null, queue_position: 1 }, { status: 201 })
+  http.post(`${BASE}/rings/:ringId/archive`, async ({ request }) => {
+    const body = await request.json() as { message_ids?: string[]; label?: string }
+    return HttpResponse.json({
+      archive_id: `arch-${Date.now()}`,
+      markdown_path: `.ring/docs/${(body.label || 'untitled').slice(0, 30).replace(/\s+/g, '-')}.md`,
+      git_status: 'pending',
+      pr_url: null,
+      queue_position: 2,
+    }, { status: 201 })
   }),
 
   http.get(`${BASE}/rings/:ringId/archive/queue`, () => {
-    return HttpResponse.json({ current_review: null, queue: [] })
+    return HttpResponse.json({
+      current_review: { pr_id: 3, author: 'Li', title: '添加学习笔记', position: 1 },
+      queue: [
+        { pr_id: 4, author: 'Ming', title: '更新技术对比', position: 2 },
+        { pr_id: 5, author: 'Kai', title: '添加产品决策记录', position: 3 },
+      ],
+    })
   }),
 
   http.post(`${BASE}/rings/:ringId/archive/:archiveId/confirm`, () => new HttpResponse(null, { status: 204 })),
