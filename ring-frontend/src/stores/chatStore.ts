@@ -20,13 +20,21 @@ interface ChatState {
   current_conversation_id: string | null
   error: string | null
   archive_pending: ArchivePending | null
+  token_count: number
+  token_limit: number
+  context_mode: string
+  auto_compact: boolean
+  compacting: boolean
 
-  create_conversation: (ring_id: string, title: string) => Promise<string>
+  create_conversation: (ring_id: string, title: string, context_mode?: string) => Promise<string>
   load_history: (ring_id: string, conv_id: string) => Promise<void>
   send_message: (ring_id: string, content: string, active_tools?: string[]) => Promise<void>
   trigger_archive: (ring_id: string, graph_id: string) => Promise<void>
   dismiss_suggestion: (event_id: string) => void
   clear_archive_pending: () => void
+  load_token_stats: (ring_id: string) => Promise<void>
+  trigger_compact: (ring_id: string) => Promise<void>
+  toggle_auto_compact: (ring_id: string) => Promise<void>
   reset: () => void
 }
 
@@ -39,6 +47,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   current_conversation_id: null,
   error: null,
   archive_pending: null,
+  token_count: 0,
+  token_limit: 100000,
+  context_mode: 'storage',
+  auto_compact: false,
+  compacting: false,
 
   create_conversation: async (ring_id, title) => {
     if (abort_controller) { abort_controller.abort(); abort_controller = null }
@@ -52,6 +65,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ current_conversation_id: conv_id })
     const msgs = await api.get_messages(ring_id, conv_id)
     set({ messages: msgs })
+    try {
+      const stats = await api.get_token_stats(ring_id, conv_id)
+      set({
+        token_count: stats.token_count,
+        token_limit: stats.token_limit,
+        context_mode: stats.context_mode,
+        auto_compact: stats.auto_compact,
+      })
+    } catch {}
   },
 
   send_message: async (ring_id, content, active_tools) => {
@@ -142,6 +164,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             timestamp: Date.now(),
           }
           set((s) => ({ tool_events: [...s.tool_events, tool_event] }))
+        } else if (event.type === 'done') {
+          const usage = event.token_usage
+          if (usage) {
+            set((s) => ({ token_count: s.token_count + usage.total_tokens }))
+          }
         }
       }
 
@@ -160,6 +187,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       is_streaming: false,
       current_conversation_id: null,
       error: null,
+      archive_pending: null,
+      token_count: 0,
+      token_limit: 100000,
+      context_mode: 'storage',
+      auto_compact: false,
+      compacting: false,
     })
   },
 
@@ -200,4 +233,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   clear_archive_pending: () => set({ archive_pending: null }),
+
+  load_token_stats: async (ring_id) => {
+    const conv_id = get().current_conversation_id
+    if (!conv_id) return
+    try {
+      const stats = await api.get_token_stats(ring_id, conv_id)
+      set({
+        token_count: stats.token_count,
+        token_limit: stats.token_limit,
+        context_mode: stats.context_mode,
+        auto_compact: stats.auto_compact,
+      })
+    } catch {}
+  },
+
+  trigger_compact: async (ring_id) => {
+    const conv_id = get().current_conversation_id
+    if (!conv_id) return
+    set({ compacting: true })
+    try {
+      const res = await api.compact_conversation(ring_id, conv_id)
+      set({ token_count: res.token_count_after, compacting: false })
+    } catch (e) {
+      set({ compacting: false, error: (e as Error).message })
+    }
+  },
+
+  toggle_auto_compact: async (ring_id) => {
+    const conv_id = get().current_conversation_id
+    if (!conv_id) return
+    const new_val = !get().auto_compact
+    set({ auto_compact: new_val })
+    try {
+      await api.update_conversation(ring_id, conv_id, { auto_compact: new_val })
+    } catch (e) {
+      set({ auto_compact: !new_val, error: (e as Error).message })
+    }
+  },
 }))
