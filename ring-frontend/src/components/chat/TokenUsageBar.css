@@ -1,0 +1,43 @@
+.token-usage-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.token-usage-track {
+  width: 80px;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.token-usage-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 300ms ease, background-color 300ms ease;
+}
+
+.token-usage-fill-green {
+  background: var(--color-success);
+}
+
+.token-usage-fill-amber {
+  background: var(--color-warning);
+}
+
+.token-usage-fill-red {
+  background: var(--color-danger);
+}
+
+.token-usage-label {
+  white-space: nowrap;
+}
+
+.token-usage-warning {
+  color: var(--color-warning);
+  font-size: var(--font-size-xs);
+  margin-left: var(--space-1);
+}
