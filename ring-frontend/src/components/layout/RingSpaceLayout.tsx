@@ -1,9 +1,11 @@
 import { useState, useEffect, createContext, useContext } from 'react'
-import { Outlet, Link, useParams } from 'react-router-dom'
+import { Outlet, Link, useParams, useLocation } from 'react-router-dom'
 import { AvatarGroup } from '../ui/AvatarGroup'
 import { NotificationBell } from '../ui/NotificationBell'
 import { RingSidebar } from './RingSidebar'
 import { RightPanel } from './RightPanel'
+import { TabBar } from './TabBar'
+import { BottomBar } from './BottomBar'
 import * as api from '../../api/client'
 import './RingSpaceLayout.css'
 
@@ -22,10 +24,13 @@ export function useRightPanel() { return useContext(RightPanelContext) }
 
 export function RingSpaceLayout() {
   const { ringId } = useParams<{ ringId: string }>()
+  const location = useLocation()
   const [panel, set_panel] = useState<RightPanelState>({ open: false, content: null, data: null })
   const [sidebar_collapsed, set_sidebar_collapsed] = useState(false)
   const [ring_name, set_ring_name] = useState('Ring')
   const [member_names, set_member_names] = useState<string[]>([])
+
+  const is_chat_view = !location.pathname.includes('/graph') && !location.pathname.includes('/prs') && !location.pathname.includes('/members') && !location.pathname.includes('/sessions')
 
   useEffect(() => {
     if (!ringId) return
@@ -43,9 +48,11 @@ export function RingSpaceLayout() {
           <div className="ring-space-name">{ring_name}</div>
           <div className="ring-space-header-right">
             <AvatarGroup names={member_names} size="sm" />
+            <button className="ring-space-invite-btn" title="Invite">📎</button>
             <NotificationBell items={[]} on_click={() => {}} />
           </div>
         </div>
+        <TabBar />
         <div className="ring-space-body">
           <RingSidebar collapsed={sidebar_collapsed} on_toggle={() => set_sidebar_collapsed(!sidebar_collapsed)} />
           <div className="ring-space-main">
@@ -53,6 +60,7 @@ export function RingSpaceLayout() {
           </div>
           {panel.open && <RightPanel state={panel} on_close={() => set_panel({ open: false, content: null, data: null })} />}
         </div>
+        <BottomBar show_tools={is_chat_view} />
       </div>
     </RightPanelContext.Provider>
   )

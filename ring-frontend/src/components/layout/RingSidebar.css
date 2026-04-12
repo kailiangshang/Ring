@@ -1,12 +1,6 @@
 .ring-sidebar { width: 240px; border-right: 1px solid var(--color-border); background: var(--color-bg-secondary); display: flex; flex-direction: column; flex-shrink: 0; transition: width 200ms ease; overflow: hidden; }
 .ring-sidebar.ring-sidebar-collapsed { width: 48px; }
 .ring-sidebar-tree { flex: 1; overflow: auto; }
-.ring-sidebar-divider { height: 1px; background: var(--color-border-light); margin: 0; }
-.ring-sidebar-nav { padding: var(--space-2); }
-.ring-sidebar-nav-item { display: flex; align-items: center; justify-content: space-between; padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); font-size: var(--font-size-base); color: var(--color-text-secondary); text-decoration: none; cursor: pointer; transition: background 150ms ease, color 150ms ease; margin-bottom: 2px; }
-.ring-sidebar-nav-item:hover { background: var(--color-accent-light); color: var(--color-text-primary); }
-.ring-sidebar-nav-item.sidebar-active { background: var(--color-accent-light); color: var(--color-accent); font-weight: 500; }
-.ring-sidebar-nav-badge { min-width: 16px; height: 16px; padding: 0 4px; background: var(--color-danger); color: #fff; font-size: 10px; font-weight: 600; border-radius: var(--radius-full); display: flex; align-items: center; justify-content: center; }
+.ring-sidebar-placeholder { padding: var(--space-2); color: var(--color-text-tertiary); font-size: var(--font-size-xs); }
 .ring-sidebar-collapse-btn { padding: var(--space-2) var(--space-3); border: none; background: none; color: var(--color-text-tertiary); cursor: pointer; font-size: var(--font-size-sm); border-top: 1px solid var(--color-border-light); text-align: left; }
 .ring-sidebar-collapse-btn:hover { color: var(--color-text-primary); }
-.ring-sidebar-placeholder { padding: var(--space-2); color: var(--color-text-tertiary); font-size: var(--font-size-xs); }
