@@ -3,16 +3,30 @@ import * as api from '../api/client'
 import { parseSseStream } from '../components/chat/SseParser'
 import type { Message, SseEvent, ToolEvent } from '../types'
 
+export interface ArchivePending {
+  archive_id: string
+  suggested_title?: string
+  suggested_parent?: { id: string; label: string }
+  message_ids: string[]
+  conversation_id: string
+  graph_id: string
+  label: string
+}
+
 interface ChatState {
   messages: Message[]
   tool_events: ToolEvent[]
   is_streaming: boolean
   current_conversation_id: string | null
   error: string | null
+  archive_pending: ArchivePending | null
 
   create_conversation: (ring_id: string, title: string) => Promise<string>
   load_history: (ring_id: string, conv_id: string) => Promise<void>
   send_message: (ring_id: string, content: string, active_tools?: string[]) => Promise<void>
+  trigger_archive: (ring_id: string, graph_id: string) => Promise<void>
+  dismiss_suggestion: (event_id: string) => void
+  clear_archive_pending: () => void
   reset: () => void
 }
 
@@ -24,6 +38,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   is_streaming: false,
   current_conversation_id: null,
   error: null,
+  archive_pending: null,
 
   create_conversation: async (ring_id, title) => {
     if (abort_controller) { abort_controller.abort(); abort_controller = null }
@@ -147,4 +162,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       error: null,
     })
   },
+
+  trigger_archive: async (ring_id, graph_id) => {
+    const { messages, current_conversation_id } = get()
+    if (!current_conversation_id) return
+
+    const unarchived = messages.filter((m) => !m.archived)
+    const last_five = unarchived.slice(-5)
+    if (last_five.length === 0) return
+
+    const last_user_msg = [...last_five].reverse().find((m) => m.role === 'user')
+    const label = (last_user_msg?.content || 'Archive').slice(0, 30)
+
+    try {
+      const res = await api.archive_content(ring_id, {
+        message_ids: last_five.map((m) => m.id),
+        conversation_id: current_conversation_id,
+        graph_id,
+        label,
+      })
+      set({
+        archive_pending: {
+          archive_id: res.archive_id,
+          message_ids: last_five.map((m) => m.id),
+          conversation_id: current_conversation_id,
+          graph_id,
+          label,
+        },
+      })
+    } catch (e) {
+      set({ error: (e as Error).message })
+    }
+  },
+
+  dismiss_suggestion: (event_id) => {
+    set((s) => ({ tool_events: s.tool_events.filter((e) => e.id !== event_id) }))
+  },
+
+  clear_archive_pending: () => set({ archive_pending: null }),
 }))
