@@ -29,6 +29,8 @@ import type {
   InviteToken,
   Notification,
   Settings,
+  TokenStatsResponse,
+  CompactResponse,
 } from '../types'
 
 import { toast_error } from '../components/Toast'
@@ -147,6 +149,36 @@ export function send_message(
     body: JSON.stringify({ message: content, active_tools }),
     signal,
   })
+}
+
+export async function get_token_stats(
+  ring_id: string,
+  conv_id: string,
+): Promise<TokenStatsResponse> {
+  return request<TokenStatsResponse>(
+    `/rings/${ring_id}/conversations/${conv_id}/token-stats`,
+  )
+}
+
+export async function compact_conversation(
+  ring_id: string,
+  conv_id: string,
+): Promise<CompactResponse> {
+  return request<CompactResponse>(
+    `/rings/${ring_id}/conversations/${conv_id}/compact`,
+    { method: 'POST' },
+  )
+}
+
+export async function update_conversation(
+  ring_id: string,
+  conv_id: string,
+  updates: Record<string, unknown>,
+): Promise<Conversation> {
+  return request<Conversation>(
+    `/rings/${ring_id}/conversations/${conv_id}`,
+    { method: 'PUT', body: JSON.stringify(updates) },
+  )
 }
 
 export function ring_super_chat(message: string, history: { role: string; content: string }[] = []): Promise<Response> {

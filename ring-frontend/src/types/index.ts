@@ -34,6 +34,9 @@ export interface Ring {
   status: string
   created_at: string
   updated_at: string
+  member_count?: number
+  graph_node_count?: number
+  last_active_at?: string
 }
 
 export interface CreateRingRequest {
@@ -350,3 +353,21 @@ export interface Notification {
 }
 
 export type Settings = Record<string, string>
+
+export interface TokenStatsResponse {
+  conversation_id: string
+  context_mode: string
+  token_count: number
+  token_limit: number
+  auto_compact: boolean
+  usage_percent: number
+  warning: string | null
+}
+
+export interface CompactResponse {
+  conversation_id: string
+  token_count_before: number
+  token_count_after: number
+  messages_compacted: number
+  summary_length: number
+}

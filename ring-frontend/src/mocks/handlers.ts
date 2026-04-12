@@ -209,6 +209,34 @@ export const handlers = [
     return HttpResponse.json({ messages: mock_messages })
   }),
 
+  http.get(`${BASE}/rings/:ringId/conversations/:convId/token-stats`, () => {
+    return HttpResponse.json({
+      conversation_id: CONV_ID,
+      context_mode: 'storage',
+      token_count: 35000,
+      token_limit: 100000,
+      auto_compact: false,
+      usage_percent: 35,
+      warning: null,
+    })
+  }),
+
+  http.post(`${BASE}/rings/:ringId/conversations/:convId/compact`, () => {
+    return HttpResponse.json({
+      conversation_id: CONV_ID,
+      token_count_before: 35000,
+      token_count_after: 3000,
+      messages_compacted: 12,
+      summary_length: 450,
+    })
+  }),
+
+  http.put(`${BASE}/rings/:ringId/conversations/:convId`, async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>
+    const conv = mock_conversations[0]
+    return HttpResponse.json({ ...conv, ...body, updated_at: new Date().toISOString() })
+  }),
+
   http.post(`${BASE}/rings/:ringId/conversations/:convId/messages`, () => {
     const stream = new ReadableStream({
       start(controller) {
