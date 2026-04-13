@@ -1,6 +1,13 @@
 import './Avatar.css'
 
-const COLORS = ['#2563EB', '#16A34A', '#D97706', '#7C3AED', '#DB2777', '#0891B2']
+const COLORS = [
+  'var(--color-node-concept)',
+  'var(--color-node-document)',
+  'var(--color-node-category)',
+  'var(--color-node-event)',
+  'var(--color-node-avatar-rose)',
+  'var(--color-node-person)',
+]
 
 function hash_color(name: string): string {
   let hash = 0

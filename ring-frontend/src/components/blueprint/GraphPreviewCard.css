@@ -1,0 +1,109 @@
+.graph-preview-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-bg-primary);
+  transition: border-color var(--transition-fast);
+}
+
+.graph-preview-card:hover {
+  border-color: rgba(var(--color-accent-rgb), 0.3);
+}
+
+.graph-preview-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.graph-preview-card-name {
+  font-size: var(--font-size-md);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.graph-preview-card-edit {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--color-text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.graph-preview-card-edit:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.graph-preview-card-stats {
+  display: flex;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.graph-preview-stat {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+}
+
+.graph-preview-card-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: var(--space-3);
+}
+
+.graph-preview-node {
+  font-size: var(--font-size-xs);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.graph-preview-node-category {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+.graph-preview-node-document {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+
+.graph-preview-node-topic {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+}
+
+.graph-preview-more {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  padding: 2px 4px;
+}
+
+.graph-preview-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.graph-preview-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  flex-shrink: 0;
+}
+
+.graph-preview-tag {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+}

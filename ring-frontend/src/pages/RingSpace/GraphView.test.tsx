@@ -51,6 +51,6 @@ describe('GraphView', () => {
 
   it('renders add node button', () => {
     render(<GraphView />)
-    expect(screen.getByText('Add Node')).toBeInTheDocument()
+    expect(screen.getByText('+ Node')).toBeInTheDocument()
   })
 })

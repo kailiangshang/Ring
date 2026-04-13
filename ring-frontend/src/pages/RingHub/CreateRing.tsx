@@ -6,10 +6,14 @@ import type { CreateRingRequest } from '../../types'
 
 interface CreateRingProps {
   on_create: (req: CreateRingRequest) => Promise<void>
+  open?: boolean
+  on_close?: () => void
 }
 
-export function CreateRing({ on_create }: CreateRingProps) {
-  const [open, set_open] = useState(false)
+export function CreateRing({ on_create, open: external_open, on_close }: CreateRingProps) {
+  const [internal_open, set_internal_open] = useState(false)
+  const is_open = external_open ?? internal_open
+  const handle_close = () => on_close ? on_close() : set_internal_open(false)
   const [name, set_name] = useState('')
   const [description, set_description] = useState('')
   const [role_description, set_role_description] = useState('')
@@ -30,7 +34,7 @@ export function CreateRing({ on_create }: CreateRingProps) {
       set_name('')
       set_description('')
       set_role_description('')
-      set_open(false)
+      handle_close()
     } catch (err) {
       set_error((err as Error).message)
     } finally {
@@ -40,14 +44,14 @@ export function CreateRing({ on_create }: CreateRingProps) {
 
   return (
     <>
-      <Button onClick={() => set_open(true)}>Create Ring</Button>
+      <Button onClick={() => set_internal_open(true)}>Create Ring</Button>
       <Modal
-        open={open}
-        on_close={() => set_open(false)}
+        open={is_open}
+        on_close={handle_close}
         title="Create Ring"
         footer={
           <>
-            <Button variant="secondary" onClick={() => set_open(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={handle_close}>Cancel</Button>
             <Button form="create-ring-form" type="submit" disabled={loading || !name.trim()}>Create</Button>
           </>
         }

@@ -147,9 +147,8 @@ export function ChatView() {
 
   return (
     <div className="chat-view">
-      <div className="chat-header">
-        <span>Chat</span>
-        <div className="chat-header-controls">
+      {(context_mode === 'storage' || context_mode === 'ephemeral') && (
+        <div className="chat-toolbar">
           {context_mode === 'storage' && (
             <>
               <TokenUsageBar token_count={token_count} token_limit={token_limit} />
@@ -158,7 +157,7 @@ export function ChatView() {
                   压缩
                 </button>
               )}
-              {compacting && <span className="chat-compacting">正在压缩对话上下文...</span>}
+              {compacting && <span className="chat-compacting">正在压缩...</span>}
               <label className="chat-auto-compact">
                 <input
                   type="checkbox"
@@ -171,7 +170,7 @@ export function ChatView() {
           )}
           {context_mode === 'ephemeral' && <span className="chat-ephemeral-badge">临时会话</span>}
         </div>
-      </div>
+      )}
       <div className="chat-messages">
         {messages.map((msg) => (
           <ChatBubble key={msg.id} role={msg.role} content={msg.content} />

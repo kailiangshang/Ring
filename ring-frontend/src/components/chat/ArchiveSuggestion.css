@@ -1,15 +1,18 @@
 .archive-suggestion {
-  padding: 10px 14px;
+  padding: var(--space-3) var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--color-accent-light);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.12);
   border-left: 3px solid var(--color-accent);
   margin-bottom: var(--space-2);
+  animation: bubble-in 200ms ease-out;
 }
 
 .archive-suggestion-text {
   margin-bottom: var(--space-2);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
+  line-height: var(--line-height-normal);
 }
 
 .archive-suggestion-actions {
@@ -18,13 +21,14 @@
 }
 
 .archive-suggestion-title {
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: var(--space-1);
+  font-size: var(--font-size-sm);
 }
 
 .archive-suggestion-parent {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   margin-bottom: var(--space-1);
 }

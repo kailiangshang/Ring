@@ -11,6 +11,7 @@ export function RingHub() {
   const [rings, set_rings] = useState<Ring[]>([])
   const [loading, set_loading] = useState(true)
   const [error, set_error] = useState<string | null>(null)
+  const [show_create, set_show_create] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export function RingHub() {
 
   const handle_create = async (req: CreateRingRequest) => {
     await api.create_ring(req)
+    set_show_create(false)
     await load_rings()
   }
 
@@ -45,7 +47,7 @@ export function RingHub() {
           <h1 className="ring-hub-title">Ring Hub</h1>
           <p className="ring-hub-subtitle">你的群组知识协作空间</p>
         </div>
-        <CreateRing on_create={handle_create} />
+        <CreateRing on_create={handle_create} open={show_create} on_close={() => set_show_create(false)} />
       </div>
 
       {error && <p className="setup-error" role="alert">{error}</p>}
@@ -57,7 +59,7 @@ export function RingHub() {
           ))}
         </div>
       ) : (
-        <RingList rings={rings} on_select={handle_select} />
+        <RingList rings={rings} on_select={handle_select} on_create={() => set_show_create(true)} />
       )}
 
       <div className="ring-hub-footer">对话记录仅保存在当前设备</div>

@@ -8,16 +8,18 @@
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--color-bg-tertiary);
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
 }
 
 .diff-status-badge {
-  padding: 2px 6px;
+  padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
+  font-size: 10px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
 
 .diff-status-added {
@@ -37,30 +39,35 @@
 
 .diff-file-name {
   color: var(--color-text-primary);
+  font-weight: 500;
 }
 
 .diff-additions {
   margin-left: auto;
   color: var(--color-success);
+  font-weight: 500;
 }
 
 .diff-deletions {
   color: var(--color-danger);
+  font-weight: 500;
 }
 
 .diff-content {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-top: none;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   padding: var(--space-3);
   overflow: auto;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-normal);
+  font-size: var(--font-size-xs);
+  line-height: 1.7;
   max-height: 400px;
   font-family: var(--font-mono);
+  color: var(--color-text-secondary);
 }
 
 .diff-empty {
   color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
 }

@@ -1,5 +1,7 @@
 .member-list {
-  padding: var(--space-6);
+  padding: var(--space-4);
+  height: 100%;
+  overflow-y: auto;
 }
 
 .member-list-header {
@@ -10,7 +12,7 @@
 }
 
 .member-list-title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
@@ -19,22 +21,28 @@
 .member-invite-card {
   padding: var(--space-3);
   background: var(--color-accent-light);
-  border-radius: var(--radius-lg);
+  border: 1px solid rgba(var(--color-accent-rgb), 0.12);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
   font-family: var(--font-mono);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   word-break: break-all;
-  color: var(--color-text-primary);
+  color: var(--color-accent);
 }
 
 .member-card {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-2);
+  transition: border-color var(--transition-fast);
+}
+
+.member-card:hover {
+  border-color: var(--color-border);
 }
 
 .member-card-info {
@@ -44,6 +52,7 @@
 
 .member-card-name {
   font-weight: 500;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 

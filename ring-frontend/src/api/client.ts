@@ -31,6 +31,10 @@ import type {
   Settings,
   TokenStatsResponse,
   CompactResponse,
+  GraphImageExportRequest,
+  ConversationExportRequest,
+  ReportExportRequest,
+  SessionExportRequest,
 } from '../types'
 
 import { toast_error } from '../components/Toast'
@@ -534,4 +538,74 @@ export async function list_notifications(): Promise<Notification[]> {
 
 export async function mark_notification_read(notification_id: string): Promise<void> {
   return request<void>(`/notifications/${notification_id}`, { method: 'POST' })
+}
+
+async function request_blob(path: string, options: RequestInit = {}): Promise<Blob> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { ...get_auth_headers(), 'Content-Type': undefined },
+    ...options,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const msg = body.error || `request failed: ${res.status}`
+    toast_error(msg)
+    throw new Error(msg)
+  }
+  return res.blob()
+}
+
+function download_blob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export async function export_graph_image(ring_id: string, req: GraphImageExportRequest): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/graph-image`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+  download_blob(blob, `graph.${req.format}`)
+}
+
+export async function export_markdown(ring_id: string, node_id: string): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/markdown/${node_id}`)
+  download_blob(blob, `${node_id}.md`)
+}
+
+export async function export_conversation(ring_id: string, req: ConversationExportRequest): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/conversation`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+  download_blob(blob, `conversation.${req.format === 'pdf' ? 'pdf' : 'md'}`)
+}
+
+export async function export_report(ring_id: string, req: ReportExportRequest): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/report`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+  download_blob(blob, `report.${req.format === 'pdf' ? 'pdf' : 'md'}`)
+}
+
+export async function export_session(ring_id: string, req: SessionExportRequest): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/session`, {
+    method: 'POST',
+    body: JSON.stringify(req),
+  })
+  download_blob(blob, `session.${req.format === 'pdf' ? 'pdf' : 'md'}`)
+}
+
+export async function export_backup(ring_id: string): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/backup`, { method: 'POST' })
+  download_blob(blob, `${ring_id}-backup.tar.gz`)
+}
+
+export async function export_graph_json(ring_id: string, graph_id: string): Promise<void> {
+  const blob = await request_blob(`/rings/${ring_id}/exports/graph-json/${graph_id}`)
+  download_blob(blob, `${graph_id}.json`)
 }

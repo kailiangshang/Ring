@@ -476,4 +476,39 @@ export const handlers = [
     return HttpResponse.json({ notifications: mock_notifications })
   }),
   http.post(`${BASE}/notifications/:notificationId`, () => new HttpResponse(null, { status: 204 })),
+
+  http.post(`${BASE}/rings/:ringId/exports/graph-image`, async () => {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><circle cx="400" cy="300" r="200" fill="none" stroke="currentColor" stroke-width="2"/></svg>'
+    return new HttpResponse(svg, { headers: { 'Content-Type': 'image/svg+xml', 'Content-Disposition': 'attachment; filename="graph.svg"' } })
+  }),
+
+  http.get(`${BASE}/rings/:ringId/exports/markdown/:nodeId`, () => {
+    const md = '# 竞品分析\n\n## 概述\n\n这是模拟导出的 Markdown 内容。\n'
+    return new HttpResponse(md, { headers: { 'Content-Type': 'text/markdown', 'Content-Disposition': 'attachment; filename="node.md"' } })
+  }),
+
+  http.post(`${BASE}/rings/:ringId/exports/conversation`, () => {
+    const md = '# 对话记录\n\n**用户**: 帮我整理会议纪要\n\n**助手**: 已整理完成。\n'
+    return new HttpResponse(md, { headers: { 'Content-Type': 'text/markdown', 'Content-Disposition': 'attachment; filename="conversation.md"' } })
+  }),
+
+  http.post(`${BASE}/rings/:ringId/exports/report`, () => {
+    const md = '# AI 结构化报告\n\n## 主题\n\n综合分析报告\n\n## 分析内容\n\n...\n'
+    return new HttpResponse(md, { headers: { 'Content-Type': 'text/markdown', 'Content-Disposition': 'attachment; filename="report.md"' } })
+  }),
+
+  http.post(`${BASE}/rings/:ringId/exports/session`, () => {
+    const md = '# Session 讨论记录\n\n## Q2 规划讨论\n\n...\n'
+    return new HttpResponse(md, { headers: { 'Content-Type': 'text/markdown', 'Content-Disposition': 'attachment; filename="session.md"' } })
+  }),
+
+  http.post(`${BASE}/rings/:ringId/exports/backup`, () => {
+    const data = 'mock tar.gz content'
+    return new HttpResponse(data, { headers: { 'Content-Type': 'application/gzip', 'Content-Disposition': 'attachment; filename="backup.tar.gz"' } })
+  }),
+
+  http.get(`${BASE}/rings/:ringId/exports/graph-json/:graphId`, () => {
+    const json = JSON.stringify({ graph_id: GRAPH_ID, nodes: mock_graph.nodes, edges: mock_graph.edges }, null, 2)
+    return new HttpResponse(json, { headers: { 'Content-Type': 'application/json', 'Content-Disposition': 'attachment; filename="graph.json"' } })
+  }),
 ]

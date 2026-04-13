@@ -8,22 +8,59 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 100ms ease, border-color 150ms ease;
+  transition: all var(--transition-fast);
   white-space: nowrap;
   line-height: 1;
+  position: relative;
 }
+
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
 }
-.btn-sm { height: 28px; padding: 0 12px; font-size: var(--font-size-sm); }
+
+.btn-sm { height: 28px; padding: 0 12px; font-size: var(--font-size-sm); border-radius: var(--radius-sm); }
 .btn-md { height: 34px; padding: 0 16px; }
-.btn-lg { height: 40px; padding: 0 20px; font-size: var(--font-size-md); }
-.btn-primary { background: var(--color-accent); color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--color-accent-hover); }
-.btn-secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border: 1px solid var(--color-border); }
-.btn-secondary:hover:not(:disabled) { border-color: var(--color-text-tertiary); }
-.btn-ghost { background: transparent; color: var(--color-text-secondary); }
-.btn-ghost:hover:not(:disabled) { color: var(--color-text-primary); background: var(--color-bg-tertiary); }
-.btn-danger { background: var(--color-danger); color: #fff; }
-.btn-danger:hover:not(:disabled) { background: #B91C1C; }
+.btn-lg { height: 40px; padding: 0 20px; font-size: var(--font-size-md); border-radius: var(--radius-lg); }
+
+.btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(var(--color-accent-rgb), 0.2);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  box-shadow: 0 2px 6px rgba(var(--color-accent-rgb), 0.25);
+}
+
+.btn-secondary {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--color-text-tertiary);
+  background: var(--color-bg-secondary);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+}
+.btn-ghost:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.btn-danger {
+  background: var(--color-danger);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
+}
+.btn-danger:hover:not(:disabled) {
+  background: #B91C1C;
+}

@@ -1,5 +1,7 @@
 .session-view {
-  padding: var(--space-6);
+  padding: var(--space-4);
+  height: 100%;
+  overflow-y: auto;
 }
 
 .session-view-header {
@@ -10,7 +12,7 @@
 }
 
 .session-view-title {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-md);
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
@@ -21,29 +23,31 @@
 }
 
 .session-create-form {
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-4);
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  background: var(--color-bg-secondary);
 }
 
 .session-card {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
   margin-bottom: var(--space-2);
   cursor: pointer;
-  transition: border-color 150ms ease;
+  transition: all var(--transition-fast);
 }
 
 .session-card:hover {
-  border-color: var(--color-accent);
+  border-color: rgba(var(--color-accent-rgb), 0.3);
+  background: var(--color-bg-secondary);
 }
 
 .session-card-info {
@@ -53,11 +57,12 @@
 
 .session-card-title {
   font-weight: 500;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
 .session-card-meta {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
 }
 
@@ -69,7 +74,7 @@
 .session-chat {
   display: flex;
   flex-direction: column;
-  height: 70vh;
+  height: 100%;
 }
 
 .session-chat-messages {
@@ -80,11 +85,11 @@
 
 .session-chat-typing {
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   margin-bottom: var(--space-2);
 }
 
 .session-chat-input {
-  padding: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   border-top: 1px solid var(--color-border-light);
 }

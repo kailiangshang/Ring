@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import type { BlueprintTemplate } from '../../types'
+
+const mock_navigate = vi.fn()
 
 vi.mock('../../api/client', () => ({
   list_blueprint_templates: vi.fn().mockResolvedValue([
@@ -30,28 +32,38 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useParams: () => ({ ringId: 'ring-1' }),
+    useNavigate: () => mock_navigate,
   }
 })
 
 import { BlueprintWizard } from './BlueprintWizard'
 
 describe('BlueprintWizard', () => {
+  beforeEach(() => { mock_navigate.mockClear() })
+
   it('renders template cards when available', async () => {
     render(<BlueprintWizard />)
-    expect(await screen.findByText('Team Wiki')).toBeInTheDocument()
-    expect(screen.getByText('A wiki blueprint for teams')).toBeInTheDocument()
+    expect(await screen.findByText('Team Wiki')).toBeTruthy()
+    expect(screen.getByText('A wiki blueprint for teams')).toBeTruthy()
   })
 
   it('renders template and custom tabs', () => {
     render(<BlueprintWizard />)
-    expect(screen.getByText('模板')).toBeInTheDocument()
-    expect(screen.getByText('自定义')).toBeInTheDocument()
+    expect(screen.getByText('模板')).toBeTruthy()
+    expect(screen.getByText('自定义')).toBeTruthy()
   })
 
   it('switches to custom tab', async () => {
     const user = (await import('@testing-library/user-event')).default.setup()
     render(<BlueprintWizard />)
     await user.click(screen.getByText('自定义'))
-    expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument()
+    expect(screen.getByText('从零开始构建蓝图')).toBeTruthy()
+  })
+
+  it('renders use and customize buttons per template', async () => {
+    render(<BlueprintWizard />)
+    expect(await screen.findByText('使用')).toBeTruthy()
+    const customize_buttons = screen.getAllByText('自定义')
+    expect(customize_buttons.length).toBeGreaterThanOrEqual(2)
   })
 })

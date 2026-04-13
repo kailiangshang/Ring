@@ -3,13 +3,13 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-tertiary);
 }
 
 .token-usage-track {
   width: 80px;
-  height: 4px;
-  background: var(--color-border);
+  height: 3px;
+  background: var(--color-border-light);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -20,17 +20,9 @@
   transition: width 300ms ease, background-color 300ms ease;
 }
 
-.token-usage-fill-green {
-  background: var(--color-success);
-}
-
-.token-usage-fill-amber {
-  background: var(--color-warning);
-}
-
-.token-usage-fill-red {
-  background: var(--color-danger);
-}
+.token-usage-fill-green { background: var(--color-success); }
+.token-usage-fill-amber { background: var(--color-warning); }
+.token-usage-fill-red { background: var(--color-danger); }
 
 .token-usage-label {
   white-space: nowrap;

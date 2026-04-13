@@ -54,22 +54,19 @@ export function GraphView() {
 
   return (
     <div className="graph-view">
-      <div className="graph-header">
-        <span className="graph-header-title">Graph{current_graph_id ? ` — ${current_graph_id}` : ''}</span>
-        <div className="graph-header-controls">
-          <Input
-            input_type="select"
-            value={current_graph_id || ''}
-            onChange={(e) => {
-              if (ringId && e.target.value) select_graph(ringId, e.target.value)
-            }}
-          >
-            {graphs.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </Input>
-          <Button size="sm" onClick={() => set_show_add_form(!show_add_form)}>Add Node</Button>
-        </div>
+      <div className="graph-toolbar">
+        <Input
+          input_type="select"
+          value={current_graph_id || ''}
+          onChange={(e) => {
+            if (ringId && e.target.value) select_graph(ringId, e.target.value)
+          }}
+        >
+          {graphs.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </Input>
+        <Button size="sm" onClick={() => set_show_add_form(!show_add_form)}>+ Node</Button>
       </div>
 
       {show_add_form && (

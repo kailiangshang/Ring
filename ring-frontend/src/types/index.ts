@@ -371,3 +371,51 @@ export interface CompactResponse {
   messages_compacted: number
   summary_length: number
 }
+
+export type ExportType =
+  | 'graph_image'
+  | 'graph_json'
+  | 'markdown'
+  | 'conversation'
+  | 'session'
+  | 'report'
+  | 'backup'
+
+export type ExportFormat = 'png' | 'svg' | 'pdf' | 'markdown' | 'json' | 'tar.gz'
+
+export interface GraphImageExportRequest {
+  graph_id: string
+  format: 'png' | 'svg' | 'pdf'
+  options?: {
+    layout?: string
+    show_labels?: boolean
+    max_depth?: number | null
+  }
+}
+
+export interface ConversationExportRequest {
+  conversation_id: string
+  format: 'markdown' | 'pdf'
+  include_ai_responses?: boolean
+}
+
+export interface ReportExportRequest {
+  topic: string
+  node_ids: string[]
+  graph_id: string
+  format: 'markdown' | 'pdf'
+}
+
+export interface SessionExportRequest {
+  session_id: string
+  format: 'markdown' | 'pdf'
+}
+
+export interface ExportTypeInfo {
+  type: ExportType
+  label: string
+  description: string
+  icon: string
+  formats: ExportFormat[]
+  group: 'graph' | 'content' | 'ai' | 'backup'
+}
