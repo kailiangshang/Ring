@@ -123,6 +123,8 @@
 | POST | `/{sessionId}/invite` | `session::invite_member` |
 | GET | `/{sessionId}/messages` | `session::get_messages` |
 | POST | `/{sessionId}/messages` | `session::send_message` |
+| POST | `/{sessionId}/materials` | `session::prepare_materials` |
+| GET | `/{sessionId}/materials` | `session::get_materials_progress` |
 
 **Conversation 路由**（`/api/v1/rings/{ringId}/conversations`）
 | 方法 | 路径 | Handler |
@@ -185,6 +187,19 @@
 |------|------|---------|
 | GET | `/` | `settings::get_settings` |
 | PUT | `/` | `settings::update_settings` |
+
+**Skill 路由**（`/api/v1/skills`）
+| 方法 | 路径 | Handler |
+|------|------|---------|
+| GET | `/` | `skill::list_skills` |
+| POST | `/install` | `skill::install_skill` |
+| DELETE | `/{skillId}` | `skill::uninstall_skill` |
+
+**Self 路由**（`/api/v1/self`）
+| 方法 | 路径 | Handler |
+|------|------|---------|
+| GET | `/metrics` | `self::get_metrics` |
+| PUT | `/metrics` | `self::update_metrics` |
 
 **Super Ring & WebSocket**
 | 方法 | 路径 | Handler |

@@ -154,11 +154,32 @@ ring-server/
 ├── data/                          ← 本地数据
 │   ├── ring.db                    ← SQLite
 │   └── identity.json              ← 全局身份
+├── hub/                           ← Super Ring 行为定义
+│   └── ...                        # hub 级配置和 prompt
+├── self/                          ← Self 数据（私有，不进 Git）
+│   ├── .self/                     # AI 上下文文档
+│   │   ├── identity.md
+│   │   ├── style.md
+│   │   ├── knowledge.md
+│   │   ├── goals.md
+│   │   └── growth.md
+│   └── metrics/                   # 用户行为指标
+│       ├── session_stats.json
+│       ├── tool_usage.json
+│       ├── dwell_time.json
+│       └── archive_patterns.json
+├── skills/                        ← Skill 插件
+│   ├── meeting_archive/
+│   │   └── SKILL.md
+│   ├── deep_research/
+│   │   └── SKILL.md
+│   └── learning_center/
+│       └── SKILL.md
 ├── repos/                         ← 用户加入的 Ring（群组）的 Git 仓库
 │   ├── ring-竞品分析组/
 │   │   ├── .ring-local/
 │   │   │   └── identity.json      ← 本地用户身份（不进 Git）
-│   │   ├── .ring/
+│   │   ├── .group/
 │   │   │   ├── role.md
 │   │   │   ├── conventions.md
 │   │   │   └── ...
@@ -446,11 +467,9 @@ pub trait GraphStore: Send + Sync {
 - **实时通信**：Axum WebSocket 支持
 - **中文分词**：`jieba-rs`（FTS5 关键词搜索）
 
-#### AI 调度器（三层架构 + 自成长设计）
+#### AI 调度器（四层架构）
 
-AI 调度器管理三个层级的 AI 实例，严格分层：Super Ring → Group Ring → Session Ring。
-
-**自成长设计理念**：Ring 不为特定角色硬编码功能。AI prompt 是角色适配层，蓝图是知识结构适配层，行为反馈是持续优化层。同一个 Ring 框架，通过不同 prompt 和蓝图配置，适配行政、技术、管理等不同场景。
+AI 调度器管理四个层级的 AI 实例，严格分层：
 
 ```
 AI 调度器
@@ -463,12 +482,13 @@ AI 调度器
 │   │   ├── 跨 Ring 分析: 分析多个 Ring 的数据，发现关联
 │   │   ├── 跨 Ring 问答: 跨 Ring 搜索和回答问题
 │   │   ├── 跨 Ring 总结: 汇总多个 Ring 的核心内容
+│   │   ├── Skill 安装: 用户一句话安装网络插件
 │   │   └── 跨 Ring 合并: 发现可合并的知识点，推荐合并方案
 │   └── LLM 后端: 可配置
 │
 ├── Group Ring（Ring 级，每个 Ring 一个）
 │   ├── 定位: 群组专属 AI
-│   ├── 行为驱动: .ring/ 持久化文档体系（非单一 ai_prompt）
+│   ├── 行为驱动: .group/ 持久化文档体系
 │   │   ├── 写入权限: 只有创建者和管理员可写入（直接 commit），成员完全只读
 │   │   ├── 核心层（始终加载）:
 │   │   │   ├── role.md — 角色定义（用户可编辑）
@@ -480,28 +500,47 @@ AI 调度器
 │   │   │   └── knowledge-summary.md — 知识总结（需要全局理解时加载）
 │   │   └── 所有文档在 Git 中版本管理，随 Ring 同步进化
 │   ├── 数据访问: 读写本 Ring 图谱和归档
-│   ├── 自成长: 用户行为反馈写入 .ring/ 文档，AI 持续优化行为
+│   ├── 自成长: 用户行为反馈写入 .group/ 文档，AI 持续优化行为
 │   └── LLM 后端: 继承全局配置
 │
-└── Session Ring（Session 级，每个活跃 Session 一个）
-    ├── 定位: 多人讨论场景的专属 AI
-    ├── system prompt: 继承 Group Ring prompt + session 场景上下文
-    ├── 数据访问: 继承 Group Ring 的数据访问（只读图谱 + 归档）
-    ├── 触发条件: 仅在多人 Session 激活时存在
-    ├── 核心特点:
-    │   ├── 必须以预设场景启动（深度调研/会议归档/学习中心）
-    │   ├── 所有 session 成员共享，回复广播
-    │   ├── 按场景提供定向能力（如深度调研 = 跨源聚合 + 报告生成）
-    │   └── 不开放自定义逻辑，保留扩展能力
-    ├── LLM 后端: 继承全局配置
-    └── 生命周期: Session 关闭后销毁
+├── Session Ring（Session 级，每个活跃 Session 一个）
+│   ├── 定位: 多人讨论场景的专属 AI
+│   ├── system prompt: 继承 Group Ring prompt + session 场景上下文 + Skill
+│   ├── 数据访问: 继承 Group Ring 的数据访问（只读图谱 + 归档）
+│   ├── 触发条件: 仅在多人 Session 激活时存在
+│   ├── 核心特点:
+│   │   ├── 必须以预设场景启动（deep_research / meeting_archive / learning_center）
+│   │   ├── 加载 Skill 决定行为（Skill 互斥）
+│   │   ├── 材料准备（必需）：AI 基于描述收集/生成材料，参与者可查看进度
+│   │   ├── 所有 session 成员共享，回复广播
+│   │   └── 不开放自定义逻辑，保留扩展能力
+│   ├── LLM 后端: 继承全局配置
+│   └── 生命周期: Session 关闭后销毁
+│
+└── Self（独立于三层之外，用户私有 AI 宠物）
+    ├── 定位: 用户私有 AI 宠物，不对外暴露
+    ├── 数据存储: ~/.ring/self/
+    │   ├── .self/ — AI 上下文文档（identity.md / style.md / knowledge.md / goals.md / growth.md）
+    │   └── metrics/ — 用户行为指标（session_stats / tool_usage / dwell_time / archive_patterns）
+    ├── 行为:
+    │   ├── 信息收集
+    │   ├── 行为统计
+    │   ├── 给用户提建议
+    │   ├── 用户在时作为助手
+    │   └── 可配置自主行动边界
+    └── 权限边界:
+        ├── 完全私有，不进 Git
+        ├── 不被邀请到其他 Group
+        ├── 不参与 Session
+        └── 不替代用户发言
 ```
 
 **层级调用规则**：
 - Super Ring 可向下查询 Group Ring 的数据（只读），不直接调用 Group Ring 实例
-- Group Ring 独立运行，不知道 Super Ring 和 Session Ring 的存在
+- Group Ring 独立运行，不知道 Super Ring、Session Ring 和 Self 的存在
 - Session Ring 继承 Group Ring 的 prompt 和数据，但独立运行
-- 三层之间无直接函数调用，通过共享数据层（SQLite + 内存图 + Git）间接交互
+- Self 独立于三层之外，通过共享数据层收集信息和统计
+- 四层之间无直接函数调用，通过共享数据层（SQLite + 内存图 + Git）间接交互
 
 #### Git 服务
 

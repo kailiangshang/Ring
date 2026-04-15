@@ -206,8 +206,10 @@ CREATE TABLE sessions (
     ring_id         TEXT NOT NULL REFERENCES rings(id),
     title           TEXT,                      -- Session 标题
     scenario        TEXT NOT NULL,             -- 预设场景（必选）：deep_research / meeting_archive / learning_center
+    skill_id        TEXT,                       -- 加载的 Skill ID（可选）
     created_by      TEXT NOT NULL,             -- Session 创建者用户 ID
     archive_enabled BOOLEAN NOT NULL DEFAULT FALSE, -- 是否开启归档能力（创建者可动态切换）
+    auto_summary    BOOLEAN NOT NULL DEFAULT FALSE, -- 是否自动总结
     status          TEXT NOT NULL DEFAULT 'active', -- active / closed / deleted
     -- active: 进行中
     -- closed: 创建者关闭但保留记录
@@ -217,13 +219,19 @@ CREATE TABLE sessions (
 );
 ```
 
+> **Session 生命周期**：
+> 1. 创建 Session（选择场景类型 + 填写标题描述 + 邀请成员）
+> 2. 材料准备（AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点）
+> 3. 讨论阶段（所有成员参与，AI 加载对应 Skill）
+> 4. 总结（可选，auto 或 manual，用户确认后执行后续操作）
+> 5. 结束（结束信号必须由 owner 发起）
+>
 > **预设场景（scenario）**：创建 Session 时必须选择一个预设场景，决定 Session Ring 的行为和能力。当前支持：
-> - `discussion`（自由讨论）：多人自由聊天，Session Ring 作为基础讨论助手
 > - `deep_research`（深度调研）：跨源聚合 + 报告生成
 > - `meeting_archive`（会议归档）：结构化提取 + 归档推荐
 > - `learning_center`（学习中心）：知识解读 + 概念提取
 >
-> 不开放自定义场景，保留未来扩展能力。
+> **Skill 加载**：Session 根据 scenario 加载对应 Skill，Skill 决定 Session Ring 的行为模式。
 >
 > **并发限制**：同一个 Ring 同一时刻只能有一个活跃 Session。创建新 Session 前需关闭或删除现有 Session。
 >
@@ -455,12 +463,12 @@ ring-{name}/
 ├── .ring-local/              # 本地配置（.gitignore 排除，不进 Git）
 │   └── identity.json         # 当前用户的本地身份（仅本机）
 ├── blueprint.json            # 蓝图配置
-├── .ring/                    # Group Ring 的"大脑"（可长期进化的 AI 上下文文档）
-│   ├── role.md               # 角色定义（替代 ai_prompt，创建者/管理员可编辑）
-│   ├── conventions.md        # 团队约定和术语（创建者/管理员可编辑）
+├── .group/                   # Group Ring 的"大脑"（可长期进化的 AI 上下文文档）
+│   ├── role.md               # 角色定义（创建者/管理员可编辑）
+│   ├── conventions.md       # 团队约定和术语（创建者/管理员可编辑）
 │   ├── archive-patterns.md   # 归档模式（AI 自动积累）
 │   ├── corrections.md        # 修正记录（AI 自动积累）
-│   ├── knowledge-summary.md  # 定期知识总结（AI 自动生成）
+│   ├── knowledge-summary.md # 定期知识总结（AI 自动生成）
 │   └── active-context.md     # 当前活跃上下文（AI 动态维护）
 ├── graphs/
 │   ├── knowledge/
@@ -477,11 +485,11 @@ ring-{name}/
     └── images/
 ```
 
-### 3.1 .ring/ 文档体系（Group Ring 自成长核心）
+### 3.1 .group/ 文档体系（Group Ring 自成长核心）
 
-Group Ring 不是靠一个 `ai_prompt` 字段驱动的，而是通过 `.ring/` 目录下的 6 个持久化文档实现可进化行为。这些文档随 Git 版本管理，跟随 Ring 一起成长。
+Group Ring 不是靠一个 `ai_prompt` 字段驱动的，而是通过 `.group/` 目录下的 6 个持久化文档实现可进化行为。这些文档随 Git 版本管理，跟随 Ring 一起成长。
 
-**写入权限**：只有创建者和管理员可以写入 `.ring/` 文档（直接 commit），成员完全只读。
+**写入权限**：只有创建者和管理员可以写入 `.group/` 文档（直接 commit），成员完全只读。
 
 | 文档 | 用途 | 维护者 | 加载策略 |
 |------|------|--------|---------|
@@ -492,14 +500,14 @@ Group Ring 不是靠一个 `ai_prompt` 字段驱动的，而是通过 `.ring/` �
 | `knowledge-summary.md` | 知识总结：定期生成的 Ring 知识全貌，避免每次全量扫描图谱 | 创建者/管理员的 Group Ring 自动生成 | 按需加载 |
 | `active-context.md` | 活跃上下文：当前最相关的上下文片段，每次对话动态维护 | 创建者/管理员的 Group Ring 动态维护 | **始终加载** |
 
-> **成员的 Group Ring 对 `.ring/` 完全只读**，不写入不 PR。成员想修改约定或角色 → 向创建者/管理员提出，由他们编辑。创建者和管理员的并发写入通过后端序列化队列保证。
+> **成员的 Group Ring 对 `.group/` 完全只读**，不写入不 PR。成员想修改约定或角色 → 向创建者/管理员提出，由他们编辑。创建者和管理员的并发写入通过后端序列化队列保证。
 
 **按需加载机制**：
 - `role.md` + `conventions.md` + `active-context.md` 始终加载到 Group Ring 的上下文（核心层）
 - `archive-patterns.md` 在归档模式下加载
 - `corrections.md` 在用户修正行为后加载
 - `knowledge-summary.md` 在需要全局理解 Ring 知识时加载
-- 所有 .ring/ 文档在 Git 中版本管理，随 Ring 同步
+- 所有 `.group/` 文档在 Git 中版本管理，随 Ring 同步
 
 **identity.json（本地身份，不进 Git）**：
 ```json
@@ -521,7 +529,107 @@ Group Ring 不是靠一个 `ai_prompt` 字段驱动的，而是通过 `.ring/` �
 
 ---
 
-## 4. blueprint.json 结构
+## 4. Self 数据结构
+
+> **Self** 是用户私有的 AI 宠物，完全独立于三层（Super/Group/Session Ring），不对外暴露。
+
+### 4.1 数据存储位置
+
+```
+~/.ring/self/                    # Self 数据目录
+```
+
+### 4.2 .self/ 目录（AI 上下文文档，不进 Git，完全私有）
+
+| 文件 | 用途 | 说明 |
+|------|------|------|
+| `identity.md` | 身份定义 | 用户基本信息 |
+| `style.md` | 对话风格 | 语气、措辞习惯 |
+| `knowledge.md` | 知识结构 | 用户上传文档抽象而来 |
+| `goals.md` | 目标和偏好 | 用户目标和个人偏好 |
+| `growth.md` | 成长记录 | 在对话中学习的内容 |
+
+### 4.3 metrics/ 目录（用户行为指标）
+
+| 文件 | 用途 |
+|------|------|
+| `session_stats.json` | Session 参与统计 |
+| `tool_usage.json` | 工具调用统计 |
+| `dwell_time.json` | 屏幕停留时长 |
+| `archive_patterns.json` | 归档行为模式 |
+
+### 4.4 Self 行为
+
+- 信息收集
+- 行为统计
+- 给用户提建议
+- 用户在时作为助手
+- 可配置自主行动边界
+
+### 4.5 Self 权限边界
+
+- 完全私有，不进 Git
+- 不被邀请到其他 Group
+- 不参与 Session
+- 不替代用户发言
+
+---
+
+## 5. Skill 系统
+
+> **Skill** 是 Claude Code 格式的插件，扩展 AI 能力。Session 加载 Skill 决定行为。
+
+### 5.1 存储位置
+
+```
+~/.ring/skills/                  # Skill 插件目录
+```
+
+### 5.2 Skill 目录结构
+
+```
+skill-name/
+├── SKILL.md           # 主文件（必需）
+├── prompts/          # 可选：prompt 模板
+│   └── system.md
+├── reference.md      # 可选：参考文档
+└── scripts/          # 可选：脚本
+    └── helper.py
+```
+
+### 5.3 SKILL.md 格式
+
+```yaml
+---
+name: skill-name
+description: 简短描述（Session 创建时选择 + AI 自动判断加载）
+disable-model-invocation: false   # 默认 false，AI 可自动加载
+allowed-tools: Bash Read Grep     # 可选：授予免确认工具
+---
+
+## Skill 内容
+Instructions here...
+```
+
+### 5.4 预装 Skill
+
+| Skill | 用途 |
+|-------|------|
+| `meeting_archive` | 会议归档 |
+| `deep_research` | 深度调研 |
+| `learning_center` | 学习中心 |
+
+### 5.5 权限模式
+
+| 模式 | 行为 |
+|------|------|
+| auto | AI 自动执行，无需确认 |
+| plan | AI 执行前先展示计划，用户确认 |
+| edit | AI 只生成建议，用户手动执行 |
+
+---
+
+## 6. blueprint.json 结构
 
 ```json
 {
