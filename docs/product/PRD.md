@@ -25,7 +25,7 @@ Ring 是一个面向公司内网的群组知识协作空间。以 Ring（群组�
 | 隐私保护 | 敏感信息脱敏，LLM 可配置 |
 | 群组协作 | 多人知识空间，Git-like 协作机制 |
 | 知识图谱 | 结构化知识表示，可视化导航 |
-| 三层 AI | Super Ring（全局）/ Group Ring（群组）/ Session Ring（讨论场景）|
+| 三层 AI | Super Ring（全局）/ Group Ring（群组）/ Session Ring（讨论场景）/ Self（私有助手）|
 | 自成长 | AI prompt 驱动场景适配，Ring 做通用框架而非硬编码功能 |
 
 ### 1.4 自成长设计理念
@@ -165,32 +165,34 @@ ring-{name}/
 └── assets/
 ```
 
-### 2.6 三层 AI 架构
+### 2.6 四层 AI 架构
 
-Ring 的 AI 系统分为三个层级，严格分层，各自独立运行：
+Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 | 层级 | 名称 | 定位 | 触发场景 | 数据访问 |
 |------|------|------|---------|---------|
 | Hub 级 | **Super Ring** | 全局助手 + 跨 Ring 协调者 | Ring Hub 页面 | 按需只读本机所有 Ring 内容 |
 | Ring 级 | **Group Ring** | 群组专属 AI | 进入 Ring 空间后默认激活 | 读写本 Ring 图谱和归档 |
 | Session 级 | **Session Ring** | 多人讨论场景 AI | 创建多人 Session 时激活 | 继承 Group Ring 数据（只读） |
+| 独立层 | **Self** | 用户私有 AI 宠物 | 常驻后台，按需激活 | 完全私有，不对外暴露 |
 
 **Super Ring（Hub 级）**：
 - Ring Hub 全局助手，负责使用引导、Ring 创建配置
 - 跨 Ring 能力：分析多个 Ring 的数据、跨 Ring 问答、汇总总结、合并推荐
 - 按需读取 Ring 内容（图谱 + 归档 Markdown），只读不写
 - 合并推荐只生成建议，合并操作由用户在具体 Ring 中执行
+- **Skill 管理**：用户通过 Super Ring 安装/管理 Skill 插件（"安装 xxx"）
 
 **Group Ring（Ring 级）**：
 - 群组专属 AI，每个 Ring 一个实例
 - 单人对话时默认激活（不需要 Session）
 - 负责图谱操作、归档管理、内容问答、工具调用
-- **行为由 `.ring/` 文档体系驱动**（6 个持久化 MD 文档，随 Git 版本管理，可长期进化）
-- `.ring/` 只有创建者和管理员可写入（直接 commit），成员完全只读
-- `.ring/role.md`（角色定义）+ `.ring/conventions.md`（团队约定）由创建者/管理员编辑
-- `.ring/archive-patterns.md`（归档偏好）+ `.ring/corrections.md`（修正记录）由 AI 自动积累
-- `.ring/knowledge-summary.md`（知识总结）由 AI 定期生成
-- `.ring/active-context.md`（活跃上下文）由 AI 动态维护
+- **行为由 `.group/` 文档体系驱动**（6 个持久化 MD 文档，随 Git 版本管理，可长期进化）
+- `.group/` 只有创建者和管理员可写入（直接 commit），成员完全只读
+- `.group/role.md`（角色定义）+ `.group/conventions.md`（团队约定）由创建者/管理员编辑
+- `.group/archive-patterns.md`（归档偏好）+ `.group/corrections.md`（修正记录）由 AI 自动积累
+- `.group/knowledge-summary.md`（知识总结）由 AI 定期生成
+- `.group/active-context.md`（活跃上下文）由 AI 动态维护
 - 按需加载策略：核心层（role + conventions + active-context）始终加载，扩展层按场景加载
 
 **Session Ring（Session 级）**：
@@ -202,10 +204,33 @@ Ring 的 AI 系统分为三个层级，严格分层，各自独立运行：
 - 不开放自定义逻辑，保留扩展能力
 - 所有 session 成员共享，回复广播
 - Session 关闭后实例销毁
+- **Session 生命周期**：
+  1. 创建 Session（选择场景类型 + 填写标题描述 + 邀请成员）
+  2. 材料准备（必需）- AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点
+  3. 讨论阶段 - 所有成员参与，AI 加载对应 Skill
+  4. 总结（可选）- 可配置 auto 或 manual，用户确认后执行后续操作
+  5. 结束 - 结束信号必须由 owner 发起
+
+**Self（独立层）**：
+- 用户私有 AI 宠物，完全私有，不对外暴露
+- 不参与 Session，不被邀请到其他 Group，不替代用户发言
+- 数据存储在 `~/.ring/self/`，不进 Git
+- **数据内容**：
+  - `.self/identity.md` - 身份定义
+  - `.self/style.md` - 对话风格
+  - `.self/knowledge.md` - 知识结构（用户上传文档抽象而来）
+  - `.self/goals.md` - 目标和偏好
+  - `.self/growth.md` - 成长记录
+  - `metrics/session_stats.json` - Session 参与统计
+  - `metrics/tool_usage.json` - 工具调用统计
+  - `metrics/dwell_time.json` - 屏幕停留时长
+  - `metrics/archive_patterns.json` - 归档行为模式
+- **行为**：信息收集、行为统计、给用户提建议，用户在时作为助手，可配置自主行动边界
 
 **层级调用规则**：
-- 三层之间无直接函数调用
+- 四层之间无直接函数调用
 - Super Ring 可向下只读查询 Group Ring 的数据
+- Self 完全独立，与其他三层无数据共享
 - 通过共享数据层（SQLite + petgraph 内存图 + Git）间接交互
 
 ### 2.7 预设工作流
@@ -280,6 +305,16 @@ Ring 的 AI 系统分为三个层级，严格分层，各自独立运行：
 
 **描述**：Ring 内的多人实时讨论空间，区别于 Ring 级的仓库同步邀请。
 
+**Session 生命周期**（5 个阶段）：
+
+| 阶段 | 描述 | 必选 |
+|------|------|------|
+| 1. 创建 Session | 选择场景类型（Skill）+ 填写标题描述 + 邀请成员 | 是 |
+| 2. 材料准备 | AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点 | 是 |
+| 3. 讨论阶段 | 所有成员参与，AI 加载对应 Skill | 是 |
+| 4. 总结 | 可配置 auto 或 manual，用户确认后执行后续操作 | 否 |
+| 5. 结束 | 结束信号必须由 owner 发起，聊天记录保留在创建者后端 | 是 |
+
 **两层邀请机制**：
 
 | 层级 | 目的 | 邀请范围 | 鉴权方式 | 数据同步 |
@@ -295,6 +330,7 @@ Ring 的 AI 系统分为三个层级，严格分层，各自独立运行：
   - `deep_research`（深度调研）：跨源聚合 + 报告生成
   - `meeting_archive`（会议归档）：结构化提取 + 归档推荐
   - `learning_center`（学习中心）：知识解读 + 概念提取
+- **材料准备阶段**：AI 基于 Session 描述收集/生成材料，参与者可查看进度，创建者可标记重点
 - 所有参与者共享一个 Group Ring 实例，AI 回复对所有人可见
 - 消息通过创建者后端 WebSocket hub 中转（不经过 GitLab）
 - Session owner 离线时 Session 暂停，参与者无法发消息；owner 重连后自动恢复
@@ -303,6 +339,12 @@ Ring 的 AI 系统分为三个层级，严格分层，各自独立运行：
 - 归档开启后，仅 session owner 可触发归档操作（走 Ring 标准归档流程）
 - Session 生命周期由 session owner 管理（关闭/删除/重新打开）
 - 关闭的 session 保留聊天记录在创建者后端 SQLite，可随时重新打开
+
+**Skill 系统**：
+- 采用 Claude Code Skill 格式（Markdown + YAML frontmatter）
+- 预装 Skills：`meeting_archive`、`deep_research`、`learning_center`
+- 用户可通过 Super Ring 安装网络插件（"安装 xxx"）
+- Session Ring 的行为由加载的 Skill 决定
 
 ---
 
@@ -358,13 +400,14 @@ Ring 采用层级权限管理机制。创建者对资源拥有完全权限，邀
   → 邀请 Ring 成员加入 session
 ```
 
-#### 4.0.1 三层 AI 权限概览
+#### 4.0.1 四层 AI 权限概览
 
 | AI 层级 | 数据访问 | 写入能力 | 触发场景 |
 |---------|---------|---------|---------|
 | Super Ring（Hub 级） | 不受 Ring 角色限制，按需只读本机所有 Ring 内容 | 无（只读不写） | Ring Hub 页面 |
 | Group Ring（Ring 级） | 读写本 Ring 图谱和归档 | 图谱操作 + 归档 + Git | 进入 Ring 空间后默认激活 |
 | Session Ring（Session 级） | 继承 Group Ring 数据（只读） | 无（归档操作由 session owner 触发） | 多人 Session 激活时 |
+| Self（独立层） | 完全私有，不对外暴露 | 完全私有 | 常驻后台，按需激活 |
 
 ### 4.1 角色定义
 
@@ -397,7 +440,7 @@ Ring 采用层级权限管理机制。创建者对资源拥有完全权限，邀
 
 > **PR 审核队列**：成员提交归档 PR 后进入串行审核队列，逐个审核避免 graph.json 冲突。冲突时打回给提交成员（关闭 MR + 通知），成员 pull 最新后重新提交。
 
-> **.ring/ 写入权限**：`.ring/` 目录下所有文档（包括 role.md、conventions.md 及 AI 自动维护的 4 个文档），只有创建者和管理员可以写入（直接 commit）。成员完全只读，不可编辑不可 PR。成员想修改约定 → 向创建者/管理员提出。
+> **.ring/ 写入权限**：`.group/` 目录下所有文档（包括 role.md、conventions.md 及 AI 自动维护的 4 个文档），只有创建者和管理员可以写入（直接 commit）。成员完全只读，不可编辑不可 PR。成员想修改约定 → 向创建者/管理员提出。
 
 ### 4.3 交互模式
 
