@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ring 终端风格预览 v2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 24px;
+      color: #67E8F9;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 30px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .preview {
+      border: 1px solid #1a1a2e;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d0d14;
+    }
+    .preview-header {
+      padding: 12px 16px;
+      background: #12121c;
+      border-bottom: 1px solid #1a1a2e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-header span {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .preview-title {
+      margin-left: 12px;
+      font-size: 13px;
+      color: #555;
+    }
+    .terminal {
+      padding: 24px;
+      height: 340px;
+      overflow: hidden;
+    }
+
+    /* Refined Cyberpunk 风格 */
+    .cyberpunk-refined { background: #0a0a12; }
+    .cyberpunk-refined .line { font-size: 13px; margin-bottom: 5px; }
+    .cyberpunk-refined .prompt { color: #67E8F9; }
+    .cyberpunk-refined .cyan { color: #67E8F9; }
+    .cyberpunk-refined .blue { color: #3B82F6; }
+    .cyberpunk-refined .indigo { color: #6366F1; }
+    .cyberpunk-refined .purple { color: #8B5CF6; }
+    .cyberpunk-refined .dim { color: #4B5563; }
+    .cyberpunk-refined .bright { color: #93C5FD; }
+    .cyberpunk-refined .border-top {
+      border-top: 2px solid transparent;
+      border-image: linear-gradient(90deg, #67E8F9, #3B82F6, #8B5CF6) 1;
+      margin-bottom: 16px;
+      padding-top: 12px;
+    }
+    .cyberpunk-refined .border-bottom {
+      border-bottom: 1px solid #1a1a2e;
+      margin-top: 16px;
+      padding-bottom: 12px;
+    }
+    .cyberpunk-refined .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 2px;
+      font-size: 11px;
+      margin-left: 8px;
+    }
+    .cyberpunk-refined .tag-active { background: rgba(103, 232, 249, 0.15); color: #67E8F9; }
+    .cyberpunk-refined .tag-node { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+
+    /* Logo 像素化 - 更小网格 */
+    .logo-showcase {
+      max-width: 800px;
+      margin: 0 auto 40px;
+      padding: 30px;
+      background: #0d0d14;
+      border: 1px solid #1a1a2e;
+      border-radius: 8px;
+    }
+    .logo-showcase h2 {
+      font-size: 16px;
+      color: #67E8F9;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+    .logo-comparison {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      flex-wrap: wrap;
+    }
+    .logo-item { text-align: center; }
+    .logo-item svg { width: 64px; height: 64px; margin-bottom: 12px; }
+    .logo-item span { font-size: 11px; color: #666; }
+
+    /* 8x8 像素网格的 Logo */
+    .pixel-logo-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 2px;
+      padding: 12px;
+      background: #0a0a12;
+      border: 1px solid #1a1a2e;
+      border-radius: 4px;
+    }
+    .pixel-logo-grid .px { width: 6px; height: 6px; border-radius: 1px; }
+    .px-c1 { background: #67E8F9; } /* 青色 - 代表曲线1 */
+    .px-c2 { background: #3B82F6; } /* 蓝色 - 代表曲线2 */
+    .px-c3 { background: #8B5CF6; } /* 紫色 - 代表曲线3 */
+    .px-d { background: transparent; }
+
+    .description {
+      padding: 16px;
+      border-top: 1px solid #1a1a2e;
+      background: #0a0a0f;
+    }
+    .description h3 { font-size: 14px; margin-bottom: 8px; color: #67E8F9; }
+    .description p { font-size: 12px; color: #6B7280; line-height: 1.5; }
+    .btn-select {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid #67E8F9;
+      color: #67E8F9;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .btn-select:hover { background: #67E8F9; color: #0a0a0f; }
+
+    .nav-hint {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 13px;
+      color: #4B5563;
+    }
+    .nav-hint span { color: #67E8F9; }
+  </style>
+</head>
+<body>
+  <h1>🎨 Ring 终端风格预览 v2</h1>
+
+  <div class="logo-showcase">
+    <h2>像素化 Logo (8×8 网格)</h2>
+    <div class="logo-comparison">
+      <div class="logo-item">
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 80 80" fill="none">
+          <path d="M 2 14 C 16 8, 32 22, 44 38 C 52 50, 62 52, 72 48 C 76 46, 78 44, 78 44" stroke="#67E8F9" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.75"/>
+          <path d="M 2 66 C 14 58, 28 46, 42 40 C 52 36, 62 40, 70 44 C 75 46, 78 44, 78 44" stroke="#3B82F6" stroke-width="4" stroke-linecap="round" fill="none" opacity="1"/>
+          <path d="M 2 40 C 14 28, 30 26, 42 34 C 54 42, 60 46, 70 43 C 75 43, 78 44, 78 44" stroke="#8B5CF6" stroke-width="2.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+        </svg>
+        <br><span>原始 (3 色)</span>
+      </div>
+      <div class="logo-item">
+        <div class="pixel-logo-grid">
+          <!-- 第1行 -->
+          <div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第2行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第3行 -->
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第4行 -->
+          <div class="px px-d"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第5行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第6行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <!-- 第7行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div>
+          <!-- 第8行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div>
+        </div>
+        <br><span>像素版 (同色系)</span>
+      </div>
+      <div class="logo-item">
+        <div class="pixel-logo-grid" style="box-shadow: 0 0 20px rgba(103, 232, 249, 0.2);">
+          <!-- 第1行 -->
+          <div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第2行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第3行 -->
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第4行 -->
+          <div class="px px-d"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第5行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第6行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <!-- 第7行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div>
+          <!-- 第8行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div>
+        </div>
+        <br><span>像素+微光效</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Refined Cyberpunk 预览 -->
+    <div class="preview">
+      <div class="preview-header">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+        <span class="preview-title">cyberpunk_refined.html</span>
+      </div>
+      <div class="terminal cyberpunk-refined">
+        <div class="border-top">
+          <span class="cyan">◈</span>  <span class="bright">RING</span> <span class="dim">// network terminal</span>
+        </div>
+        
+        <div class="line"><span class="dim">────────────────────────────────────</span></div>
+        <div class="line"><span class="prompt">▸</span>  Welcome back, <span class="bright">operator</span></div>
+        <div class="line"><span class="prompt">▸</span>  Session: <span class="cyan">ACTIVE</span> <span class="dim">│</span> Nodes: <span class="purple">847</span> <span class="dim">│</span> Rings: <span class="blue">3</span></div>
+        <div class="line"><span class="dim">────────────────────────────────────</span></div>
+        
+        <div class="line"><span class="dim">$</span> <span class="prompt">ls</span> <span class="dim">rings/</span></div>
+        <div class="line"></div>
+        <div class="line">  <span class="cyan">▸</span> project-alpha    <span class="tag tag-node">[4 nodes]</span>  <span class="tag tag-active">ACTIVE</span></div>
+        <div class="line">  <span class="cyan">▸</span> knowledge-base   <span class="tag tag-node">[12 nodes]</span> <span class="tag tag-active">ACTIVE</span></div>
+        <div class="line">  <span class="cyan">▸</span> team-sync        <span class="tag tag-node">[7 nodes]</span>  <span class="dim">[IDLE]</span></div>
+        
+        <div class="border-bottom"></div>
+        <div class="line"><span class="dim">$</span> <span class="dim">_</span></div>
+      </div>
+      <div class="description">
+        <h3>🔵 精致赛博朋克风</h3>
+        <p>保留霓虹感但克制使用：顶部/底部渐变边框作为视觉锚点，内容区保持干净易读。三色（青/蓝/紫）在同一色系内变化，舒适不刺眼。</p>
+        <button class="btn-select" onclick="selectStyle('cyberpunk-refined')">选择此风格</button>
+      </div>
+    </div>
+
+    <!-- 完整界面布局预览 -->
+    <div class="preview">
+      <div class="preview-header">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+        <span class="preview-title">layout_preview.html</span>
+      </div>
+      <div class="terminal cyberpunk-refined" style="height: 380px;">
+        <div class="border-top">
+          <span class="cyan">◈</span>  <span class="bright">RING</span> <span class="dim">// </span><span class="purple">project-alpha</span> <span class="dim">//</span>
+          <span class="dim" style="float: right;">v1.0 <span class="cyan">◈</span></span>
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="line" style="margin-bottom: 8px;">
+          <span class="dim">[</span><span class="cyan">chat</span><span class="dim">]</span>
+          <span class="dim">[</span><span class="blue">graph</span><span class="dim">]</span>
+          <span class="dim">[</span><span class="purple">nodes</span><span class="dim">]</span>
+          <span class="dim">[</span><span class="dim">settings</span><span class="dim">]</span>
+        </div>
+        
+        <div class="line"><span class="dim">────────────────────────────────────</span></div>
+        
+        <!-- Chat area simulation -->
+        <div class="line"><span class="bright">AI:</span> <span class="dim">Found 3 related nodes in knowledge-base...</span></div>
+        <div class="line"><span class="prompt">▸</span> <span class="dim">exported to current context</span></div>
+        <div class="line"></div>
+        <div class="line"><span class="cyan">▸</span> <span class="bright">You:</span> <span class="dim">Summarize the PR for me</span></div>
+        <div class="line"></div>
+        
+        <!-- Command hint bar -->
+        <div class="border-bottom"></div>
+        <div class="line" style="font-size: 12px;">
+          <span class="dim">CMD:</span> <span class="cyan">list</span> <span class="dim">|</span> <span class="cyan">select</span> <span class="dim">|</span> <span class="cyan">export</span> <span class="dim">|</span> <span class="cyan">search</span> <span class="dim">|</span> <span class="dim">[TAB]</span>
+        </div>
+        <div class="line"><span class="prompt">▸</span> <span class="dim">_</span></div>
+      </div>
+      <div class="description">
+        <h3>📐 界面布局预览</h3>
+        <p>左侧 Ring 列表 + 标签导航 (Chat/Graph/Nodes/Settings)，底部命令提示栏支持键盘快捷键，同时保留可点击的按钮。</p>
+        <button class="btn-select" onclick="selectStyle('layout-refined')">选择此布局</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-hint">
+    风格和布局确定后，我会继续和你确认 <span>工具栏设计</span> → <span>Ring Group 视图</span> → <span>Session 视图</span> 等细节
+  </div>
+
+  <script>
+    function selectStyle(style) {
+      console.log('Selected:', style);
+      fetch('http://localhost:7420/api/style-select', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({style})
+      }).catch(() => {
+        alert('已选择: ' + style + '\n\n请在终端中继续对话！');
+      });
+    }
+  </script>
+</body>
+</html>

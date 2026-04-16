@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ring 终端风格预览 v3</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: #0a0a0f;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 24px;
+      color: #67E8F9;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+      gap: 30px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .preview {
+      border: 1px solid #1a1a2e;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #0d0d14;
+    }
+    .preview-header {
+      padding: 12px 16px;
+      background: #12121c;
+      border-bottom: 1px solid #1a1a2e;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preview-header span { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+    .preview-title { margin-left: 12px; font-size: 13px; color: #555; }
+    .terminal { padding: 24px; overflow: hidden; }
+
+    /* 像素Logo - 12x12网格，更多像素点 */
+    .logo-section {
+      max-width: 900px;
+      margin: 0 auto 40px;
+      padding: 30px;
+      background: #0d0d14;
+      border: 1px solid #1a1a2e;
+      border-radius: 8px;
+    }
+    .logo-section h2 { font-size: 16px; color: #67E8F9; margin-bottom: 20px; text-align: center; }
+    .logo-row { display: flex; justify-content: center; gap: 50px; flex-wrap: wrap; }
+    .logo-item { text-align: center; }
+    .logo-item span { display: block; margin-top: 10px; font-size: 11px; color: #666; }
+
+    .pixel-logo {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 1px;
+      padding: 10px;
+      background: #0a0a12;
+      border: 1px solid #1a1a2e;
+      border-radius: 4px;
+    }
+    .pixel-logo .px { width: 5px; height: 5px; border-radius: 1px; }
+    .px-c1 { background: #67E8F9; } /* 青色 - 曲线1 */
+    .px-c2 { background: #3B82F6; } /* 蓝色 - 曲线2 */
+    .px-c3 { background: #8B5CF6; } /* 紫色 - 曲线3 */
+    .px-d { background: transparent; }
+
+    /* Cyberpunk refined 风格 */
+    .cyberpunk { background: #0a0a12; }
+    .cyberpunk .line { font-size: 13px; margin-bottom: 4px; }
+    .cyberpunk .prompt { color: #67E8F9; }
+    .cyberpunk .cyan { color: #67E8F9; }
+    .cyberpunk .blue { color: #3B82F6; }
+    .cyberpunk .indigo { color: #6366F1; }
+    .cyberpunk .purple { color: #8B5CF6; }
+    .cyberpunk .dim { color: #4B5563; }
+    .cyberpunk .bright { color: #93C5FD; }
+    .cyberpunk .border-top {
+      border-top: 2px solid transparent;
+      border-image: linear-gradient(90deg, #67E8F9, #3B82F6, #8B5CF6) 1;
+      padding-top: 12px;
+      margin-bottom: 16px;
+    }
+    .cyberpunk .border-bottom {
+      border-bottom: 1px solid #1a1a2e;
+      margin-top: 12px;
+      padding-bottom: 8px;
+    }
+    .cyberpunk .tag {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 2px;
+      font-size: 10px;
+      margin-left: 6px;
+    }
+    .tag-active { background: rgba(103, 232, 249, 0.15); color: #67E8F9; }
+    .tag-node { background: rgba(139, 92, 246, 0.15); color: #8B5CF6; }
+
+    /* 输入框样式 */
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .input-prefix { color: #67E8F9; }
+    .input-box {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #e0e0e0;
+      font-family: inherit;
+      font-size: 13px;
+    }
+    .input-hint { color: #4B5563; font-size: 11px; }
+    .symbol-hint { color: #8B5CF6; }
+
+    /* 快捷命令说明 */
+    .shortcuts {
+      margin-top: 12px;
+      font-size: 11px;
+      color: #4B5563;
+    }
+    .shortcuts span { margin-right: 12px; }
+    .shortcuts .key { color: #67E8F9; }
+
+    /* Chat bubble */
+    .chat-section { margin: 12px 0; }
+    .chat-ai { color: #93C5FD; margin-bottom: 4px; }
+    .chat-user { color: #8B5CF6; margin-bottom: 4px; }
+    .chat-text { color: #9CA3AF; padding-left: 12px; }
+    .chat-tool { color: #4B5563; font-size: 11px; padding-left: 12px; }
+
+    /* 完整布局预览 */
+    .layout-preview {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      grid-template-rows: auto 1fr auto;
+      gap: 0;
+      height: 400px;
+      background: #0a0a12;
+    }
+    .layout-header {
+      grid-column: 1 / -1;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1a1a2e;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .layout-sidebar {
+      border-right: 1px solid #1a1a2e;
+      padding: 12px;
+      overflow-y: auto;
+    }
+    .layout-main {
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+    }
+    .layout-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #1a1a2e;
+    }
+    .tab { color: #4B5563; cursor: pointer; }
+    .tab.active { color: #67E8F9; }
+    .chat-area { flex: 1; overflow-y: auto; }
+    .chat-input-area {
+      padding-top: 12px;
+      border-top: 1px solid #1a1a2e;
+    }
+
+    /* Ring list item */
+    .ring-item {
+      padding: 8px;
+      margin-bottom: 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .ring-item:hover { background: #1a1a2e; }
+    .ring-item.active { background: rgba(103, 232, 249, 0.1); border-left: 2px solid #67E8F9; }
+    .ring-name { font-size: 12px; color: #e0e0e0; }
+    .ring-meta { font-size: 10px; color: #4B5563; }
+    .ring-icon { color: #8B5CF6; margin-right: 6px; }
+
+    .description {
+      padding: 16px;
+      border-top: 1px solid #1a1a2e;
+      background: #0a0a0f;
+    }
+    .description h3 { font-size: 14px; margin-bottom: 8px; color: #67E8F9; }
+    .description p { font-size: 12px; color: #6B7280; line-height: 1.5; }
+    .btn-select {
+      margin-top: 12px;
+      padding: 8px 16px;
+      background: transparent;
+      border: 1px solid #67E8F9;
+      color: #67E8F9;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 12px;
+      transition: all 0.2s;
+    }
+    .btn-select:hover { background: #67E8F9; color: #0a0a0f; }
+
+    .nav-hint {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 13px;
+      color: #4B5563;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Ring 终端风格预览 v3</h1>
+
+  <!-- Logo 像素化 - 更密集 -->
+  <div class="logo-section">
+    <h2>像素化 Logo (12×12 密集网格)</h2>
+    <div class="logo-row">
+      <div class="logo-item">
+        <div class="pixel-logo">
+          <!-- 第1行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第2行 -->
+          <div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第3行 -->
+          <div class="px px-c3"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第4行 -->
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第5行 -->
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第6行 -->
+          <div class="px px-d"></div><div class="px px-c3"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第7行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第8行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <!-- 第9行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <!-- 第10行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div>
+          <!-- 第11行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <!-- 第12行 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+        </div>
+        <span>12×12 像素</span>
+      </div>
+      
+      <div class="logo-item">
+        <div class="pixel-logo" style="box-shadow: 0 0 15px rgba(103, 232, 249, 0.15);">
+          <!-- 同上，带发光效果 -->
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-c3"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-c3"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c3"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c1"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+          <div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-c2"></div><div class="px px-d"></div><div class="px px-d"></div><div class="px px-d"></div>
+        </div>
+        <span>带微光效</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Chat 核心布局预览 -->
+    <div class="preview">
+      <div class="preview-header">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+        <span class="preview-title">chat_core_layout.html</span>
+      </div>
+      <div class="terminal cyberpunk" style="height: 380px;">
+        <div class="border-top">
+          <span class="cyan">◈</span>  <span class="bright">RING</span> <span class="dim">// </span><span class="purple">project-alpha</span>
+          <span class="dim" style="float: right; font-size: 11px;">operator <span class="cyan">◈</span></span>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="layout-tabs">
+          <span class="tab active">💬 Chat</span>
+          <span class="tab">🕸️ Graph</span>
+          <span class="tab">📦 Nodes</span>
+          <span class="tab">⚙️ Settings</span>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+          <div class="chat-section">
+            <div class="chat-ai">◈ AI</div>
+            <div class="chat-text">Found 3 related nodes in knowledge-base. Shall I import them into current context?</div>
+            <div class="chat-tool">  → imported: node://design Doc, node://api-spec, node://pr-247</div>
+          </div>
+          
+          <div class="chat-section">
+            <div class="chat-user">▸ You</div>
+            <div class="chat-text">summarize the latest PR</div>
+          </div>
+          
+          <div class="chat-section">
+            <div class="chat-ai">◈ AI</div>
+            <div class="chat-text">PR #247 adds user authentication via OAuth2...</div>
+          </div>
+        </div>
+
+        <!-- Input -->
+        <div class="border-bottom"></div>
+        <div class="input-row">
+          <span class="input-prefix">▸</span>
+          <input class="input-box" type="text" placeholder="Type a message... (try / @ # !)">
+        </div>
+        <div class="shortcuts">
+          <span><span class="key">/</span> command</span>
+          <span><span class="symbol-hint">@</span> mention ring</span>
+          <span><span class="symbol-hint">#</span> search</span>
+          <span><span class="symbol-hint">!</span> tool</span>
+        </div>
+      </div>
+      <div class="description">
+        <h3>💬 Chat 为核心</h3>
+        <p>中央大面积 Chat 区域，Tab 切换 (Chat/Graph/Nodes/Settings)，底部输入框支持 <span style="color:#67E8F9">/</span> <span style="color:#8B5CF6">@</span> <span style="color:#8B5CF6">#</span> <span style="color:#8B5CF6">!</span> 快捷命令触发。</p>
+        <button class="btn-select" onclick="selectStyle('chat-core')">确认此布局</button>
+      </div>
+    </div>
+
+    <!-- 完整三栏布局 -->
+    <div class="preview">
+      <div class="preview-header">
+        <span class="dot-red"></span>
+        <span class="dot-yellow"></span>
+        <span class="dot-green"></span>
+        <span class="preview-title">full_layout.html</span>
+      </div>
+      <div class="terminal cyberpunk" style="padding: 0; height: 420px;">
+        <div class="layout-preview">
+          <!-- Header -->
+          <div class="layout-header">
+            <div>
+              <span class="cyan">◈</span> <span class="bright">RING</span> <span class="dim">// terminal v1.0</span>
+            </div>
+            <div style="font-size: 11px; color: #4B5563;">
+              <span class="cyan">●</span> online
+            </div>
+          </div>
+          
+          <!-- Sidebar -->
+          <div class="layout-sidebar">
+            <div style="font-size: 10px; color: #4B5563; margin-bottom: 8px;">RINGS</div>
+            <div class="ring-item active">
+              <div class="ring-name"><span class="ring-icon">◈</span>project-alpha</div>
+              <div class="ring-meta">4 nodes · 12 msgs</div>
+            </div>
+            <div class="ring-item">
+              <div class="ring-name"><span class="ring-icon">◈</span>knowledge-base</div>
+              <div class="ring-meta">12 nodes · 3 msgs</div>
+            </div>
+            <div class="ring-item">
+              <div class="ring-name"><span class="ring-icon">◈</span>team-sync</div>
+              <div class="ring-meta">7 nodes · 0 msgs</div>
+            </div>
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #1a1a2e;">
+              <div style="font-size: 10px; color: #4B5563; margin-bottom: 8px;">SESSIONS</div>
+              <div class="ring-item">
+                <div class="ring-name" style="color: #4B5563;">+ new session</div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Main: Chat -->
+          <div class="layout-main">
+            <div class="layout-tabs">
+              <span class="tab active">💬 Chat</span>
+              <span class="tab">🕸️ Graph</span>
+              <span class="tab">📦 Nodes</span>
+            </div>
+            
+            <div class="chat-area">
+              <div class="chat-section">
+                <div class="chat-ai">◈ AI</div>
+                <div class="chat-text">Welcome to project-alpha. 4 nodes loaded. Ask me anything.</div>
+              </div>
+            </div>
+            
+            <div class="chat-input-area">
+              <div class="input-row">
+                <span class="input-prefix">▸</span>
+                <input class="input-box" type="text" placeholder="message... ( / @ # ! )" style="width: 100%;">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="description">
+        <h3>📐 完整三栏布局</h3>
+        <p>左侧：Ring 列表 + Session 列表 | 中间：Chat 核心区 | Tab 切换 Graph/Nodes 视图。像素化 Logo 置于左上角。</p>
+        <button class="btn-select" onclick="selectStyle('full-layout')">确认此布局</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="nav-hint">
+    确认后，继续讨论：<span>快捷命令菜单</span> · <span>Graph 视图</span> · <span>Nodes 管理</span> · <span>Session 设计</span>
+  </div>
+
+  <script>
+    function selectStyle(style) {
+      console.log('Selected:', style);
+      fetch('http://localhost:7420/api/style-select', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({style})
+      }).catch(() => {
+        alert('已选择: ' + style + '\n\n请在终端中继续对话！');
+      });
+    }
+  </script>
+</body>
+</html>

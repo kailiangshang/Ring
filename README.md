@@ -1,88 +1,71 @@
-# Ring
+# Ring - 群组知识协作空间
 
-公司内网的群组知识协作空间 — 以 Ring 为核心，知识图谱为骨架，Git 为协作机制，AI 为组长。
+Ring 是一个面向公司内网的群组知识协作空间。
 
 ## 核心概念
 
-### Ring（群组知识空间）
-
-Ring 是一个持续演化的群组知识空间。创建时设定 AI 组长角色，通过邀请让团队成员加入。随着对话和工具使用，Ring 自然演化成专业知识空间。
-
-### 知识图谱 + Markdown
-
-- **图谱是骨架** — 节点代表概念/主题，边代表关系，是 Ring 知识空间的地图
-- **Markdown 是血肉** — 每个节点对应一个 Markdown 文件，承载具体内容
-- 每个Ring可维护多个独立图谱（默认上限3个），通过共享 Markdown 文件形成隐式关联
-
-### 蓝图模板
-
-创建 Ring 时，通过和 AI 组长的多轮对话，逐步确定图谱蓝图（顶层分类和初始结构）。系统提供预设模板，用户可定制。确认前有可视化预览。
-
-### Git 协作（GitLab）
-
-- 归档内容通过公司 GitLab 仓库进行版本管理
-- 创建者直接 commit，成员提交 PR 由创建者审核
-- 所有 Git 操作在 Ring 内完成，不跳转到 GitLab
-
-### AI 双实例
-
-- **系统 AI**（全局）：帮助创建 Ring、跨 Ring 洞察、新用户引导
-- **Ring AI**（群组专属）：被动响应问题 + 关键节点主动介入（归档推荐、PR 提醒、图谱总结）
-
-## 权限三模式
-
-| 模式 | 触发方式 | AI 权限 | Git 操作 |
-|------|---------|---------|---------|
-| 日常对话 | 默认模式 | 只读（查询图谱、归档内容） | 无 |
-| 手动归档 | 用户说"归档"或点击 export | 推荐图谱操作，用户确认后执行 | 生成 PR 或 commit |
-| Auto 模式 | 用户点击"Auto" | 完全开放（读写、Git） | AI 自动 commit |
-
-## 页面结构
+### 四层 AI 架构
 
 ```
-Ring Hub（首页）
-├── 我的 Ring 列表（卡片展示）
-├── 创建 Ring
-└── 系统 AI 入口
-
-Ring 空间（进入某个 Ring 后）
-├── 顶部：Ring 名称 + 成员头像 + 邀请按钮
-├── 左侧：图谱导航（节点树）
-├── 中央（可切换）
-│   ├── 对话视图（默认）
-│   ├── 图谱视图（D3.js 可视化）
-│   └── 归档视图（Markdown 列表 + PR 队列 + Git Diff）
-└── 工具栏（底部或侧边）
-    ├── 会议归档（预设工作流）
-    ├── 学习中心（预设工作流）
-    ├── 深度调研（预设工作流）
-    └── + 更多工具（未来扩展）
-
-全局设置
-├── LLM 配置（OpenAI / Anthropic / Ollama）
-├── 隐私过滤规则
-└── 系统 AI 配置
+Ring Hub（用户入口）
+├── Super Ring（Hub级）    - 全局助手 + 跨 Ring 协调者
+├── Group Ring（Ring级）    - 群组专属 AI
+├── Session Ring（Session级）- 多人实时讨论 AI
+└── Self（独立层）          - 用户私有 AI 宠物
 ```
+
+### 数据存储
+
+```
+~/.ring/                     # 用户数据根目录
+├── hub/                     # Super Ring 行为定义
+├── rings/                  # Group Ring 数据
+│   └── <ring-id>/
+│       ├── graph.json       # 群组图谱
+│       ├── sessions/       # Session Ring 数据
+│       └── .group/         # Group Ring 行为定义
+├── self/                    # Self 数据（私有，不进 Git）
+└── skills/                  # Skill 插件
+```
+
+### Session 生命周期
+
+```
+创建 → 材料准备（必需）→ 讨论 → 总结（可选）→ 结束
+```
+
+AI 在材料准备阶段收集整理材料，让讨论有内容可依。讨论阶段 AI 不参与，只记录。
+
+### Skill 系统
+
+5 个预装 Skill（Claude Code Skill 格式）：
+- `decision` - 团队决策
+- `research` - 联合调研
+- `review` - 集体评审
+- `retrospective` - 项目复盘
+- `knowledge_sharing` - 知识分享
+
+---
 
 ## 技术栈
 
-- **前端**：React + TypeScript + D3.js
 - **后端**：Rust + Axum
-- **关系型存储**：SQLite（本地数据库，通过 Repository 抽象层，可扩展为 PostgreSQL/MySQL）
-- **图数据库**：FalkorDB（本地部署，通过 `falkordb` crate，通过 GraphStore 抽象层，可扩展为 Neo4j 等）
-- **版本管理**：GitLab（`git2` crate + GitLab API）
-- **AI**：可配置 LLM 后端（OpenAI / Anthropic / Ollama）
+- **前端**：React + TypeScript + Vite
+- **数据库**：SQLite（via sqlx）
 
-## 网络环境
+## 项目结构
 
-公司内网部署，每人有固定内网 IP + 开放端口。成员通过邀请链接（`http://{创建者IP}:7420/ring/join?token=xxx`）加入 Ring。所有大模型调用通过云端 API。
+```
+ring-server/     # Rust 后端（待实现）
+ring-frontend/  # React 前端
+public/          # 静态资源（logo.svg 等）
+docs/           # 设计文档
+```
 
-## 文档
+## 设计文档
 
-详细文档分为产品文档和技术文档两部分：
-
-- **[产品文档](docs/product/)** — PRD、用户流程、权限模型、AI 行为设计
-- **[技术文档](docs/technical/)** — 架构、数据模型、API 设计、知识图谱、Git 集成、实施路线图
+- **[四层架构设计](docs/superpowers/specs/2026-04-15-ring-redesign-design.md)** - 核心架构确认
+- **[实现计划](docs/superpowers/plans/)** - 4 个模块化实现计划
 
 ## License
 
