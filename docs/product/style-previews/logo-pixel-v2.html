@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring Logo · Pixel Art V2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; padding: 40px; }
+h1 { color: #67E8F9; font-size: 14px; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 32px; }
+h1 span { color: #3a4550; font-weight: 400; }
+.grid { display: flex; gap: 48px; flex-wrap: wrap; justify-content: center; }
+.card { text-align: center; }
+.card-label { font-size: 10px; color: #3a4550; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.card-size { font-size: 11px; color: #0891B2; margin-top: 4px; }
+canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+
+.showcase {
+  background: #0a0e14; border: 1px solid #1a2030; border-radius: 8px;
+  padding: 32px 48px; display: flex; flex-direction: column; align-items: center; gap: 16px;
+  margin-top: 48px;
+}
+.showcase .brand { display: flex; align-items: center; gap: 14px; }
+.showcase .brand-text { font-size: 28px; color: #67E8F9; letter-spacing: 8px; font-weight: 700; }
+.showcase .brand-sub { font-size: 11px; color: #3a4550; letter-spacing: 4px; }
+
+.tab-bar {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: #0d1117; border-radius: 6px; width: 100%; margin-top: 8px;
+}
+.tab-item {
+  display: flex; align-items: center; gap: 6px; padding: 4px 10px;
+  background: #141a24; border-radius: 4px; font-size: 11px; color: #6b7d8e;
+}
+.url-bar {
+  flex: 1; padding: 6px 12px; background: #0a0e14; border: 1px solid #1a2030;
+  border-radius: 4px; font-size: 11px; color: #3a4550;
+}
+
+.note {
+  margin-top: 32px; padding: 16px 24px; border: 1px solid #1a2030;
+  border-radius: 6px; background: #0a0e14; max-width: 700px;
+  font-size: 12px; color: #6b7d8e; line-height: 1.8; text-align: center;
+}
+.note strong { color: #67E8F9; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Ring Logo · Pixel V2 <span>high density interweaving</span></h1>
+
+<div class="grid">
+  <div class="card">
+    <canvas id="c48" width="48" height="48" style="width:192px;height:192px;background:#06080c"></canvas>
+    <div class="card-label">48×48 · standard</div>
+    <div class="card-size">app icon / avatar</div>
+  </div>
+  <div class="card">
+    <canvas id="c64" width="64" height="64" style="width:192px;height:192px;background:#06080c"></canvas>
+    <div class="card-label">64×64 · high detail</div>
+    <div class="card-size">launcher / splash</div>
+  </div>
+  <div class="card">
+    <canvas id="c32" width="32" height="32" style="width:192px;height:192px;background:#06080c"></canvas>
+    <div class="card-label">32×32 · medium</div>
+    <div class="card-size">status bar / notification</div>
+  </div>
+  <div class="card">
+    <canvas id="c16" width="16" height="16" style="width:192px;height:192px;background:#06080c"></canvas>
+    <div class="card-label">16×16 · minimal</div>
+    <div class="card-size">favicon</div>
+  </div>
+</div>
+
+<div style="display:flex;justify-content:center">
+  <div class="showcase">
+    <div class="brand">
+      <canvas id="cBrand" width="48" height="48" style="width:36px;height:36px"></canvas>
+      <span class="brand-text">RING</span>
+    </div>
+    <div class="brand-sub">group knowledge collaboration</div>
+    <div class="tab-bar">
+      <div class="tab-item">
+        <canvas id="cTab" width="16" height="16" style="width:14px;height:14px"></canvas>
+        Ring Hub
+      </div>
+      <div class="url-bar">localhost:7420/hub</div>
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  Original curves traced via cubic bezier → sampled at N points → rendered as thick pixel strokes.<br>
+  <strong>Interweaving</strong>: top curve (light) dips below middle (mid) around x≈55%, bottom curve (dark) rises above middle around x≈40%. All three converge at the right.
+</div>
+
+<script>
+function cubicBezier(p0, p1, p2, p3, t) {
+  const mt = 1 - t;
+  return mt*mt*mt*p0 + 3*mt*mt*t*p1 + 3*mt*t*t*p2 + t*t*t*p3;
+}
+
+function traceCurve(segments, steps) {
+  const points = [];
+  const perSeg = Math.ceil(steps / segments.length);
+  for (const seg of segments) {
+    for (let i = 0; i < perSeg; i++) {
+      const t = i / perSeg;
+      const x = cubicBezier(seg[0], seg[2], seg[4], seg[6], t);
+      const y = cubicBezier(seg[1], seg[3], seg[5], seg[7], t);
+      points.push([x, y]);
+    }
+  }
+  return points;
+}
+
+// Original SVG curves (exact coordinates from logo.svg, in 80x80 space)
+const topCurve = traceCurve([
+  [2,14, 16,8, 32,22, 44,38],
+  [44,38, 52,50, 62,52, 72,48],
+  [72,48, 76,46, 78,44, 78,44],
+], 300);
+
+const midCurve = traceCurve([
+  [2,40, 14,28, 30,26, 42,34],
+  [42,34, 54,42, 60,46, 70,43],
+  [70,43, 75,43, 78,44, 78,44],
+], 300);
+
+const botCurve = traceCurve([
+  [2,66, 14,58, 28,46, 42,40],
+  [42,40, 52,36, 62,40, 70,44],
+  [70,44, 75,46, 78,44, 78,44],
+], 300);
+
+function drawPixel(canvas) {
+  const w = canvas.width;
+  const h = canvas.height;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const margin = Math.max(1, Math.floor(w * 0.04));
+  const drawW = w - margin * 2;
+  const drawH = h - margin * 2;
+
+  function toPixel(px, py) {
+    return [
+      Math.round(margin + (px / 80) * drawW),
+      Math.round(margin + (py / 80) * drawH)
+    ];
+  }
+
+  // Thickness: scale with resolution
+  // Bottom (dark) is thickest, mid is medium, top (light) is thinnest
+  const thickness = {
+    dark:  1,
+    mid:   1,
+    light: 1,
+  };
+
+  // Use a pixel buffer to detect overlap and apply transparency
+  const buf = new Uint8Array(w * h * 4);
+  
+  function setPixel(x, y, r, g, b, a) {
+    if (x < 0 || x >= w || y < 0 || y >= h) return;
+    const idx = (y * w + x) * 4;
+    // alpha blend
+    const srcA = a / 255;
+    const dstA = buf[idx + 3] / 255;
+    const outA = srcA + dstA * (1 - srcA);
+    if (outA > 0) {
+      buf[idx]     = Math.round((r * srcA + buf[idx]     * dstA * (1 - srcA)) / outA);
+      buf[idx + 1] = Math.round((g * srcA + buf[idx + 1] * dstA * (1 - srcA)) / outA);
+      buf[idx + 2] = Math.round((b * srcA + buf[idx + 2] * dstA * (1 - srcA)) / outA);
+      buf[idx + 3] = Math.round(outA * 255);
+    }
+  }
+
+  const layers = [
+    { points: botCurve,  color: [8, 145, 178],  alpha: 230 },
+    { points: midCurve,  color: [6, 182, 212],  alpha: 220 },
+    { points: topCurve,  color: [103, 232, 249], alpha: 210 },
+  ];
+
+  layers.forEach(layer => {
+    const step = Math.max(1, Math.floor(layer.points.length / (w * 4)));
+    for (let i = 0; i < layer.points.length; i += step) {
+      const [px, py] = toPixel(layer.points[i][0], layer.points[i][1]);
+      setPixel(px, py, layer.color[0], layer.color[1], layer.color[2], layer.alpha);
+    }
+  });
+
+  // Convergence tip - brighter
+  const tip = toPixel(78, 44);
+  setPixel(tip[0], tip[1], 165, 243, 252, 255);
+
+  // Write buffer to canvas
+  const imgData = ctx.createImageData(w, h);
+  imgData.data.set(buf);
+  ctx.putImageData(imgData, 0, 0);
+}
+
+drawPixel(document.getElementById('c48'));
+drawPixel(document.getElementById('c64'));
+drawPixel(document.getElementById('c32'));
+drawPixel(document.getElementById('c16'));
+drawPixel(document.getElementById('cBrand'));
+drawPixel(document.getElementById('cTab'));
+</script>
+</body>
+</html>

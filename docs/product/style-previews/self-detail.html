@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring · Self Detail</title>
+<link href="https://fonts.googleapis.com/css2?family=Cascadia+Code:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; height: 100vh; overflow: hidden; display: flex; }
+
+/* Sidebar stub */
+.sidebar-stub { width: 200px; min-width: 200px; background: #080c12; border-right: 1px solid #1a2030; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.sidebar-stub .stub-text { font-size: 10px; color: #3a4550; text-align: center; line-height: 2; }
+
+/* Main */
+.main { flex: 1; display: flex; flex-direction: column; position: relative; }
+.main-header { padding: 0 16px; border-bottom: 1px solid #1a2030; background: #080c12; height: 38px; display: flex; align-items: center; }
+.main-header .ctx { font-size: 12px; color: #67E8F9; font-weight: 600; }
+.main-header .note { font-size: 9px; color: #3a4550; margin-left: 12px; }
+
+.main-body { flex: 1; display: flex; align-items: center; justify-content: center; }
+.main-body .center-hint { font-size: 11px; color: #3a4550; text-align: center; line-height: 2.2; }
+.main-body .center-hint code { background: #0d1117; padding: 2px 6px; border-radius: 3px; color: #06B6D4; font-size: 11px; }
+.main-body .center-hint strong { color: #6b7d8e; }
+
+/* ========== Self Floating Window ========== */
+.self-float {
+  position: fixed; width: 340px; height: 440px;
+  background: #0a0e14; border: 1px solid #1a2030; border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6); display: flex; flex-direction: column;
+  z-index: 100; overflow: hidden; resize: both; min-width: 300px; min-height: 360px;
+}
+.self-float.hidden { display: none; }
+
+/* Header */
+.self-header {
+  padding: 10px 14px; border-bottom: 1px solid #1a2030;
+  display: flex; align-items: center; gap: 8px; background: #080c12; cursor: grab;
+  flex-shrink: 0;
+}
+.self-header:active { cursor: grabbing; }
+.self-avatar-wrap { position: relative; }
+.self-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; line-height: 1; box-shadow: 0 0 8px rgba(245,158,11,0.3);
+}
+.self-avatar-status {
+  position: absolute; bottom: -1px; right: -1px;
+  width: 8px; height: 8px; border-radius: 50%; background: #22c55e;
+  border: 2px solid #080c12;
+}
+.self-name { font-size: 11px; color: #f59e0b; font-weight: 600; }
+.self-sub { font-size: 8px; color: #3a4550; }
+.self-header-actions { margin-left: auto; display: flex; gap: 4px; }
+.self-header-btn {
+  color: #3a4550; cursor: pointer; font-size: 11px; padding: 3px 6px;
+  border-radius: 3px; transition: all 0.15s; border: none; background: none; font-family: inherit;
+}
+.self-header-btn:hover { color: #bfc7d5; background: #141a24; }
+.self-header-btn.active { color: #f59e0b; }
+
+/* Tabs inside Self */
+.self-tabs {
+  display: flex; border-bottom: 1px solid #1a2030; background: #080c12; flex-shrink: 0;
+}
+.self-tab {
+  flex: 1; padding: 6px 0; font-size: 9px; color: #3a4550; text-align: center;
+  cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s;
+  background: none; border-top: none; border-left: none; border-right: none; font-family: inherit;
+}
+.self-tab:hover { color: #6b7d8e; }
+.self-tab.active { color: #f59e0b; border-bottom-color: #f59e0b; }
+
+/* Chat tab */
+.self-messages {
+  flex: 1; padding: 10px 14px; overflow-y: auto; font-size: 11px; line-height: 1.7;
+}
+.self-messages::-webkit-scrollbar { width: 3px; }
+.self-messages::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.self-msg { margin-bottom: 10px; }
+.self-msg-role {
+  font-size: 8px; color: #3a4550; margin-bottom: 1px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.self-msg-text { color: #8892a0; }
+.self-msg-text strong { color: #bfc7d5; }
+.self-msg-text code { background: #0d1117; padding: 1px 4px; border-radius: 2px; color: #f59e0b; font-size: 10px; }
+
+.self-msg.user-msg .self-msg-role { color: #f59e0b; }
+.self-msg.user-msg .self-msg-text { color: #bfc7d5; }
+
+.self-msg.suggestion .self-msg-text { color: #f59e0b; }
+.self-msg.suggestion .self-msg-text code { color: #f59e0b; }
+
+.self-divider { font-size: 8px; color: #2a3540; text-align: center; margin: 10px 0; }
+
+/* Input */
+.self-input-row {
+  display: flex; align-items: center; padding: 8px 12px;
+  border-top: 1px solid #1a2030; gap: 6px; flex-shrink: 0; background: #080c12;
+}
+.self-input-row input {
+  flex: 1; background: #0d1117; border: 1px solid #1a2030; border-radius: 3px;
+  padding: 6px 8px; color: #bfc7d5; font-family: inherit; font-size: 11px; outline: none;
+}
+.self-input-row input:focus { border-color: #f59e0b; }
+.self-input-row input::placeholder { color: #2a3540; }
+.self-send {
+  padding: 5px 10px; background: #f59e0b; color: #06080c; border: none;
+  border-radius: 3px; cursor: pointer; font-family: inherit; font-size: 9px; font-weight: 700;
+}
+
+/* Memory tab */
+.self-memory { flex: 1; padding: 14px; overflow-y: auto; display: none; }
+.self-memory::-webkit-scrollbar { width: 3px; }
+.self-memory::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.mem-section { margin-bottom: 14px; }
+.mem-section-title {
+  font-size: 9px; color: #3a4550; text-transform: uppercase;
+  letter-spacing: 1.5px; margin-bottom: 6px;
+}
+.mem-item {
+  padding: 5px 8px; border: 1px solid #1a2030; border-radius: 3px;
+  margin-bottom: 3px; font-size: 10px; display: flex; align-items: center; gap: 6px;
+}
+.mem-item .mem-icon { font-size: 10px; }
+.mem-item .mem-label { flex: 1; color: #6b7d8e; }
+.mem-item .mem-value { font-size: 9px; color: #3a4550; }
+.mem-item .mem-tag {
+  font-size: 8px; padding: 1px 4px; border-radius: 2px; background: #141a24; color: #4a5568;
+}
+.mem-bar {
+  height: 3px; background: #1a2030; border-radius: 2px; margin-top: 4px; overflow: hidden;
+}
+.mem-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+/* Settings tab */
+.self-settings { flex: 1; padding: 14px; overflow-y: auto; display: none; }
+.self-settings::-webkit-scrollbar { width: 3px; }
+.self-settings::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.set-group { margin-bottom: 14px; }
+.set-group-title {
+  font-size: 9px; color: #3a4550; text-transform: uppercase;
+  letter-spacing: 1.5px; margin-bottom: 6px;
+}
+.set-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px; border: 1px solid #1a2030; border-radius: 3px;
+  margin-bottom: 3px; font-size: 10px;
+}
+.set-label { color: #6b7d8e; }
+.set-value { color: #3a4550; }
+.set-toggle {
+  width: 28px; height: 14px; border-radius: 7px; background: #1a2030;
+  position: relative; cursor: pointer; transition: background 0.15s;
+}
+.set-toggle.on { background: #f59e0b; }
+.set-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 10px; height: 10px; border-radius: 50%; background: #bfc7d5;
+  transition: transform 0.15s;
+}
+.set-toggle.on::after { transform: translateX(14px); }
+
+.set-input {
+  background: #0d1117; border: 1px solid #1a2030; border-radius: 3px;
+  padding: 4px 8px; color: #bfc7d5; font-family: inherit; font-size: 10px;
+  outline: none; width: 120px; text-align: right;
+}
+.set-input:focus { border-color: #f59e0b; }
+
+.set-note { font-size: 8px; color: #2a3540; margin-top: 4px; padding-left: 8px; line-height: 1.6; }
+
+/* Context badge */
+.self-context-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 6px; border-radius: 3px; font-size: 8px;
+}
+.ctx-ring { background: #0d2a35; color: #0891B2; }
+.ctx-session { background: #0d2a1f; color: #22c55e; }
+.ctx-global { background: #141a24; color: #6b7d8e; }
+
+/* Self trigger */
+.self-trigger {
+  position: fixed; bottom: 24px; right: 24px; width: 48px; height: 48px;
+  border-radius: 50%; border: 2px solid #f59e0b40; cursor: pointer; z-index: 99;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; line-height: 1; box-shadow: 0 4px 16px rgba(245,158,11,0.25);
+  transition: all 0.2s; animation: float 3s ease-in-out infinite;
+}
+.self-trigger:hover { transform: scale(1.1); box-shadow: 0 4px 24px rgba(245,158,11,0.4); border-color: #f59e0b; }
+.self-trigger.hidden { display: none; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+</style>
+</head>
+<body>
+
+<div class="sidebar-stub"><div class="stub-text">Sidebar<br>(see group-panel-v2.html)</div></div>
+
+<div class="main">
+  <div class="main-header">
+    <span class="ctx">竞品分析组</span>
+    <span class="note">点击右下角 🐱 打开 Self · 或输入 @self</span>
+  </div>
+  <div class="main-body">
+    <div class="center-hint">
+      这是 Self 浮窗的详细原型<br>
+      点击右下角 <strong>🐱</strong> 打开浮窗<br>
+      浮窗内有三个 Tab：<strong>Chat / Memory / Settings</strong><br>
+      可拖拽 · 可缩放 · 始终在最前
+    </div>
+  </div>
+</div>
+
+<!-- Self Float -->
+<div class="self-float hidden" id="selfFloat" style="bottom:80px;right:24px">
+  <div class="self-header" id="selfHeader">
+    <div class="self-avatar-wrap">
+      <div class="self-avatar">🐱</div>
+      <div class="self-avatar-status"></div>
+    </div>
+    <div>
+      <div class="self-name">Self</div>
+      <div class="self-sub">
+        <span class="self-context-badge ctx-ring">竞品分析组</span>
+      </div>
+    </div>
+    <div class="self-header-actions">
+      <button class="self-header-btn" title="Minimize" onclick="minimizeSelf()">─</button>
+      <button class="self-header-btn" title="Pin" id="pinBtn" onclick="pinSelf()">📌</button>
+      <button class="self-header-btn" title="Close" onclick="toggleSelf()">×</button>
+    </div>
+  </div>
+
+  <div class="self-tabs">
+    <button class="self-tab active" onclick="switchSelfTab('chat')">Chat</button>
+    <button class="self-tab" onclick="switchSelfTab('memory')">Memory</button>
+    <button class="self-tab" onclick="switchSelfTab('settings')">Settings</button>
+  </div>
+
+  <!-- Chat -->
+  <div class="self-messages" id="selfChat">
+    <div class="self-divider">today</div>
+    <div class="self-msg">
+      <div class="self-msg-role">self</div>
+      <div class="self-msg-text">早上好！你在「竞品分析组」有 <strong>2 条未读归档</strong>。</div>
+    </div>
+    <div class="self-msg">
+      <div class="self-msg-role">self</div>
+      <div class="self-msg-text">你最近经常在讨论 <strong>API 生态</strong>，要我把相关对话整理成笔记吗？</div>
+    </div>
+    <div class="self-msg suggestion">
+      <div class="self-msg-role">suggestion</div>
+      <div class="self-msg-text">💡 你已连续 3 天在 10pm 后活跃，建议早点休息～<br>或用 <code>/auto</code> 让我帮你处理归档</div>
+    </div>
+    <div class="self-divider">yesterday</div>
+    <div class="self-msg user-msg">
+      <div class="self-msg-role">you</div>
+      <div class="self-msg-text">帮我总结下今天竞品分析组的讨论</div>
+    </div>
+    <div class="self-msg">
+      <div class="self-msg-role">self</div>
+      <div class="self-msg-text">今天讨论了 <strong>3 个主题</strong>：<br>1. A/B 产品 API 生态对比<br>2. 定价策略差异<br>3. 市场趋势 Q2 预判<br><br>已自动归档到 <code>竞品概览</code> 节点下。</div>
+    </div>
+    <div class="self-msg user-msg">
+      <div class="self-msg-role">you</div>
+      <div class="self-msg-text">你记得我的归档偏好吗？</div>
+    </div>
+    <div class="self-msg">
+      <div class="self-msg-role">self</div>
+      <div class="self-msg-text">当然！你偏好 <strong>按主题分节点</strong>，粒度适中（每个节点 300-500 字），归档前会先确认。</div>
+    </div>
+  </div>
+
+  <!-- Memory -->
+  <div class="self-memory" id="selfMemory">
+    <div class="mem-section">
+      <div class="mem-section-title">Behavior Profile</div>
+      <div class="mem-item">
+        <span class="mem-icon">📂</span>
+        <span class="mem-label">Archive style</span>
+        <span class="mem-value">by-topic · medium</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-icon">🕐</span>
+        <span class="mem-label">Active hours</span>
+        <span class="mem-value">14:00 - 23:00</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-icon">📝</span>
+        <span class="mem-label">Avg. archive length</span>
+        <span class="mem-value">380 chars</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-icon">🔄</span>
+        <span class="mem-label">Auto-archive</span>
+        <span class="mem-value">manual</span>
+      </div>
+    </div>
+    <div class="mem-section">
+      <div class="mem-section-title">Interaction Stats</div>
+      <div class="mem-item">
+        <span class="mem-icon">📊</span>
+        <span class="mem-label">Total conversations</span>
+        <span class="mem-value">47</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-icon">✅</span>
+        <span class="mem-label">Archives this week</span>
+        <span class="mem-value">12</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-icon">🎯</span>
+        <span class="mem-label">Suggestion acceptance</span>
+        <span class="mem-value">73%</span>
+        <div class="mem-bar"><div class="mem-bar-fill" style="width:73%;background:#f59e0b"></div></div>
+      </div>
+    </div>
+    <div class="mem-section">
+      <div class="mem-section-title">Known Preferences</div>
+      <div class="mem-item">
+        <span class="mem-label">Language</span>
+        <span class="mem-tag">中文为主</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-label">Detail level</span>
+        <span class="mem-tag">concise</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-label">Format</span>
+        <span class="mem-tag">structured</span>
+      </div>
+      <div class="mem-item">
+        <span class="mem-label">Confirm before action</span>
+        <span class="mem-tag">always</span>
+      </div>
+    </div>
+    <div class="set-note">Memory is 100% private. Never synced or shared. Stored in <code>~/.ring/self/</code></div>
+  </div>
+
+  <!-- Settings -->
+  <div class="self-settings" id="selfSettings">
+    <div class="set-group">
+      <div class="set-group-title">Personality</div>
+      <div class="set-row">
+        <span class="set-label">Tone</span>
+        <select class="set-input" style="width:100px;text-align:right">
+          <option>friendly</option>
+          <option>professional</option>
+          <option>playful</option>
+          <option>minimal</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Proactivity</span>
+        <div class="set-toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Suggestions</span>
+        <div class="set-toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="set-note">Proactivity: Self will offer help unprompted<br>Suggestions: Show daily tips and pattern insights</div>
+    </div>
+    <div class="set-group">
+      <div class="set-group-title">Privacy</div>
+      <div class="set-row">
+        <span class="set-label">Read context</span>
+        <div class="set-toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Remember patterns</span>
+        <div class="set-toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="set-row">
+        <span class="set-label">Session awareness</span>
+        <div class="set-toggle" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="set-note">Read context: See current Ring/Session for better help<br>Session awareness: Access session discussions<br>All data stays local in ~/.ring/self/</div>
+    </div>
+    <div class="set-group">
+      <div class="set-group-title">Data</div>
+      <div class="set-row">
+        <span class="set-label">Export memory</span>
+        <button style="font-size:9px;color:#3a4550;background:none;border:1px solid #1a2030;border-radius:3px;padding:2px 8px;cursor:pointer;font-family:inherit">export</button>
+      </div>
+      <div class="set-row">
+        <span class="set-label" style="color:#f59e0b">Reset all memory</span>
+        <button style="font-size:9px;color:#f59e0b;background:none;border:1px solid #f59e0b30;border-radius:3px;padding:2px 8px;cursor:pointer;font-family:inherit">reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="self-input-row">
+    <input id="selfInput" placeholder="和 Self 聊聊..." />
+    <button class="self-send">↑</button>
+  </div>
+</div>
+
+<div class="self-trigger" id="selfTrigger" onclick="toggleSelf()">🐱</div>
+
+<script>
+function toggleSelf() {
+  document.getElementById('selfFloat').classList.toggle('hidden');
+  document.getElementById('selfTrigger').classList.toggle('hidden');
+}
+
+function minimizeSelf() { toggleSelf(); }
+
+function pinSelf() {
+  const btn = document.getElementById('pinBtn');
+  btn.classList.toggle('active');
+}
+
+function switchSelfTab(tab) {
+  document.querySelectorAll('.self-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('selfChat').style.display = tab === 'chat' ? 'block' : 'none';
+  document.getElementById('selfMemory').style.display = tab === 'memory' ? 'block' : 'none';
+  document.getElementById('selfSettings').style.display = tab === 'settings' ? 'block' : 'none';
+}
+
+// Drag
+(function() {
+  const header = document.getElementById('selfHeader');
+  const win = document.getElementById('selfFloat');
+  let dragging = false, startX, startY, startLeft, startTop;
+
+  header.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true;
+    const rect = win.getBoundingClientRect();
+    startX = e.clientX; startY = e.clientY;
+    startLeft = rect.left; startTop = rect.top;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - startX, dy = e.clientY - startY;
+    win.style.left = (startLeft + dx) + 'px';
+    win.style.top = (startTop + dy) + 'px';
+    win.style.right = 'auto';
+    win.style.bottom = 'auto';
+  });
+
+  document.addEventListener('mouseup', () => { dragging = false; });
+})();
+
+// Auto-open on @self
+document.getElementById('selfInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && this.value.trim()) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'self-msg user-msg';
+    msgDiv.innerHTML = `<div class="self-msg-role">you</div><div class="self-msg-text">${this.value}</div>`;
+    const chat = document.getElementById('selfChat');
+    chat.appendChild(msgDiv);
+    chat.scrollTop = chat.scrollHeight;
+    this.value = '';
+  }
+});
+</script>
+</body>
+</html>

@@ -22,10 +22,10 @@ Ring Hub（用户入口）
 
 - **定位**：全局助手 + 跨 Ring 协调者
 - **数据访问**：按需只读本机所有 Ring 内容
+- **存储**：`~/.ring/hub/`（system_prompt.md / user_preferences.md / cross_ring_cache/）
 - **职责**：
   - Ring 管理引导
-  - 跨 Ring 分析
-  - Plugin 安装
+  - 跨 Ring 分析、问答、汇总总结、合并推荐
   - Skill 安装
 
 ### 2.2 Group Ring（Ring级）
@@ -39,18 +39,21 @@ Ring Hub（用户入口）
 
 ### 2.3 Session Ring（Session级）
 
-- **定位**：多人实时讨论 AI
+- **定位**：多人实时讨论 AI，独立实例（不复用 Group Ring）
 - **加载 Skill 决定行为**
 - **流程**：
   1. 创建 Session（选择场景类型/Skill + 填写标题描述 + 邀请成员）
-  2. 材料准备（AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点）
-  3. 讨论阶段（所有成员参与，AI 加载对应 Skill）
+  2. 材料准备（Session Ring 基于 Skill 收集/生成材料，`discussion` 模式跳过）
+  3. 讨论阶段（所有成员参与，**AI 不参与，只记录**）
   4. 总结（可选，auto 或 manual，用户确认后执行后续操作）
   5. 结束（结束信号必须由 owner 发起）
 
 ### 2.4 Self（独立层）
 
 - **定位**：用户私有 AI 宠物，不对外暴露
+- **交互方式**：
+  - 独立对话页面：Ring Hub 中有 Self 入口，用户主动找它聊天
+  - 可召唤：在 Ring 对话中 `@self` 召唤，回答仅召唤者可见
 - **数据存储**：`~/.ring/self/`
 - **数据内容**：
   - `.self/identity.md` - 身份定义
@@ -108,9 +111,14 @@ Instructions here...
 
 ### 3.3 Pre-installed Skills
 
-- `meeting_archive` - 会议归档
-- `deep_research` - 深度调研
-- `learning_center` - 学习中心
+5 个业务 Skill + `discussion` 默认模式（无 Skill，跳过材料准备和总结）：
+
+- `decision` - 团队决策：收集材料 → 讨论 → 决策结论 + 行动项
+- `research` - 联合调研：收集材料 → 讨论 → 调研报告
+- `review` - 集体评审：收集材料 → 讨论 → 评审意见 + 改进建议
+- `retrospective` - 项目复盘：收集材料 → 讨论 → 经验总结 + 改进计划
+- `knowledge_sharing` - 知识分享：收集材料 → 分享 → 整理笔记
+- `discussion` - 自由讨论（默认模式，无 Skill）
 
 ### 3.4 Permission Modes
 
@@ -134,22 +142,23 @@ Instructions here...
 ### 4.1 Steps
 
 1. **创建 Session**
-   - 选择场景类型（加载对应 Skill）
+   - 选择场景类型（加载对应 Skill，`discussion` 为无 Skill 默认模式）
    - 填写标题和描述
    - 邀请成员
 
-2. **材料准备**（必需）
+2. **材料准备**（必需，`discussion` 模式跳过）
+   - Session Ring 加载对应 Skill 的 system prompt
    - AI 基于描述收集/生成材料
    - 参与者可查看进度
    - 创建者可标记重点
 
 3. **讨论阶段**
    - 所有成员参与讨论
-   - AI 加载对应 Skill 决定行为
+   - **AI 不参与，只记录消息**
 
-4. **总结**（可选）
+4. **总结**（可选，`discussion` 模式跳过）
    - 可配置 auto 或 manual
-   - AI 生成总结
+   - Session Ring 基于材料 + 讨论内容生成总结报告
    - 用户确认后执行后续操作
 
 5. **结束**

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Pixel Logo Export</title></head>
+<body>
+<canvas id="c" width="48" height="48" style="image-rendering:pixelated;width:48px;height:48px"></canvas>
+<script>
+function cubicBezier(p0,p1,p2,p3,t){const m=1-t;return m*m*m*p0+3*m*m*t*p1+3*m*t*t*p2+t*t*t*p3}
+function traceCurve(segs,steps){const pts=[];const per=Math.ceil(steps/segs.length);for(const s of segs){for(let i=0;i<per;i++){const t=i/per;pts.push([cubicBezier(s[0],s[2],s[4],s[6],t),cubicBezier(s[1],s[3],s[5],s[7],t)])}}return pts}
+const topCurve=traceCurve([[2,14,16,8,32,22,44,38],[44,38,52,50,62,52,72,48],[72,48,76,46,78,44,78,44]],300);
+const midCurve=traceCurve([[2,40,14,28,30,26,42,34],[42,34,54,42,60,46,70,43],[70,43,75,43,78,44,78,44]],300);
+const botCurve=traceCurve([[2,66,14,58,28,46,42,40],[42,40,52,36,62,40,70,44],[70,44,75,46,78,44,78,44]],300);
+
+const c=document.getElementById('c'),ctx=c.getContext('2d'),w=48,h=48;
+const margin=2,dW=w-4,dH=h-4;
+const buf=new Uint8Array(w*h*4);
+function toP(px,py){return[Math.round(margin+(px/80)*dW),Math.round(margin+(py/80)*dH)]}
+function setP(x,y,r,g,b,a){if(x<0||x>=w||y<0||y>=h)return;const i=(y*w+x)*4;const s=a/255,d=buf[i+3]/255,o=s+d*(1-s);if(o>0){buf[i]=Math.round((r*s+buf[i]*d*(1-s))/o);buf[i+1]=Math.round((g*s+buf[i+1]*d*(1-s))/o);buf[i+2]=Math.round((b*s+buf[i+2]*d*(1-s))/o);buf[i+3]=Math.round(o*255)}}
+const layers=[{pts:botCurve,c:[8,145,178],a:230},{pts:midCurve,c:[6,182,212],a:220},{pts:topCurve,c:[103,232,249],a:210}];
+layers.forEach(l=>{const step=Math.max(1,Math.floor(l.pts.length/(w*4)));for(let i=0;i<l.pts.length;i+=step){const[px,py]=toP(l.pts[i][0],l.pts[i][1]);setP(px,py,l.c[0],l.c[1],l.c[2],l.a)}});
+const[tx,ty]=toP(78,44);setP(tx,ty,165,243,252,255);
+const img=ctx.createImageData(w,h);img.data.set(buf);ctx.putImageData(img,0,0);
+
+console.log(c.toDataURL('image/png'));
+const a=document.createElement('a');a.href=c.toDataURL('image/png');a.download='logo-pixel-48.png';document.title='ready';
+</script>
+</body>
+</html>

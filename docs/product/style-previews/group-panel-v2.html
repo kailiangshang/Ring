@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring · Group Multi-Panel</title>
+<link href="https://fonts.googleapis.com/css2?family=Cascadia+Code:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; height: 100vh; overflow: hidden; display: flex; }
+
+/* Sidebar */
+.sidebar { width: 200px; min-width: 200px; background: #080c12; border-right: 1px solid #1a2030; display: flex; flex-direction: column; user-select: none; }
+.sidebar-header { padding: 12px 14px; border-bottom: 1px solid #1a2030; display: flex; align-items: center; gap: 8px; }
+.sidebar-header svg { width: 20px; height: 20px; }
+.sidebar-header .brand { color: #67E8F9; font-size: 14px; font-weight: 700; letter-spacing: 3px; }
+.sidebar-scroll { flex: 1; overflow-y: auto; padding: 6px 0; }
+.sidebar-scroll::-webkit-scrollbar { width: 3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.nav-super { padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #1a2030; margin-bottom: 4px; transition: background 0.15s; }
+.nav-super .icon { width: 24px; height: 24px; border-radius: 4px; background: linear-gradient(135deg, #0891B2, #67E8F9); display: flex; align-items: center; justify-content: center; font-size: 11px; color: #06080c; font-weight: 700; }
+.nav-super .label { color: #67E8F9; font-size: 12px; font-weight: 600; }
+.nav-super .label-sub { color: #3a4550; font-size: 9px; margin-top: 1px; }
+
+.ring-item { padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.15s; }
+.ring-item:hover { background: #0d1420; }
+.ring-item.active { background: #0d2a35; }
+.ring-item .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.ring-item .ring-name { font-size: 11px; color: #6b7d8e; flex: 1; }
+.ring-item.active .ring-name { color: #67E8F9; font-weight: 500; }
+.ring-item .ring-badge { font-size: 8px; color: #3a4550; background: #0d1117; padding: 1px 4px; border-radius: 2px; }
+
+.session-indicator { padding: 4px 14px 4px 30px; font-size: 9px; color: #22c55e; display: flex; align-items: center; gap: 5px; cursor: pointer; transition: background 0.15s; }
+.session-indicator:hover { background: #0a1f0a; }
+.session-indicator .pulse { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.sidebar-footer { padding: 8px 14px; border-top: 1px solid #1a2030; display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.sidebar-footer .avatar { width: 20px; height: 20px; border-radius: 3px; background: #0d2a35; color: #0891B2; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; }
+.sidebar-footer .user-name { color: #6b7d8e; flex: 1; }
+.sidebar-footer .settings-btn { color: #3a4550; cursor: pointer; }
+.sidebar-footer .settings-btn:hover { color: #0891B2; }
+
+/* Main Area */
+.content-wrap { flex: 1; display: flex; min-width: 0; overflow: hidden; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 360px; }
+
+/* Header */
+.chat-header { padding: 0 16px; border-bottom: 1px solid #1a2030; background: #080c12; display: flex; align-items: center; height: 38px; }
+.header-context { font-size: 12px; color: #67E8F9; font-weight: 600; padding-right: 12px; border-right: 1px solid #1a2030; margin-right: 8px; white-space: nowrap; height: 100%; display: flex; align-items: center; }
+.header-tab { padding: 0 10px; font-size: 10px; color: #3a4550; cursor: pointer; height: 100%; display: flex; align-items: center; gap: 3px; border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap; }
+.header-tab:hover { color: #6b7d8e; }
+.header-tab.active { color: #0891B2; border-bottom-color: #0891B2; }
+.header-tab .badge { font-size: 8px; padding: 0 3px; border-radius: 2px; }
+.badge-dim { background: #141a24; color: #4a5568; }
+.badge-amber { background: #1a1a00; color: #f59e0b; }
+.header-spacer { flex: 1; }
+.header-actions { display: flex; gap: 6px; }
+.action-btn { padding: 3px 8px; font-size: 9px; color: #3a4550; border: 1px solid #1a2030; border-radius: 3px; cursor: pointer; font-family: inherit; background: transparent; transition: all 0.15s; }
+.action-btn:hover { color: #0891B2; border-color: #0891B2; }
+
+/* Chat */
+.chat-messages { flex: 1; padding: 16px; overflow-y: auto; line-height: 1.7; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+.msg { margin-bottom: 14px; }
+.msg-role { font-size: 9px; color: #0891B2; margin-bottom: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.msg-role.user { color: #67E8F9; }
+.msg-role.system { color: #22c55e; }
+.msg-text { font-size: 13px; color: #8892a0; }
+.msg-text strong { color: #bfc7d5; font-weight: 600; }
+.msg-text em { color: #6b7d8e; font-style: italic; }
+.msg-text code { background: #0d1117; padding: 1px 5px; border-radius: 3px; color: #06B6D4; font-size: 12px; }
+
+.chat-input-area { padding: 10px 16px; border-top: 1px solid #1a2030; background: #080c12; }
+.chat-input-row { display: flex; align-items: center; gap: 10px; }
+.mode-indicator { font-size: 9px; padding: 3px 7px; border-radius: 3px; background: #0d2a35; color: #0891B2; border: 1px solid #0891B2; text-transform: uppercase; letter-spacing: 1px; white-space: nowrap; }
+.chat-input { flex: 1; background: #0d1117; border: 1px solid #1a2030; border-radius: 4px; padding: 8px 12px; color: #bfc7d5; font-family: inherit; font-size: 13px; outline: none; transition: border-color 0.15s; }
+.chat-input:focus { border-color: #0891B2; }
+.chat-input::placeholder { color: #2a3540; }
+.send-btn { padding: 8px 14px; background: #0891B2; color: #06080c; border: none; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 1px; }
+.command-hints { display: flex; gap: 6px; margin-top: 6px; font-size: 9px; color: #2a3540; }
+.command-hints span { cursor: pointer; }
+.command-hints span:hover { color: #0891B2; }
+
+/* ========== Right Panels - Stackable ========== */
+.panel {
+  width: 0; overflow: hidden; background: #0a0e14;
+  border-left: 1px solid #1a2030; transition: width 0.2s ease;
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.panel.open { width: 320px; }
+
+.panel-header { padding: 8px 14px; border-bottom: 1px solid #1a2030; background: #080c12; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.panel-title { font-size: 10px; color: #67E8F9; font-weight: 600; flex: 1; white-space: nowrap; }
+.panel-close { color: #3a4550; cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 3px; transition: all 0.15s; }
+.panel-close:hover { color: #bfc7d5; background: #141a24; }
+
+.panel-body { flex: 1; padding: 14px; overflow-y: auto; }
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.panel-section { margin-bottom: 14px; }
+.panel-section-title { font-size: 9px; color: #3a4550; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+
+.panel-node { padding: 5px 8px; border: 1px solid #1a2030; border-radius: 3px; margin-bottom: 3px; font-size: 10px; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; }
+.panel-node:hover { border-color: #0891B2; background: #0d1420; }
+.panel-node .n-label { flex: 1; color: #6b7d8e; }
+.panel-node:hover .n-label { color: #8892a0; }
+.panel-node .n-count { font-size: 8px; color: #3a4550; }
+
+.panel-pr { padding: 6px 8px; border: 1px solid #1a2030; border-radius: 3px; margin-bottom: 3px; font-size: 10px; }
+.panel-pr .pr-status { font-size: 8px; }
+.panel-pr .pr-title { color: #bfc7d5; margin-top: 1px; }
+.panel-pr .pr-meta { font-size: 8px; color: #3a4550; margin-top: 1px; }
+
+.panel-member { padding: 5px 8px; margin-bottom: 3px; font-size: 10px; display: flex; align-items: center; gap: 6px; }
+.panel-member .m-av { width: 18px; height: 18px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; }
+.panel-member .m-name { flex: 1; color: #8892a0; }
+.panel-member .m-role { font-size: 8px; color: #3a4550; }
+.panel-member .m-status { width: 5px; height: 5px; border-radius: 50%; }
+
+.panel-action { padding: 5px 8px; border: 1px solid #1a2030; border-radius: 3px; margin-bottom: 3px; font-size: 10px; text-align: center; cursor: pointer; transition: all 0.15s; }
+.panel-action:hover { border-color: #0891B2; }
+
+.session-info { padding: 8px; border: 1px solid #1a2030; border-radius: 4px; font-size: 10px; line-height: 1.8; }
+.session-info .si-label { color: #3a4550; }
+.session-info .si-value { color: #bfc7d5; }
+
+.session-material { padding: 4px 6px; border: 1px solid #1a2030; border-radius: 2px; margin-bottom: 2px; font-size: 9px; color: #6b7d8e; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: all 0.15s; }
+.session-material:hover { border-color: #0891B2; color: #bfc7d5; }
+.session-material .m-num { color: #0891B2; font-weight: 600; }
+
+.blueprint-preview { padding: 10px; border: 1px solid #1a2030; border-radius: 4px; font-size: 10px; color: #6b7d8e; line-height: 1.8; background: #080c12; }
+.blueprint-preview code { display: block; margin-top: 4px; color: #8892a0; font-size: 10px; line-height: 1.5; }
+
+/* ========== Self Float ========== */
+.self-float {
+  position: fixed; width: 300px; height: 360px;
+  background: #0a0e14; border: 1px solid #1a2030; border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6); display: flex; flex-direction: column;
+  z-index: 100; overflow: hidden; resize: both; min-width: 260px; min-height: 300px;
+  user-select: none;
+}
+.self-float.hidden { display: none; }
+.self-header {
+  padding: 8px 12px; border-bottom: 1px solid #1a2030;
+  display: flex; align-items: center; gap: 8px; background: #080c12; cursor: grab; flex-shrink: 0;
+  touch-action: none; -webkit-user-select: none;
+}
+.self-header:active { cursor: grabbing; }
+.self-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; box-shadow: 0 0 6px rgba(245,158,11,0.3); position: relative;
+}
+.self-avatar::after {
+  content: ''; position: absolute; bottom: -1px; right: -1px;
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e; border: 2px solid #080c12;
+}
+.self-name { font-size: 10px; color: #f59e0b; font-weight: 600; }
+.self-sub { font-size: 8px; color: #3a4550; }
+.self-close { margin-left: auto; color: #3a4550; cursor: pointer; font-size: 14px; padding: 2px 4px; border-radius: 3px; }
+.self-close:hover { color: #bfc7d5; background: #141a24; }
+.self-msgs { flex: 1; padding: 8px 12px; overflow-y: auto; font-size: 10px; line-height: 1.7; }
+.self-msgs::-webkit-scrollbar { width: 3px; }
+.self-msgs::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+.self-msg { margin-bottom: 8px; }
+.self-msg-role { font-size: 8px; color: #3a4550; margin-bottom: 1px; text-transform: uppercase; letter-spacing: 1px; }
+.self-msg-text { color: #8892a0; }
+.self-msg-text strong { color: #bfc7d5; }
+.self-input-row {
+  display: flex; align-items: center; padding: 6px 10px;
+  border-top: 1px solid #1a2030; gap: 6px; flex-shrink: 0; background: #080c12;
+}
+.self-input-row input {
+  flex: 1; background: #0d1117; border: 1px solid #1a2030; border-radius: 3px;
+  padding: 5px 8px; color: #bfc7d5; font-family: inherit; font-size: 10px; outline: none;
+}
+.self-input-row input:focus { border-color: #f59e0b; }
+.self-input-row input::placeholder { color: #2a3540; }
+.self-trigger {
+  position: fixed; bottom: 24px; right: 24px; width: 44px; height: 44px;
+  border-radius: 50%; border: 2px solid #f59e0b40; cursor: pointer; z-index: 99;
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; box-shadow: 0 4px 16px rgba(245,158,11,0.25);
+  transition: box-shadow 0.2s, border-color 0.2s;
+  animation: selfFloat 3s ease-in-out infinite;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.self-trigger:hover { box-shadow: 0 4px 24px rgba(245,158,11,0.4); border-color: #f59e0b; }
+.self-trigger.hidden { display: none; }
+@keyframes selfFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+
+/* Panel depth indicator */
+.panel[data-depth="1"] { background: #0a0e14; }
+.panel[data-depth="2"] { background: #0b1018; }
+.panel[data-depth="3"] { background: #0c1220; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <svg viewBox="0 0 80 80" fill="none"><path d="M 2 14 C 16 8, 32 22, 44 38 C 52 50, 62 52, 72 48 C 76 46, 78 44, 78 44" stroke="#67E8F9" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75"/><path d="M 2 66 C 14 58, 28 46, 42 40 C 52 36, 62 40, 70 44 C 75 46, 78 44, 78 44" stroke="#0891B2" stroke-width="5" stroke-linecap="round" fill="none" opacity="1"/><path d="M 2 40 C 14 28, 30 26, 42 34 C 54 42, 60 46, 70 43 C 75 43, 78 44, 78 44" stroke="#06B6D4" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.9"/></svg>
+    <span class="brand">RING</span>
+  </div>
+  <div class="sidebar-scroll">
+    <div class="nav-super"><div class="icon">S</div><div><div class="label">Super Ring</div><div class="label-sub">global assistant</div></div></div>
+    <div class="ring-item active"><span class="dot" style="background:#0891B2"></span><span class="ring-name">竞品分析组</span><span class="ring-badge">12</span></div>
+    <div class="session-indicator" onclick="togglePanel('session')"><span class="pulse"></span> Q2 竞品评审</div>
+    <div class="ring-item"><span class="dot" style="background:#22c55e"></span><span class="ring-name">技术架构组</span><span class="ring-badge">8</span></div>
+    <div class="ring-item"><span class="dot" style="background:#f59e0b"></span><span class="ring-name">产品设计组</span><span class="ring-badge">5</span></div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="avatar">K</div><span class="user-name">kaiiang</span><span class="settings-btn">⚙</span>
+  </div>
+</div>
+
+<!-- Content -->
+<div class="content-wrap">
+  <div class="main">
+    <div class="chat-header">
+      <div class="header-context">竞品分析组</div>
+      <div class="header-tab active" data-panel="none" onclick="togglePanel('none')">💬 Chat</div>
+      <div class="header-tab" data-panel="graph" onclick="togglePanel('graph')">Graph <span class="badge badge-dim">13</span></div>
+      <div class="header-tab" data-panel="archive" onclick="togglePanel('archive')">Archive <span class="badge badge-amber">2</span></div>
+      <div class="header-tab" data-panel="config" onclick="togglePanel('config')">Config <span class="badge badge-dim">3</span></div>
+      <div class="header-spacer"></div>
+      <div class="header-actions"><button class="action-btn">auto</button><button class="action-btn">export</button></div>
+    </div>
+
+    <div class="chat-messages">
+      <div class="msg"><div class="msg-role user">you</div><div class="msg-text">帮我看下 A 产品和 B 产品在 API 生态上的对比</div></div>
+      <div class="msg"><div class="msg-role">group ring</div><div class="msg-text"><strong>A 产品</strong>：API <strong style="color:#67E8F9">320+</strong>，Webhook + GraphQL<br><strong>B 产品</strong>：API <strong style="color:#67E8F9">180+</strong>，RESTful only<br><br><strong style="font-style:italic;color:#67E8F9">建议归档到「竞品概览」。</strong></div></div>
+      <div class="msg"><div class="msg-role user">you</div><div class="msg-text">/archive → 竞品概览/API 生态对比</div></div>
+      <div class="msg"><div class="msg-role system">system</div><div class="msg-text" style="color:#22c55e">✓ archived · committed · graph: <strong>13</strong> nodes</div></div>
+      <div class="msg" style="color:#3a4550;font-size:11px;font-style:italic">Try clicking multiple tabs — panels stack side by side.</div>
+    </div>
+
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <span class="mode-indicator">ring</span>
+        <input class="chat-input" id="chatInput" placeholder="message / command... try /graph /archive" oninput="onInput(this)" />
+        <button class="send-btn">SEND</button>
+      </div>
+      <div class="command-hints"><span>/graph</span><span>/archive</span><span>/config</span><span>/session</span><span>@self</span></div>
+    </div>
+  </div>
+
+  <!-- Panels are generated dynamically -->
+</div>
+
+<div class="self-float hidden" id="selfFloat" style="bottom:76px;right:24px">
+  <div class="self-header" id="selfHeader">
+    <div class="self-avatar">🐱</div>
+    <div><div class="self-name">Self</div><div class="self-sub">private · not shared</div></div>
+    <span class="self-close" onclick="toggleSelf()">×</span>
+  </div>
+  <div class="self-msgs">
+    <div class="self-msg"><div class="self-msg-role">self</div><div class="self-msg-text">你今天归档了 <strong>4 次</strong>，比昨天多 1 次</div></div>
+    <div class="self-msg"><div class="self-msg-role">self</div><div class="self-msg-text">你偏好按主题分节点归档，粒度适中。要我帮你 <strong>/auto</strong> 吗？</div></div>
+    <div class="self-msg"><div class="self-msg-role" style="color:#f59e0b">suggestion</div><div class="self-msg-text" style="color:#f59e0b">💡 「竞品分析组」今天很活跃，2 条 PR 待审</div></div>
+  </div>
+  <div class="self-input-row"><input placeholder="和 Self 聊聊..." /></div>
+</div>
+<div class="self-trigger" id="selfTrigger">🐱</div>
+
+<script>
+const panelData = {
+  graph: {
+    title: '🗺 Graph · 13 nodes',
+    html: `<div class="panel-section"><div class="panel-section-title">Nodes</div>
+      <div class="panel-node"><span class="n-label" style="color:#67E8F9">竞品概览</span><span class="n-count">root</span></div>
+      <div class="panel-node" style="margin-left:14px"><span class="n-label">A 产品分析</span><span class="n-count">3</span></div>
+      <div class="panel-node" style="margin-left:28px"><span class="n-label">API 对比</span><span class="n-count">leaf</span></div>
+      <div class="panel-node" style="margin-left:28px"><span class="n-label">定价策略</span><span class="n-count">leaf</span></div>
+      <div class="panel-node" style="margin-left:14px"><span class="n-label">B 产品分析</span><span class="n-count">1</span></div>
+      <div class="panel-node" style="margin-left:28px"><span class="n-label">功能对比</span><span class="n-count">leaf</span></div>
+      <div class="panel-node" style="margin-left:14px"><span class="n-label">市场趋势</span><span class="n-count">topic</span></div>
+      <div class="panel-node" style="margin-left:14px"><span class="n-label">决策记录</span><span class="n-count">3</span></div>
+    </div><div class="panel-section"><div class="panel-section-title">Actions</div>
+      <div class="panel-action" style="color:#0891B2">+ expand all</div>
+      <div class="panel-action" style="color:#3a4550">export PNG / SVG</div>
+    </div>`
+  },
+  archive: {
+    title: '📦 Archive · 2 pending',
+    html: `<div class="panel-section"><div class="panel-section-title">Pending</div>
+      <div class="panel-pr"><div class="pr-status" style="color:#f59e0b">⏳ PR #3</div><div class="pr-title">B 产品功能对比</div><div class="pr-meta">@zhangsan · 1h ago</div></div>
+      <div class="panel-pr"><div class="pr-status" style="color:#f59e0b">⏳ PR #4</div><div class="pr-title">市场趋势 Q2</div><div class="pr-meta">@lisi · 3h ago</div></div>
+    </div><div class="panel-section"><div class="panel-section-title">Merged</div>
+      <div class="panel-pr"><div class="pr-status" style="color:#22c55e">✓ PR #2</div><div class="pr-title">API 生态对比</div><div class="pr-meta">you · 2h ago</div></div>
+      <div class="panel-pr"><div class="pr-status" style="color:#22c55e">✓ PR #1</div><div class="pr-title">竞品概览</div><div class="pr-meta">you · 1d ago</div></div>
+    </div><div class="panel-section"><div class="panel-section-title">Files</div>
+      <div class="panel-node"><span class="n-label">竞品概览.md</span><span class="n-count">2.1k</span></div>
+      <div class="panel-node"><span class="n-label">API_生态对比.md</span><span class="n-count">4.3k</span></div>
+      <div class="panel-node"><span class="n-label">定价策略.md</span><span class="n-count">1.8k</span></div>
+    </div>`
+  },
+  config: {
+    title: '⚙ Config',
+    html: `<div class="panel-section"><div class="panel-section-title">Members · 3</div>
+      <div class="panel-member"><div class="m-av" style="background:#0d2a35;color:#0891B2">K</div><span class="m-name" style="color:#67E8F9">kaiiang</span><span class="m-role">creator</span><div class="m-status" style="background:#22c55e"></div></div>
+      <div class="panel-member"><div class="m-av" style="background:#0a1f0a;color:#22c55e">Z</div><span class="m-name">zhangsan</span><span class="m-role">admin</span><div class="m-status" style="background:#22c55e"></div></div>
+      <div class="panel-member"><div class="m-av" style="background:#141a24;color:#6b7d8e">L</div><span class="m-name">lisi</span><span class="m-role">member</span><div class="m-status" style="background:#3a4550"></div></div>
+      <div class="panel-action" style="color:#0891B2">+ invite member</div>
+    </div><div class="panel-section"><div class="panel-section-title">Blueprint</div>
+      <div class="blueprint-preview">竞品分析图谱 · <strong style="color:#bfc7d5">4 分类 · 13 节点</strong><code>竞品概览<br>├── A 产品分析<br>├── B 产品分析<br>├── 市场趋势<br>└── 决策记录</code></div>
+    </div><div class="panel-section"><div class="panel-section-title">Blueprint Templates</div>
+      <div class="panel-node"><span class="n-label">产品研究</span><span class="n-count">模板</span></div>
+      <div class="panel-node"><span class="n-label">项目管理</span><span class="n-count">模板</span></div>
+      <div class="panel-node"><span class="n-label">技术文档</span><span class="n-count">模板</span></div>
+    </div>`
+  },
+  session: {
+    title: '⚡ Q2 竞品评审',
+    html: `<div class="panel-section">
+      <div class="session-info"><span class="si-label">Skill:</span> <span class="si-value">review</span><br><span class="si-label">Phase:</span> <span class="si-value" style="color:#22c55e">discussing</span><br><span class="si-label">Owner:</span> <span class="si-value">kaiiang</span><br><span class="si-label">Archive:</span> <span class="si-value" style="color:#22c55e">on</span></div>
+    </div><div class="panel-section"><div class="panel-section-title">Members</div>
+      <div class="panel-member"><div class="m-av" style="background:#0d2a35;color:#0891B2">K</div><span class="m-name" style="color:#67E8F9">kaiiang</span><span class="m-role">owner</span><div class="m-status" style="background:#22c55e"></div></div>
+      <div class="panel-member"><div class="m-av" style="background:#0a1f0a;color:#22c55e">Z</div><span class="m-name">zhangsan</span><span class="m-role">participant</span><div class="m-status" style="background:#22c55e"></div></div>
+      <div class="panel-member"><div class="m-av" style="background:#141a24;color:#6b7d8e">L</div><span class="m-name">lisi</span><span class="m-role">participant</span><div class="m-status" style="background:#3a4550"></div></div>
+    </div><div class="panel-section"><div class="panel-section-title">Materials (4)</div>
+      <div class="session-material"><span class="m-num">1.</span> A 产品功能矩阵</div>
+      <div class="session-material"><span class="m-num">2.</span> Q1 用户反馈汇总</div>
+      <div class="session-material"><span class="m-num">3.</span> 定价策略对比</div>
+      <div class="session-material"><span class="m-num">4.</span> 技术栈评估报告</div>
+    </div><div class="panel-section"><div class="panel-section-title">Actions</div>
+      <div class="panel-action" style="color:#f59e0b">→ start summary</div>
+      <div class="panel-action" style="color:#3a4550">× end session</div>
+    </div>`
+  }
+};
+
+const openPanels = [];
+
+function togglePanel(name) {
+  if (name === 'none') {
+    // Close all panels
+    openPanels.forEach(id => {
+      const el = document.getElementById('panel-' + id);
+      if (el) el.remove();
+    });
+    openPanels.length = 0;
+    updateTabs();
+    return;
+  }
+
+  const idx = openPanels.indexOf(name);
+  if (idx >= 0) {
+    const el = document.getElementById('panel-' + name);
+    if (el) el.remove();
+    openPanels.splice(idx, 1);
+    openPanels.forEach((id, i) => {
+      const p = document.getElementById('panel-' + id);
+      if (p) p.dataset.depth = i + 1;
+    });
+  } else {
+    // Open new panel
+    const data = panelData[name];
+    if (!data) return;
+
+    const wrap = document.querySelector('.content-wrap');
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    panel.id = 'panel-' + name;
+    panel.dataset.depth = openPanels.length + 1;
+    panel.innerHTML = `
+      <div class="panel-header">
+        <span class="panel-title">${data.title}</span>
+        <span class="panel-close" onclick="togglePanel('${name}')">×</span>
+      </div>
+      <div class="panel-body">${data.html}</div>
+    `;
+    wrap.appendChild(panel);
+
+    // Trigger animation
+    requestAnimationFrame(() => panel.classList.add('open'));
+
+    openPanels.push(name);
+  }
+
+  updateTabs();
+}
+
+function updateTabs() {
+  document.querySelectorAll('.header-tab').forEach(tab => {
+    const p = tab.dataset.panel;
+    if (p === 'none') {
+      tab.classList.toggle('active', openPanels.length === 0);
+    } else {
+      tab.classList.toggle('active', openPanels.includes(p));
+    }
+  });
+}
+
+function onInput(el) {
+  const v = el.value;
+  const cmds = { '/graph': 'graph', '/archive': 'archive', '/config': 'config', '/session': 'session' };
+  for (const [cmd, panel] of Object.entries(cmds)) {
+    if (v.startsWith(cmd)) { togglePanel(panel); break; }
+  }
+  if (v.startsWith('@self') && document.getElementById('selfFloat').classList.contains('hidden')) toggleSelf();
+}
+
+function toggleSelf() {
+  const win = document.getElementById('selfFloat');
+  const trigger = document.getElementById('selfTrigger');
+  const wasHidden = win.classList.contains('hidden');
+  win.classList.toggle('hidden');
+  trigger.classList.toggle('hidden');
+  if (wasHidden) {
+    const tr = trigger.getBoundingClientRect();
+    win.style.left = Math.max(220, tr.left - 320) + 'px';
+    win.style.top = Math.max(20, tr.top - 400) + 'px';
+    win.style.right = 'auto';
+    win.style.bottom = 'auto';
+  }
+}
+
+(function() {
+  const header = document.getElementById('selfHeader');
+  const win = document.getElementById('selfFloat');
+  let dragging = false, sx, sy, sl, st;
+  header.addEventListener('mousedown', e => {
+    if (e.target.closest('.self-close')) return;
+    dragging = true;
+    const r = win.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    e.preventDefault();
+    win.style.left = (sl + e.clientX - sx) + 'px';
+    win.style.top = (st + e.clientY - sy) + 'px';
+    win.style.right = 'auto';
+    win.style.bottom = 'auto';
+  });
+  document.addEventListener('mouseup', () => { dragging = false; });
+})();
+
+(function() {
+  const trigger = document.getElementById('selfTrigger');
+  let dragging = false, moved = false, sx, sy, sl, st;
+  trigger.addEventListener('mousedown', e => {
+    dragging = true; moved = false;
+    const r = trigger.getBoundingClientRect();
+    sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    if (!moved) return;
+    e.preventDefault();
+    trigger.style.left = (sl + dx) + 'px';
+    trigger.style.top = (st + dy) + 'px';
+    trigger.style.right = 'auto';
+    trigger.style.bottom = 'auto';
+  });
+  document.addEventListener('mouseup', () => {
+    if (dragging && !moved) toggleSelf();
+    dragging = false; moved = false;
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring · Group Panel Prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Cascadia+Code:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; height: 100vh; overflow: hidden; display: flex; }
+
+/* ========== Sidebar ========== */
+.sidebar {
+  width: 200px; min-width: 200px; background: #080c12;
+  border-right: 1px solid #1a2030; display: flex; flex-direction: column; user-select: none;
+}
+.sidebar-header {
+  padding: 12px 14px; border-bottom: 1px solid #1a2030;
+  display: flex; align-items: center; gap: 8px;
+}
+.sidebar-header svg { width: 20px; height: 20px; }
+.sidebar-header .brand { color: #67E8F9; font-size: 14px; font-weight: 700; letter-spacing: 3px; }
+.sidebar-scroll { flex: 1; overflow-y: auto; padding: 6px 0; }
+.sidebar-scroll::-webkit-scrollbar { width: 3px; }
+.sidebar-scroll::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.nav-super {
+  padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid #1a2030; margin-bottom: 4px; transition: background 0.15s;
+}
+.nav-super:hover { background: #0d1420; }
+.nav-super.active { background: #0d2a35; }
+.nav-super .icon {
+  width: 24px; height: 24px; border-radius: 4px;
+  background: linear-gradient(135deg, #0891B2, #67E8F9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: #06080c; font-weight: 700;
+}
+.nav-super .label { color: #67E8F9; font-size: 12px; font-weight: 600; }
+.nav-super .label-sub { color: #3a4550; font-size: 9px; margin-top: 1px; }
+
+.ring-item {
+  padding: 8px 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: background 0.15s; position: relative;
+}
+.ring-item:hover { background: #0d1420; }
+.ring-item.active { background: #0d2a35; }
+.ring-item .dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+.ring-item .ring-name { font-size: 11px; color: #6b7d8e; flex: 1; }
+.ring-item.active .ring-name { color: #67E8F9; font-weight: 500; }
+.ring-item .ring-badge { font-size: 8px; color: #3a4550; background: #0d1117; padding: 1px 4px; border-radius: 2px; }
+
+/* Session indicator under ring */
+.session-indicator {
+  padding: 4px 14px 4px 30px; font-size: 9px; color: #22c55e;
+  display: flex; align-items: center; gap: 5px; cursor: pointer;
+  transition: background 0.15s;
+}
+.session-indicator:hover { background: #0a1f0a; }
+.session-indicator .pulse {
+  width: 5px; height: 5px; border-radius: 50%; background: #22c55e;
+  animation: blink 2s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+.sidebar-footer {
+  padding: 8px 14px; border-top: 1px solid #1a2030;
+  display: flex; align-items: center; gap: 6px; font-size: 10px;
+}
+.sidebar-footer .avatar {
+  width: 20px; height: 20px; border-radius: 3px;
+  background: #0d2a35; color: #0891B2; display: flex;
+  align-items: center; justify-content: center; font-size: 10px; font-weight: 600;
+}
+.sidebar-footer .user-name { color: #6b7d8e; flex: 1; }
+.sidebar-footer .settings-btn { color: #3a4550; cursor: pointer; }
+.sidebar-footer .settings-btn:hover { color: #0891B2; }
+
+/* ========== Main Content ========== */
+.main-wrap { flex: 1; display: flex; min-width: 0; }
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+/* Header with inline tabs */
+.chat-header {
+  padding: 0 20px; border-bottom: 1px solid #1a2030; background: #080c12;
+  display: flex; align-items: center; height: 40px;
+}
+.header-context {
+  font-size: 12px; color: #67E8F9; font-weight: 600; padding: 0 12px 0 0;
+  border-right: 1px solid #1a2030; height: 100%; display: flex; align-items: center;
+  margin-right: 12px; white-space: nowrap;
+}
+.header-tab {
+  padding: 0 12px; font-size: 10px; color: #3a4550; cursor: pointer;
+  height: 100%; display: flex; align-items: center; gap: 4px;
+  border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap;
+}
+.header-tab:hover { color: #6b7d8e; }
+.header-tab.active { color: #0891B2; border-bottom-color: #0891B2; }
+.header-tab .badge {
+  font-size: 8px; padding: 0px 4px; border-radius: 2px;
+}
+.badge-dim { background: #141a24; color: #4a5568; }
+.badge-amber { background: #1a1a00; color: #f59e0b; }
+.badge-green { background: #0a1f0a; color: #22c55e; }
+
+.header-spacer { flex: 1; }
+.header-actions { display: flex; gap: 6px; }
+.action-btn {
+  padding: 3px 8px; font-size: 9px; color: #3a4550;
+  border: 1px solid #1a2030; border-radius: 3px; cursor: pointer;
+  font-family: inherit; background: transparent; transition: all 0.15s;
+}
+.action-btn:hover { color: #0891B2; border-color: #0891B2; }
+
+/* Chat */
+.chat-messages { flex: 1; padding: 16px 20px; overflow-y: auto; line-height: 1.7; }
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+.msg { margin-bottom: 14px; }
+.msg-role { font-size: 9px; color: #0891B2; margin-bottom: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.msg-role.user { color: #67E8F9; }
+.msg-role.system { color: #22c55e; }
+.msg-text { font-size: 13px; color: #8892a0; }
+.msg-text strong { color: #bfc7d5; font-weight: 600; }
+.msg-text em { color: #6b7d8e; font-style: italic; }
+.msg-text code { background: #0d1117; padding: 1px 5px; border-radius: 3px; color: #06B6D4; font-size: 12px; }
+
+.chat-input-area { padding: 10px 20px; border-top: 1px solid #1a2030; background: #080c12; }
+.chat-input-row { display: flex; align-items: center; gap: 10px; }
+.mode-indicator {
+  font-size: 9px; padding: 3px 7px; border-radius: 3px;
+  background: #0d2a35; color: #0891B2; border: 1px solid #0891B2;
+  text-transform: uppercase; letter-spacing: 1px; white-space: nowrap;
+}
+.chat-input {
+  flex: 1; background: #0d1117; border: 1px solid #1a2030; border-radius: 4px;
+  padding: 8px 12px; color: #bfc7d5; font-family: inherit; font-size: 13px;
+  outline: none; transition: border-color 0.15s;
+}
+.chat-input:focus { border-color: #0891B2; }
+.chat-input::placeholder { color: #2a3540; }
+.send-btn {
+  padding: 8px 14px; background: #0891B2; color: #06080c; border: none;
+  border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 10px;
+  font-weight: 700; letter-spacing: 1px;
+}
+.command-hints { display: flex; gap: 6px; margin-top: 6px; font-size: 9px; color: #2a3540; }
+.command-hints span { cursor: pointer; }
+.command-hints span:hover { color: #0891B2; }
+
+/* ========== Right Panel ========== */
+.right-panel {
+  width: 0; overflow: hidden; background: #0a0e14;
+  border-left: 1px solid #1a2030; transition: width 0.25s ease;
+  display: flex; flex-direction: column;
+}
+.right-panel.open { width: 380px; }
+.right-panel.wide { width: 520px; }
+
+.panel-header {
+  padding: 10px 16px; border-bottom: 1px solid #1a2030; background: #080c12;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-title { font-size: 11px; color: #67E8F9; font-weight: 600; flex: 1; }
+.panel-close {
+  color: #3a4550; cursor: pointer; font-size: 13px; padding: 2px 6px;
+  border-radius: 3px; transition: all 0.15s;
+}
+.panel-close:hover { color: #bfc7d5; background: #141a24; }
+
+.panel-body { flex: 1; padding: 16px; overflow-y: auto; }
+.panel-body::-webkit-scrollbar { width: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 2px; }
+
+.panel-section { margin-bottom: 16px; }
+.panel-section-title { font-size: 9px; color: #3a4550; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
+
+.panel-node {
+  padding: 6px 10px; border: 1px solid #1a2030; border-radius: 4px;
+  margin-bottom: 4px; font-size: 11px; cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; gap: 6px;
+}
+.panel-node:hover { border-color: #0891B2; background: #0d1420; }
+.panel-node.active { border-color: #0891B2; color: #67E8F9; background: #0d1f28; }
+.panel-node .node-icon { color: #3a4550; font-size: 10px; }
+.panel-node .node-label { flex: 1; color: #8892a0; }
+.panel-node.active .node-label { color: #67E8F9; }
+.panel-node .node-count { font-size: 9px; color: #3a4550; }
+
+.panel-pr {
+  padding: 8px 10px; border: 1px solid #1a2030; border-radius: 4px;
+  margin-bottom: 4px; font-size: 11px; transition: all 0.15s; cursor: pointer;
+}
+.panel-pr:hover { border-color: #0891B2; }
+.panel-pr .pr-status { font-size: 9px; }
+.panel-pr .pr-title { color: #bfc7d5; margin-top: 2px; }
+.panel-pr .pr-meta { font-size: 9px; color: #3a4550; margin-top: 2px; }
+
+.panel-member {
+  padding: 6px 10px; margin-bottom: 4px; font-size: 11px;
+  display: flex; align-items: center; gap: 8px;
+}
+.panel-member .m-avatar {
+  width: 20px; height: 20px; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; font-weight: 600;
+}
+.panel-member .m-name { flex: 1; color: #8892a0; }
+.panel-member .m-role { font-size: 9px; color: #3a4550; }
+.panel-member .m-status { width: 6px; height: 6px; border-radius: 50%; }
+
+/* Session in panel */
+.session-info {
+  padding: 10px; border: 1px solid #1a2030; border-radius: 6px;
+  font-size: 11px; line-height: 1.8;
+}
+.session-info .si-label { color: #3a4550; }
+.session-info .si-value { color: #bfc7d5; }
+.session-materials { margin-top: 12px; }
+.session-material {
+  padding: 6px 8px; border: 1px solid #1a2030; border-radius: 3px;
+  margin-bottom: 3px; font-size: 10px; color: #6b7d8e;
+  display: flex; align-items: center; gap: 6px; cursor: pointer;
+  transition: all 0.15s;
+}
+.session-material:hover { border-color: #0891B2; color: #bfc7d5; }
+.session-material .m-num { color: #0891B2; font-weight: 600; }
+
+/* Blueprint */
+.blueprint-preview {
+  padding: 12px; border: 1px solid #1a2030; border-radius: 6px;
+  font-size: 11px; color: #6b7d8e; line-height: 1.8; background: #080c12;
+}
+.blueprint-preview code { display: block; margin-top: 6px; color: #8892a0; font-size: 11px; line-height: 1.6; }
+.blueprint-btns { display: flex; gap: 8px; margin-top: 12px; }
+.blueprint-btns button {
+  flex: 1; padding: 6px; font-family: inherit; font-size: 10px;
+  border-radius: 4px; cursor: pointer; font-weight: 600; letter-spacing: 0.5px;
+}
+.btn-primary { background: #0891B2; color: #06080c; border: none; }
+.btn-secondary { background: transparent; color: #0891B2; border: 1px solid #0891B2; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <svg viewBox="0 0 80 80" fill="none"><path d="M 2 14 C 16 8, 32 22, 44 38 C 52 50, 62 52, 72 48 C 76 46, 78 44, 78 44" stroke="#67E8F9" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75"/><path d="M 2 66 C 14 58, 28 46, 42 40 C 52 36, 62 40, 70 44 C 75 46, 78 44, 78 44" stroke="#0891B2" stroke-width="5" stroke-linecap="round" fill="none" opacity="1"/><path d="M 2 40 C 14 28, 30 26, 42 34 C 54 42, 60 46, 70 43 C 75 43, 78 44, 78 44" stroke="#06B6D4" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.9"/></svg>
+    <span class="brand">RING</span>
+  </div>
+  <div class="sidebar-scroll">
+    <div class="nav-super">
+      <div class="icon">S</div>
+      <div><div class="label">Super Ring</div><div class="label-sub">global assistant</div></div>
+    </div>
+    <div class="ring-item active">
+      <span class="dot" style="background:#0891B2"></span>
+      <span class="ring-name">竞品分析组</span>
+      <span class="ring-badge">12</span>
+    </div>
+    <div class="session-indicator" onclick="openPanel('session')">
+      <span class="pulse"></span> Q2 竞品评审
+    </div>
+    <div class="ring-item">
+      <span class="dot" style="background:#22c55e"></span>
+      <span class="ring-name">技术架构组</span>
+      <span class="ring-badge">8</span>
+    </div>
+    <div class="ring-item">
+      <span class="dot" style="background:#f59e0b"></span>
+      <span class="ring-name">产品设计组</span>
+      <span class="ring-badge">5</span>
+    </div>
+  </div>
+  <div class="sidebar-footer">
+    <div class="avatar">K</div>
+    <span class="user-name">kaiiang</span>
+    <span class="settings-btn">⚙</span>
+  </div>
+</div>
+
+<!-- Main + Right Panel -->
+<div class="main-wrap">
+  <div class="main">
+    <!-- Header with tabs -->
+    <div class="chat-header">
+      <div class="header-context">竞品分析组</div>
+      <div class="header-tab active" onclick="openPanel('none')">💬 Chat</div>
+      <div class="header-tab" onclick="openPanel('graph')">Graph <span class="badge badge-dim">13</span></div>
+      <div class="header-tab" onclick="openPanel('archive')">Archive <span class="badge badge-amber">2</span></div>
+      <div class="header-tab" onclick="openPanel('members')">Members <span class="badge badge-dim">3</span></div>
+      <div class="header-tab" onclick="openPanel('blueprint')">Blueprint</div>
+      <div class="header-spacer"></div>
+      <div class="header-actions">
+        <button class="action-btn">auto</button>
+        <button class="action-btn">export</button>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-messages">
+      <div class="msg"><div class="msg-role user">you</div>
+      <div class="msg-text">帮我看下 A 产品和 B 产品在 API 生态上的对比</div></div>
+      <div class="msg"><div class="msg-role">group ring</div>
+      <div class="msg-text"><strong>A 产品</strong>：API <strong style="color:#67E8F9">320+</strong>，Webhook + GraphQL<br><strong>B 产品</strong>：API <strong style="color:#67E8F9">180+</strong>，RESTful only<br><br><strong style="font-style:italic;color:#67E8F9">建议归档到「竞品概览」。</strong>输入 <code>/archive</code> 或点击 Archive 查看归档视图。</div></div>
+      <div class="msg"><div class="msg-role user">you</div>
+      <div class="msg-text">/archive → 竞品概览/API 生态对比</div></div>
+      <div class="msg"><div class="msg-role system">system</div>
+      <div class="msg-text" style="color:#22c55e">✓ archived · committed · graph: <strong>13</strong> nodes</div></div>
+      <div class="msg"><div class="msg-role user">you</div>
+      <div class="msg-text">/graph</div></div>
+      <div class="msg"><div class="msg-role">group ring</div>
+      <div class="msg-text">右侧已打开图谱面板。你可以展开/折叠节点查看结构。</div></div>
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area">
+      <div class="chat-input-row">
+        <span class="mode-indicator">ring</span>
+        <input class="chat-input" id="chatInput" placeholder="message / command..." oninput="onInput(this)" />
+        <button class="send-btn">SEND</button>
+      </div>
+      <div class="command-hints">
+        <span>/archive</span><span>/auto</span><span>/graph</span><span>/archive</span><span>/session</span><span>/blueprint</span><span>@self</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="right-panel" id="rightPanel">
+    <div class="panel-header">
+      <span class="panel-title" id="panelTitle">Graph</span>
+      <span class="panel-close" onclick="openPanel('none')">×</span>
+    </div>
+    <div class="panel-body" id="panelBody"></div>
+  </div>
+</div>
+
+<script>
+const panelContent = {
+  graph: {
+    title: '🗺 Graph · 13 nodes',
+    html: `
+      <div class="panel-section">
+        <div class="panel-section-title">Nodes</div>
+        <div class="panel-node active"><span class="node-icon">├</span><span class="node-label">竞品概览</span><span class="node-count">root</span></div>
+        <div class="panel-node"><span class="node-icon">│ ├</span><span class="node-label">A 产品分析</span><span class="node-count">3</span></div>
+        <div class="panel-node" style="margin-left:20px"><span class="node-icon">│ │</span><span class="node-label">API 对比</span><span class="node-count">leaf</span></div>
+        <div class="panel-node" style="margin-left:20px"><span class="node-icon">│ │</span><span class="node-label">定价策略</span><span class="node-count">leaf</span></div>
+        <div class="panel-node"><span class="node-icon">│ ├</span><span class="node-label">B 产品分析</span><span class="node-count">1</span></div>
+        <div class="panel-node" style="margin-left:20px"><span class="node-icon">│ │</span><span class="node-label">功能对比</span><span class="node-count">leaf</span></div>
+        <div class="panel-node"><span class="node-icon">│ ├</span><span class="node-label">市场趋势</span><span class="node-count">topic</span></div>
+        <div class="panel-node"><span class="node-icon">│ └</span><span class="node-label">决策记录</span><span class="node-count">3</span></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Quick Actions</div>
+        <div class="panel-node" style="color:#0891B2;justify-content:center;border-color:#0891B233">+ expand all</div>
+        <div class="panel-node" style="color:#3a4550;justify-content:center">export PNG / SVG</div>
+      </div>
+    `
+  },
+  archive: {
+    title: '📦 Archive · PR Queue: 2',
+    html: `
+      <div class="panel-section">
+        <div class="panel-section-title">Pending Review</div>
+        <div class="panel-pr"><div class="pr-status" style="color:#f59e0b">⏳ PR #3</div><div class="pr-title">B 产品功能对比</div><div class="pr-meta">@zhangsan · 1h ago</div></div>
+        <div class="panel-pr"><div class="pr-status" style="color:#f59e0b">⏳ PR #4</div><div class="pr-title">市场趋势 Q2 更新</div><div class="pr-meta">@lisi · 3h ago</div></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Recent</div>
+        <div class="panel-pr"><div class="pr-status" style="color:#22c55e">✓ PR #2</div><div class="pr-title">API 生态对比</div><div class="pr-meta">you · merged 2h ago</div></div>
+        <div class="panel-pr"><div class="pr-status" style="color:#22c55e">✓ PR #1</div><div class="pr-title">竞品概览初始化</div><div class="pr-meta">you · merged 1d ago</div></div>
+        <div class="panel-pr"><div class="pr-status" style="color:#f87171">✗ PR #0</div><div class="pr-title">测试归档</div><div class="pr-meta">you · rejected 2d ago</div></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Archived Files</div>
+        <div class="panel-node"><span class="node-label">竞品概览.md</span><span class="node-count">2.1k</span></div>
+        <div class="panel-node"><span class="node-label">API_生态对比.md</span><span class="node-count">4.3k</span></div>
+        <div class="panel-node"><span class="node-label">定价策略.md</span><span class="node-count">1.8k</span></div>
+        <div class="panel-node"><span class="node-label">功能对比.md</span><span class="node-count">3.2k</span></div>
+      </div>
+    `
+  },
+  members: {
+    title: '👥 Members · 3',
+    html: `
+      <div class="panel-section">
+        <div class="panel-section-title">Members</div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#0d2a35;color:#0891B2">K</div>
+          <span class="m-name" style="color:#67E8F9;font-weight:500">kaiiang</span>
+          <span class="m-role">creator</span>
+          <div class="m-status" style="background:#22c55e"></div>
+        </div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#0a1f0a;color:#22c55e">Z</div>
+          <span class="m-name">zhangsan</span>
+          <span class="m-role">admin</span>
+          <div class="m-status" style="background:#22c55e"></div>
+        </div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#141a24;color:#6b7d8e">L</div>
+          <span class="m-name">lisi</span>
+          <span class="m-role">member</span>
+          <div class="m-status" style="background:#3a4550"></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Actions</div>
+        <div class="panel-node" style="color:#0891B2;justify-content:center;border-color:#0891B233">+ invite member</div>
+      </div>
+    `
+  },
+  session: {
+    title: '⚡ Q2 竞品评审 · review',
+    html: `
+      <div class="panel-section">
+        <div class="session-info">
+          <span class="si-label">Skill:</span> <span class="si-value">review</span><br>
+          <span class="si-label">Phase:</span> <span class="si-value" style="color:#22c55e">discussing</span><br>
+          <span class="si-label">Owner:</span> <span class="si-value">kaiiang</span><br>
+          <span class="si-label">Archive:</span> <span class="si-value" style="color:#22c55e">on</span><br>
+          <span class="si-label">Created:</span> <span class="si-value">2026-04-17 14:30</span>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Members (3)</div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#0d2a35;color:#0891B2">K</div>
+          <span class="m-name" style="color:#67E8F9">kaiiang</span>
+          <span class="m-role">owner</span>
+          <div class="m-status" style="background:#22c55e"></div>
+        </div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#0a1f0a;color:#22c55e">Z</div>
+          <span class="m-name">zhangsan</span>
+          <span class="m-role">participant</span>
+          <div class="m-status" style="background:#22c55e"></div>
+        </div>
+        <div class="panel-member">
+          <div class="m-avatar" style="background:#141a24;color:#6b7d8e">L</div>
+          <span class="m-name">lisi</span>
+          <span class="m-role">participant</span>
+          <div class="m-status" style="background:#3a4550"></div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Materials (4)</div>
+        <div class="session-materials">
+          <div class="session-material"><span class="m-num">1.</span> A 产品功能矩阵</div>
+          <div class="session-material"><span class="m-num">2.</span> Q1 用户反馈汇总</div>
+          <div class="session-material"><span class="m-num">3.</span> 定价策略对比</div>
+          <div class="session-material"><span class="m-num">4.</span> 技术栈评估报告</div>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Actions</div>
+        <div class="panel-node" style="color:#f59e0b;justify-content:center;border-color:#f59e0b33">→ start summary</div>
+        <div class="panel-node" style="color:#3a4550;justify-content:center">× end session</div>
+      </div>
+    `
+  },
+  blueprint: {
+    title: '🏗 Blueprint',
+    html: `
+      <div class="panel-section">
+        <div class="panel-section-title">Current Blueprint</div>
+        <div class="blueprint-preview">
+          竞品分析图谱 · <strong style="color:#bfc7d5">4 个顶层分类</strong> · 13 节点
+          <code>竞品概览<br>├── A 产品分析<br>├── B 产品分析<br>├── 市场趋势<br>└── 决策记录</code>
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-section-title">Templates</div>
+        <div class="panel-node"><span class="node-label">产品研究</span><span class="node-count">模板</span></div>
+        <div class="panel-node"><span class="node-label">项目管理</span><span class="node-count">模板</span></div>
+        <div class="panel-node"><span class="node-label">技术文档</span><span class="node-count">模板</span></div>
+      </div>
+      <div class="panel-section">
+        <div class="blueprint-btns">
+          <button class="btn-secondary">重新对话构建</button>
+          <button class="btn-primary">应用模板</button>
+        </div>
+      </div>
+    `
+  }
+};
+
+let currentPanel = 'none';
+
+function openPanel(name) {
+  const panel = document.getElementById('rightPanel');
+  const title = document.getElementById('panelTitle');
+  const body = document.getElementById('panelBody');
+
+  // Update header tabs
+  document.querySelectorAll('.header-tab').forEach(t => t.classList.remove('active'));
+
+  if (name === 'none' || name === currentPanel) {
+    panel.classList.remove('open', 'wide');
+    currentPanel = 'none';
+    document.querySelector('.header-tab:nth-child(2)').classList.add('active');
+    return;
+  }
+
+  const content = panelContent[name];
+  if (!content) return;
+
+  title.textContent = content.title;
+  body.innerHTML = content.html;
+  panel.classList.add('open');
+  panel.classList.remove('wide');
+  currentPanel = name;
+
+  // Highlight correct tab
+  const tabs = document.querySelectorAll('.header-tab');
+  const tabMap = { graph: 2, archive: 3, members: 4, blueprint: 5 };
+  if (tabMap[name] && tabs[tabMap[name]]) tabs[tabMap[name]].classList.add('active');
+}
+
+function onInput(el) {
+  const v = el.value;
+  if (v.startsWith('/graph')) openPanel('graph');
+  else if (v.startsWith('/archive')) openPanel('archive');
+  else if (v.startsWith('/members')) openPanel('members');
+  else if (v.startsWith('/blueprint')) openPanel('blueprint');
+  else if (v.startsWith('/session')) openPanel('session');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring Logo · Pixel Art Variations</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; padding: 40px; }
+
+h1 { color: #67E8F9; font-size: 14px; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 32px; }
+h1 span { color: #3a4550; font-weight: 400; }
+
+.grid { display: flex; gap: 40px; flex-wrap: wrap; justify-content: center; }
+
+.card { text-align: center; }
+.card-label { font-size: 10px; color: #3a4550; margin-top: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.card-size { font-size: 11px; color: #0891B2; margin-top: 4px; }
+
+.pixel-logo {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* original for comparison */
+.original-logo svg { width: 160px; height: 160px; }
+
+/* animated pixel version */
+@keyframes glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 2px #0891B2); }
+  50% { filter: drop-shadow(0 0 8px #67E8F9); }
+}
+.animated .pixel-logo { animation: glow-pulse 3s ease-in-out infinite; }
+
+/* dark bg card */
+.showcase {
+  background: #0a0e14;
+  border: 1px solid #1a2030;
+  border-radius: 8px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+.showcase .brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.showcase .brand-text {
+  font-size: 28px;
+  color: #67E8F9;
+  letter-spacing: 8px;
+  font-weight: 700;
+}
+.showcase .brand-sub {
+  font-size: 11px;
+  color: #3a4550;
+  letter-spacing: 4px;
+}
+
+/* favicon size demo */
+.favicon-demo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: #0d1117;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+.favicon-demo .tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #141a24;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #6b7d8e;
+}
+.favicon-demo .url-bar {
+  flex: 1;
+  padding: 6px 12px;
+  background: #0a0e14;
+  border: 1px solid #1a2030;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #3a4550;
+}
+</style>
+</head>
+<body>
+
+<h1>Ring Logo · Pixel Art <span>variations</span></h1>
+
+<div class="grid">
+
+  <!-- Original -->
+  <div class="card original-logo">
+    <svg viewBox="0 0 80 80" fill="none" style="width:160px;height:160px">
+      <path d="M 2 14 C 16 8, 32 22, 44 38 C 52 50, 62 52, 72 48 C 76 46, 78 44, 78 44" stroke="#67E8F9" stroke-width="2.2" stroke-linecap="round" fill="none" opacity="0.75"/>
+      <path d="M 2 66 C 14 58, 28 46, 42 40 C 52 36, 62 40, 70 44 C 75 46, 78 44, 78 44" stroke="#0891B2" stroke-width="4" stroke-linecap="round" fill="none" opacity="1"/>
+      <path d="M 2 40 C 14 28, 30 26, 42 34 C 54 42, 60 46, 70 43 C 75 43, 78 44, 78 44" stroke="#06B6D4" stroke-width="2.8" stroke-linecap="round" fill="none" opacity="0.9"/>
+    </svg>
+    <div class="card-label">original · smooth curves</div>
+    <div class="card-size">80×80</div>
+  </div>
+
+  <!-- Pixel 16x16 -->
+  <div class="card">
+    <canvas id="logo16" width="16" height="16" class="pixel-logo" style="width:160px;height:160px;background:#06080c"></canvas>
+    <div class="card-label">pixel · 16×16</div>
+    <div class="card-size">favicon / tab icon</div>
+  </div>
+
+  <!-- Pixel 24x24 -->
+  <div class="card">
+    <canvas id="logo24" width="24" height="24" class="pixel-logo" style="width:160px;height:160px;background:#06080c"></canvas>
+    <div class="card-label">pixel · 24×24</div>
+    <div class="card-size">toolbar / status bar</div>
+  </div>
+
+  <!-- Pixel 32x32 -->
+  <div class="card">
+    <canvas id="logo32" width="32" height="32" class="pixel-logo" style="width:160px;height:160px;background:#06080c"></canvas>
+    <div class="card-label">pixel · 32×32</div>
+    <div class="card-size">app icon</div>
+  </div>
+
+  <!-- Animated -->
+  <div class="card animated">
+    <canvas id="logoAnim" width="24" height="24" class="pixel-logo" style="width:160px;height:160px;background:#06080c"></canvas>
+    <div class="card-label">pixel · animated glow</div>
+    <div class="card-size">loading / splash</div>
+  </div>
+
+</div>
+
+<!-- Showcase: brand usage -->
+<div style="margin-top:48px;display:flex;justify-content:center">
+  <div class="showcase" style="min-width:400px">
+    <div class="brand">
+      <canvas id="logoBrand" width="24" height="24" class="pixel-logo" style="width:32px;height:32px"></canvas>
+      <span class="brand-text">RING</span>
+    </div>
+    <div class="brand-sub">group knowledge collaboration</div>
+
+    <div class="favicon-demo" style="width:100%;margin-top:16px">
+      <div class="tab">
+        <canvas id="logoFav" width="16" height="16" class="pixel-logo" style="width:14px;height:14px"></canvas>
+        Ring Hub
+      </div>
+      <div class="url-bar">localhost:7420/hub</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = {
+  light: '#67E8F9',
+  mid:   '#06B6D4',
+  dark:  '#0891B2',
+};
+
+// The logo is 3 curves that converge to the right side.
+// We represent each curve as a pixel path at different resolutions.
+
+function drawPixelLogo(canvas, size) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width;
+  const h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // Define the 3 curves as sequences of pixel positions
+  // Each curve: array of [x, y] normalized to 0-1 range
+  // Curve 1 (top, light): starts top-left, waves down to right center
+  // Curve 2 (bottom, dark): starts bottom-left, waves up to right center
+  // Curve 3 (middle, mid): starts mid-left, waves to right center
+
+  const curves = [
+    { points: [], color: COLORS.dark, width: Math.max(2, Math.floor(w / 12)) },
+    { points: [], color: COLORS.mid,  width: Math.max(1, Math.floor(w / 18)) },
+    { points: [], color: COLORS.light,width: Math.max(1, Math.floor(w / 20)) },
+  ];
+
+  // Generate curve points mathematically matching the SVG
+  // Top curve (light): starts ~(0.03, 0.18), ends ~(0.98, 0.55)
+  const steps = w;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    // Top curve
+    const topX = t;
+    const topY = 0.18 + t * 0.20 + Math.sin(t * Math.PI * 1.2) * 0.08;
+    curves[2].points.push([topX, topY]);
+
+    // Middle curve
+    const midY = 0.50 + Math.sin(t * Math.PI * 0.9 + 0.5) * 0.12 - t * 0.08;
+    curves[1].points.push([topX, midY]);
+
+    // Bottom curve
+    const botY = 0.82 - t * 0.28 + Math.sin(t * Math.PI * 0.8 + 1.0) * 0.10;
+    curves[0].points.push([topX, botY]);
+  }
+
+  // Draw each curve
+  curves.forEach(curve => {
+    ctx.fillStyle = curve.color;
+    curve.points.forEach(([nx, ny]) => {
+      const px = Math.round(nx * (w - 1));
+      const py = Math.round(ny * (h - 1));
+      // Draw thick pixel line
+      for (let dx = 0; dx < curve.width; dx++) {
+        for (let dy = 0; dy < curve.width; dy++) {
+          const x = px + dx;
+          const y = py + dy;
+          if (x >= 0 && x < w && y >= 0 && y < h) {
+            ctx.fillRect(x, y, 1, 1);
+          }
+        }
+      }
+    });
+  });
+
+  // Convergence point at right side
+  const cx = Math.round(0.96 * (w - 1));
+  const cy = Math.round(0.55 * (h - 1));
+  ctx.fillStyle = COLORS.mid;
+  ctx.fillRect(cx, cy, Math.max(2, Math.floor(w/10)), Math.max(2, Math.floor(h/10)));
+}
+
+// Draw all canvases
+drawPixelLogo(document.getElementById('logo16'), 16);
+drawPixelLogo(document.getElementById('logo24'), 24);
+drawPixelLogo(document.getElementById('logo32'), 32);
+drawPixelLogo(document.getElementById('logoBrand'), 24);
+drawPixelLogo(document.getElementById('logoFav'), 16);
+
+// Animated version - glow cycle
+const animCanvas = document.getElementById('logoAnim');
+const animCtx = animCanvas.getContext('2d');
+let frame = 0;
+
+function drawAnimated() {
+  animCtx.clearRect(0, 0, 24, 24);
+
+  const t = (Math.sin(frame * 0.03) + 1) / 2; // 0 to 1 pulse
+
+  const colors = {
+    dark:  lerpColor('#0891B2', '#67E8F9', t * 0.5),
+    mid:   lerpColor('#06B6D4', '#67E8F9', t * 0.3),
+    light: lerpColor('#67E8F9', '#ffffff', t * 0.4),
+  };
+
+  // Redraw with shifted colors
+  const curves = [
+    { color: colors.dark,  width: 2 },
+    { color: colors.mid,   width: 1 },
+    { color: colors.light, width: 1 },
+  ];
+
+  const steps = 24;
+  curves.forEach((curve, ci) => {
+    animCtx.fillStyle = curve.color;
+    for (let i = 0; i <= steps; i++) {
+      const nt = i / steps;
+      let ny;
+      if (ci === 0) ny = 0.82 - nt * 0.28 + Math.sin(nt * Math.PI * 0.8 + 1.0) * 0.10;
+      if (ci === 1) ny = 0.50 + Math.sin(nt * Math.PI * 0.9 + 0.5) * 0.12 - nt * 0.08;
+      if (ci === 2) ny = 0.18 + nt * 0.20 + Math.sin(nt * Math.PI * 1.2) * 0.08;
+
+      const px = Math.round(nt * 23);
+      const py = Math.round(ny * 23);
+      for (let dx = 0; dx < curve.width; dx++) {
+        for (let dy = 0; dy < curve.width; dy++) {
+          if (px+dx < 24 && py+dy < 24) animCtx.fillRect(px+dx, py+dy, 1, 1);
+        }
+      }
+    }
+  });
+
+  // glow convergence
+  const glow = lerpColor('#06B6D4', '#ffffff', t * 0.6);
+  animCtx.fillStyle = glow;
+  animCtx.fillRect(21, 11, 3, 3);
+
+  frame++;
+  requestAnimationFrame(drawAnimated);
+}
+
+function lerpColor(a, b, t) {
+  const ah = parseInt(a.replace('#',''), 16);
+  const bh = parseInt(b.replace('#',''), 16);
+  const ar = (ah >> 16) & 0xff, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+  const br = (bh >> 16) & 0xff, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+  const rr = Math.round(ar + (br - ar) * t);
+  const rg = Math.round(ag + (bg - ag) * t);
+  const rb = Math.round(ab + (bb - ab) * t);
+  return '#' + ((rr << 16) | (rg << 8) | rb).toString(16).padStart(6, '0');
+}
+
+drawAnimated();
+</script>
+</body>
+</html>

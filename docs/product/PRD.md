@@ -2,7 +2,7 @@
 
 > **Affects**: [ai-behavior.md](ai-behavior.md) · [api-design.md](../technical/api-design.md) · [permissions.md](permissions.md) · [user-flow.md](user-flow.md)
 > **Depends on**: (none — this is the root product definition)
-> **Last verified**: 2026-04-11
+> **Last verified**: 2026-04-16
 
 ## 1. 产品概述
 
@@ -25,7 +25,7 @@ Ring 是一个面向公司内网的群组知识协作空间。以 Ring（群组�
 | 隐私保护 | 敏感信息脱敏，LLM 可配置 |
 | 群组协作 | 多人知识空间，Git-like 协作机制 |
 | 知识图谱 | 结构化知识表示，可视化导航 |
-| 三层 AI | Super Ring（全局）/ Group Ring（群组）/ Session Ring（讨论场景）/ Self（私有助手）|
+| 四层 AI | Super Ring（全局）/ Group Ring（群组）/ Session Ring（讨论场景）/ Self（私有助手）|
 | 自成长 | AI prompt 驱动场景适配，Ring 做通用框架而非硬编码功能 |
 
 ### 1.4 自成长设计理念
@@ -112,6 +112,56 @@ Ring 不为特定角色（行政/技术/管理）硬编码功能，而是通过�
 - 在归档视图的 Git 历史中 revert
 - 图谱可视化支持展开/折叠节点，但不支持直接编辑
 
+**graph.json 数据结构**：
+
+```json
+{
+  "version": 1,
+  "id": "graph-ulid-xxx",
+  "name": "图谱名称",
+  "ring_id": "ring-ulid-xxx",
+  "created_at": "2026-04-15T00:00:00Z",
+  "updated_at": "2026-04-15T00:00:00Z",
+  "nodes": [
+    {
+      "id": "node-ulid-xxx",
+      "label": "节点名称",
+      "parent_id": null,
+      "markdown_path": "nodes/竞品分析/节点名称.md",
+      "node_type": "topic",
+      "tags": ["标签1", "标签2"],
+      "metadata": {},
+      "created_at": "2026-04-15T00:00:00Z",
+      "updated_at": "2026-04-15T00:00:00Z"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-ulid-xxx",
+      "source_id": "node-ulid-xxx",
+      "target_id": "node-ulid-yyy",
+      "relation": "depends_on",
+      "label": "依赖",
+      "created_at": "2026-04-15T00:00:00Z"
+    }
+  ]
+}
+```
+
+**字段说明**：
+
+| 字段 | 说明 |
+|------|------|
+| `id` | ULID 生成，全局唯一 |
+| `parent_id` | 父节点 ID，顶层节点为 `null` |
+| `markdown_path` | 相对于仓库根目录的 Markdown 文件路径 |
+| `node_type` | `topic`（主题）/ `category`（分类）/ `leaf`（叶节点，最细粒度） |
+| `relation` | 边的关系类型：`depends_on`（依赖）/ `related_to`（关联）/ `derives_from`（派生）/ `contradicts`（矛盾） |
+| `tags` | 自由标签，用于搜索和过滤 |
+| `metadata` | 扩展字段，如 `{"source": "session", "session_id": "xxx"}` |
+
+**ID 策略**：所有 ID 使用 ULID（时间排序 + 唯一），不用 UUID v4。
+
 ### 2.4 归档机制
 
 **归档触发**：
@@ -182,6 +232,10 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 - 按需读取 Ring 内容（图谱 + 归档 Markdown），只读不写
 - 合并推荐只生成建议，合并操作由用户在具体 Ring 中执行
 - **Skill 管理**：用户通过 Super Ring 安装/管理 Skill 插件（"安装 xxx"）
+- **存储结构**（`~/.ring/hub/`）：
+  - `system_prompt.md` - Super Ring 的 system prompt（产品内置，用户可覆盖）
+  - `user_preferences.md` - 用户全局偏好（语言、默认 LLM 等）
+  - `cross_ring_cache/` - 跨 Ring 查询的缓存结果（自动维护）
 
 **Group Ring（Ring 级）**：
 - 群组专属 AI，每个 Ring 一个实例
@@ -195,25 +249,42 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 - `.group/active-context.md`（活跃上下文）由 AI 动态维护
 - 按需加载策略：核心层（role + conventions + active-context）始终加载，扩展层按场景加载
 
+**`.group/` 文档详细定义**：
+
+| 文档 | 用途 | 写入方 | 触发条件 | 格式 |
+|------|------|--------|---------|------|
+| `role.md` | Group Ring 角色定义 | 创建者/管理员 | 创建 Ring 时初始化，后续手动编辑 | 自由 Markdown，建议包含：定位、专长、行为准则 |
+| `conventions.md` | 团队命名和归档约定 | 创建者/管理员 | 创建 Ring 时初始化，后续手动编辑 | 自由 Markdown，建议包含：节点命名规则、归档粒度偏好、分类标准 |
+| `active-context.md` | 当前活跃上下文摘要 | AI 自动维护 | 每次对话结束时更新 | `## 近期话题\n- ...\n## 待处理\n- ...\n## 关注节点\n- ...` |
+| `archive-patterns.md` | 归档行为偏好记录 | AI 自动积累 | 每次归档操作后追加 | `## 偏好\n- 粒度: 按主题/按项目\n- 位置偏好: ...\n## 模式\n- 用户通常将 XX 类型内容归入 YY 节点` |
+| `corrections.md` | 用户修正记录 | AI 自动积累 | 每次用户修正归档时追加 | `## YYYY-MM-DD\n- 修正: 删除节点 XX（用户指示：不该归档）\n- 修正: 移动 YY 到 ZZ 下（用户指示：分类错误）` |
+| `knowledge-summary.md` | 知识库整体摘要 | AI 定期生成 | 图谱节点数变化超过 10% 时重新生成 | `## 知识概览\n- 总节点数: N\n## 主要分类\n- 分类A: 描述\n- 分类B: 描述\n## 近期变化\n- ...` |
+
 **Session Ring（Session 级）**：
-- 仅在多人 Session 激活时存在
-- **必须以预设场景启动**，当前支持：
-  - `deep_research`（深度调研）：跨源聚合 + 报告生成
-  - `meeting_archive`（会议归档）：结构化提取 + 归档推荐
-  - `learning_center`（学习中心）：知识解读 + 概念提取
+- 仅在多人 Session 激活时存在，**独立的 Session Ring 实例**（不复用 Group Ring）
+- **必须以预设场景启动**，加载对应 Skill 决定行为：
+  - `decision`（团队决策）：收集材料 → 讨论 → 决策结论 + 行动项
+  - `research`（联合调研）：收集材料 → 讨论 → 调研报告
+  - `review`（集体评审）：收集材料 → 讨论 → 评审意见 + 改进建议
+  - `retrospective`（项目复盘）：收集材料 → 讨论 → 经验总结 + 改进计划
+  - `knowledge_sharing`（知识分享）：收集材料 → 分享 → 整理笔记
+  - `discussion`（自由讨论）：无 Skill 的默认模式，**跳过材料准备和总结阶段**，直接进入讨论
 - 不开放自定义逻辑，保留扩展能力
-- 所有 session 成员共享，回复广播
+- 所有 session 成员共享 Session Ring 实例，AI 回复广播
 - Session 关闭后实例销毁
-- **Session 生命周期**：
+- **Session 生命周期**（5 个阶段，discussion 模式简化为 3 阶段：创建 → 讨论 → 结束）：
   1. 创建 Session（选择场景类型 + 填写标题描述 + 邀请成员）
-  2. 材料准备（必需）- AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点
-  3. 讨论阶段 - 所有成员参与，AI 加载对应 Skill
-  4. 总结（可选）- 可配置 auto 或 manual，用户确认后执行后续操作
+  2. 材料准备（必需，discussion 模式跳过）- Session Ring 基于 Skill 加载对应 system prompt，根据 Session 主题收集/生成材料，参与者可查看进度，创建者可标记重点
+  3. 讨论阶段 - 所有成员参与，**AI 不参与讨论，只记录消息**
+  4. 总结（可选，discussion 模式跳过）- Session Ring 基于材料和讨论内容生成总结报告，可配置 auto 或 manual，用户确认后执行后续操作
   5. 结束 - 结束信号必须由 owner 发起
 
 **Self（独立层）**：
 - 用户私有 AI 宠物，完全私有，不对外暴露
 - 不参与 Session，不被邀请到其他 Group，不替代用户发言
+- **交互方式**：
+  - 独立对话页面：Ring Hub 中有 Self 入口，用户主动找它聊天
+  - 可召唤：在 Ring 对话中 `@self` 召唤，Self 基于私有知识辅助回答（回答仅召唤者可见）
 - 数据存储在 `~/.ring/self/`，不进 Git
 - **数据内容**：
   - `.self/identity.md` - 身份定义
@@ -235,13 +306,15 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 ### 2.7 预设工作流
 
-保留三个基础工具作为预设工作流，未来可扩展：
+预设工作流与 Skill 系统整合。Group Ring 对话中可直接调用以下工具能力（不限于 Session 场景）：
 
 | 工具 | 原子能力组合 | 使用方式 |
 |------|------------|---------|
-| 会议归档 | 文件解析 + 文本清洗 + 结构化提取 + Markdown 生成 | 对话中上传会议记录 → AI 提取关键信息 → 推荐挂载到图谱节点 |
-| 学习中心 | PDF 解析 + 知识图谱生成 + 文档解读 | 上传 PDF → AI 生成解读 + 提取概念 → 推荐创建/更新图谱节点 |
+| 文件解析 | 文件解析 + 文本清洗 + 结构化提取 + Markdown 生成 | 对话中上传文件 → AI 提取关键信息 → 推荐挂载到图谱节点 |
+| 知识提取 | PDF 解析 + 知识图谱生成 + 文档解读 | 上传 PDF → AI 生成解读 + 提取概念 → 推荐创建/更新图谱节点 |
 | 深度调研 | 本地检索 + 网页爬取 + 报告生成 | 对话中说"调研 XX 主题" → AI 聚合资源 → 生成报告 Markdown → 挂载到图谱 |
+
+> **注意**：这些是 Group Ring 的通用工具能力，Session 场景中的专用行为由对应 Skill 定义。
 
 ### 2.8 导出中心
 
@@ -305,15 +378,15 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 **描述**：Ring 内的多人实时讨论空间，区别于 Ring 级的仓库同步邀请。
 
-**Session 生命周期**（5 个阶段）：
+**Session 生命周期**（5 个阶段，`discussion` 模式简化为 3 阶段：创建 → 讨论 → 结束）：
 
-| 阶段 | 描述 | 必选 |
-|------|------|------|
-| 1. 创建 Session | 选择场景类型（Skill）+ 填写标题描述 + 邀请成员 | 是 |
-| 2. 材料准备 | AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点 | 是 |
-| 3. 讨论阶段 | 所有成员参与，AI 加载对应 Skill | 是 |
-| 4. 总结 | 可配置 auto 或 manual，用户确认后执行后续操作 | 否 |
-| 5. 结束 | 结束信号必须由 owner 发起，聊天记录保留在创建者后端 | 是 |
+| 阶段 | 描述 | 必选 | AI 行为 |
+|------|------|------|---------|
+| 1. 创建 Session | 选择场景类型（Skill）+ 填写标题描述 + 邀请成员 | 是 | — |
+| 2. 材料准备 | AI 基于描述收集/生成材料，参与者可查看进度，创建者可标记重点 | 是（discussion 跳过） | Session Ring 加载 Skill，主动收集整理材料 |
+| 3. 讨论阶段 | 所有成员参与 | 是 | **AI 不参与，只记录消息** |
+| 4. 总结 | 可配置 auto 或 manual，用户确认后执行后续操作 | 否（discussion 跳过） | Session Ring 基于材料 + 讨论内容生成总结报告 |
+| 5. 结束 | 结束信号必须由 owner 发起，聊天记录保留在创建者后端 | 是 | — |
 
 **两层邀请机制**：
 
@@ -326,12 +399,14 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 - Ring 内有权限的成员可创建 Session 并邀请其他 Ring 成员
 - **同一个 Ring 同一时刻只能有一个活跃 Session**
 - 创建 Session 必须选择预设场景（决定 Session Ring 的行为）：
-  - `discussion`（自由讨论）：多人自由聊天，Session Ring 作为基础讨论助手
-  - `deep_research`（深度调研）：跨源聚合 + 报告生成
-  - `meeting_archive`（会议归档）：结构化提取 + 归档推荐
-  - `learning_center`（学习中心）：知识解读 + 概念提取
-- **材料准备阶段**：AI 基于 Session 描述收集/生成材料，参与者可查看进度，创建者可标记重点
-- 所有参与者共享一个 Group Ring 实例，AI 回复对所有人可见
+  - `decision`（团队决策）：收集材料 → 讨论 → 决策结论 + 行动项
+  - `research`（联合调研）：收集材料 → 讨论 → 调研报告
+  - `review`（集体评审）：收集材料 → 讨论 → 评审意见 + 改进建议
+  - `retrospective`（项目复盘）：收集材料 → 讨论 → 经验总结 + 改进计划
+  - `knowledge_sharing`（知识分享）：收集材料 → 分享 → 整理笔记
+  - `discussion`（自由讨论）：无 Skill 的默认模式，跳过材料准备和总结阶段，直接进入讨论
+- **材料准备阶段**（`discussion` 模式跳过）：独立的 Session Ring 实例加载对应 Skill，根据 Session 主题收集/生成材料，参与者可查看进度，创建者可标记重点
+- 所有参与者共享 Session Ring 实例，AI 回复对所有人可见
 - 消息通过创建者后端 WebSocket hub 中转（不经过 GitLab）
 - Session owner 离线时 Session 暂停，参与者无法发消息；owner 重连后自动恢复
 - 离线成员重连后自动补发缺失消息（基于 seq_num）
@@ -342,9 +417,10 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 **Skill 系统**：
 - 采用 Claude Code Skill 格式（Markdown + YAML frontmatter）
-- 预装 Skills：`meeting_archive`、`deep_research`、`learning_center`
-- 用户可通过 Super Ring 安装网络插件（"安装 xxx"）
-- Session Ring 的行为由加载的 Skill 决定
+- 预装 5 个业务 Skill：`decision`、`research`、`review`、`retrospective`、`knowledge_sharing`
+- `discussion` 是无 Skill 的默认模式
+- 用户可通过 Super Ring 安装额外 Skill（"安装 xxx"）
+- Session Ring 的行为由加载的 Skill 决定（材料准备 + 总结阶段）
 
 ---
 
@@ -739,7 +815,7 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
 创建者生成开放链接
   → http://{创建者内网IP}:7420/join?token=xxx
   → 被邀请人点击链接
-  → 创建者的 ring-server 服务安装导航页（去中心化）：
+  → 创建者的 ring-server 服务安装导航页（创建者托管）：
      ├── 页面显示：Ring 名称 + 描述 + 成员数
      ├── 自动检测访问者 OS（User-Agent）
      │   ├── Windows → 高亮 Windows 下载按钮
@@ -764,7 +840,7 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
   → 加入 Ring，获得对应角色权限
 ```
 
-> **去中心化安装**：安装导航页由分享链接的用户 ring-server 提供，无需中央安装服务器。二进制文件统一从 GitHub Releases 下载。
+> **创建者托管的 P2P 模式**：安装导航页由分享链接的创建者 ring-server 提供，无需中央安装服务器。每个用户运行自己的 ring-server 实例，但 Ring 的协作以创建者为托管节点。二进制文件统一从 GitHub Releases 下载。
 
 #### 6.3.2 审核链接加入
 
@@ -832,36 +908,37 @@ Group Ring 识别两个节点之间的关系
 
 ```
 Session 创建者（需有 Ring 内的 Session 创建权限）
-  → 检查：该 Ring 是否已有活跃 Session（一次只能有一个）
-  → 在 Ring 空间点击"新建讨论"
-  → 选择预设场景（必选）：
-     ├── discussion（自由讨论）：多人自由聊天，基础讨论助手
-     ├── deep_research（深度调研）：跨源聚合 + 报告生成
-     ├── meeting_archive（会议归档）：结构化提取 + 归档推荐
-     └── learning_center（学习中心）：知识解读 + 概念提取
-  → 填写 Session 标题（如"竞品 A 深度讨论"）
-  → 选择是否开启归档（可后续动态切换）
-  → 选择邀请哪些 Ring 成员
-  → 系统创建 Session Ring（基于预设场景配置）
-  → 创建者成为 session owner
-  → 被邀请成员收到 WebSocket 通知
+   → 检查：该 Ring 是否已有活跃 Session（一次只能有一个）
+   → 在 Ring 空间点击"新建讨论"
+   → 选择预设场景（必选）：
+      ├── decision（团队决策）
+      ├── research（联合调研）
+      ├── review（集体评审）
+      ├── retrospective（项目复盘）
+      ├── knowledge_sharing（知识分享）
+      └── discussion（自由讨论，默认模式，跳过材料准备和总结）
+   → 填写 Session 标题（如"竞品 A 深度讨论"）
+   → 选择是否开启归档（可后续动态切换）
+   → 选择邀请哪些 Ring 成员
+   → 系统创建独立的 Session Ring 实例（加载对应 Skill）
+   → 创建者成为 session owner
+   → 被邀请成员收到 WebSocket 通知
 ```
 
-> 预设场景决定 Session Ring 的行为和能力边界。例如选择"深度调研"时，Session Ring 会主动调用搜索、爬取、聚合等工具。
+> 预设场景决定 Session Ring 的行为和能力边界。例如选择 `research` 时，Session Ring 在材料准备阶段会主动收集和整理资料，在总结阶段生成调研报告。`discussion` 模式下 AI 不介入，纯人工讨论。
 
 #### 6.6.2 Session 内讨论
 
 ```
 成员发消息
-  → 消息发送到创建者后端（WebSocket）
-  → 创建者后端存入 session_messages（带 seq_num）
-  → 广播给所有 session 成员（包括发送者）
-  → Group Ring（共享实例）响应
-  → AI 回复也广播给所有成员
+   → 消息发送到创建者后端（WebSocket）
+   → 创建者后端存入 session_messages（带 seq_num）
+   → 广播给所有 session 成员（包括发送者）
+   → AI 不参与讨论，只记录消息
 ```
 
 **特点**：
-- 所有成员共享一个 Group Ring 实例
+- 所有成员共享独立的 Session Ring 实例
 - AI 回复对所有人可见
 - 消息通过创建者后端中转
 - 离线成员重连后自动补发缺失消息（基于 seq_num）

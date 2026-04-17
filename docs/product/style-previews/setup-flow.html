@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring · Setup</title>
+<link href="https://fonts.googleapis.com/css2?family=Cascadia+Code:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', monospace; height: 100vh; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+
+.setup-container {
+  width: 520px; background: #0a0e14; border: 1px solid #1a2030;
+  border-radius: 8px; overflow: hidden;
+}
+
+/* Header */
+.setup-header {
+  padding: 20px 24px 16px; border-bottom: 1px solid #1a2030;
+  display: flex; align-items: center; gap: 12px;
+}
+.setup-logo {
+  width: 36px; height: 36px; flex-shrink: 0;
+}
+.setup-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 18px;
+  color: #67E8F9; font-weight: 700; letter-spacing: 2px;
+}
+.setup-subtitle { font-size: 10px; color: #3a4550; margin-top: 2px; }
+
+/* Progress */
+.setup-progress {
+  display: flex; gap: 0; background: #080c12; border-bottom: 1px solid #1a2030;
+}
+.progress-step {
+  flex: 1; padding: 8px 0; font-size: 9px; color: #2a3540;
+  text-align: center; position: relative;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.progress-step.active { color: #0891B2; }
+.progress-step.done { color: #22c55e; }
+.progress-step::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px; background: transparent;
+}
+.progress-step.active::after { background: #0891B2; }
+.progress-step.done::after { background: #22c55e; }
+
+/* Body */
+.setup-body { padding: 24px; min-height: 320px; }
+.step { display: none; }
+.step.active { display: block; }
+
+.step-label {
+  font-size: 9px; color: #3a4550; text-transform: uppercase;
+  letter-spacing: 1.5px; margin-bottom: 12px;
+}
+.step-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 16px;
+  color: #bfc7d5; font-weight: 600; margin-bottom: 6px;
+}
+.step-desc { font-size: 11px; color: #4a5568; margin-bottom: 20px; line-height: 1.6; }
+
+/* Form elements */
+.form-group { margin-bottom: 16px; }
+.form-label { font-size: 9px; color: #3a4550; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; display: block; }
+.form-input {
+  width: 100%; background: #0d1117; border: 1px solid #1a2030; border-radius: 4px;
+  padding: 10px 12px; color: #bfc7d5; font-family: inherit; font-size: 13px;
+  outline: none; transition: border-color 0.15s;
+}
+.form-input:focus { border-color: #0891B2; }
+.form-input::placeholder { color: #2a3540; }
+.form-input.amber:focus { border-color: #f59e0b; }
+
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+
+.form-hint { font-size: 9px; color: #2a3540; margin-top: 4px; }
+
+/* Avatar picker */
+.avatar-picker { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+.avatar-preview {
+  width: 48px; height: 48px; border-radius: 8px;
+  background: #0d2a35; border: 2px solid #1a2030;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; color: #0891B2; font-weight: 700;
+  transition: border-color 0.15s;
+}
+.avatar-preview.amber { background: #1a1608; border-color: #f59e0b30; color: #f59e0b; }
+.avatar-options { display: flex; gap: 4px; flex-wrap: wrap; }
+.avatar-opt {
+  width: 32px; height: 32px; border-radius: 4px; border: 1px solid #1a2030;
+  background: #0d1117; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.avatar-opt:hover { border-color: #0891B2; }
+.avatar-opt.selected { border-color: #0891B2; background: #0d2a35; }
+
+/* Choice cards */
+.choice-cards { display: flex; gap: 12px; }
+.choice-card {
+  flex: 1; padding: 16px; border: 1px solid #1a2030; border-radius: 6px;
+  cursor: pointer; transition: all 0.15s; background: #080c12;
+}
+.choice-card:hover { border-color: #0891B2; background: #0d1420; }
+.choice-card.selected { border-color: #0891B2; background: #0d2a35; }
+.choice-card .cc-icon { font-size: 20px; margin-bottom: 8px; }
+.choice-card .cc-title { font-size: 12px; color: #bfc7d5; font-weight: 600; margin-bottom: 4px; }
+.choice-card .cc-desc { font-size: 10px; color: #4a5568; line-height: 1.5; }
+.choice-card.selected .cc-title { color: #67E8F9; }
+
+/* Blueprint templates */
+.template-grid { display: flex; flex-direction: column; gap: 6px; }
+.template-item {
+  padding: 10px 12px; border: 1px solid #1a2030; border-radius: 4px;
+  cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 10px;
+}
+.template-item:hover { border-color: #0891B2; background: #0d1420; }
+.template-item.selected { border-color: #0891B2; background: #0d2a35; }
+.template-item .t-icon { font-size: 16px; width: 24px; text-align: center; }
+.template-item .t-info { flex: 1; }
+.template-item .t-name { font-size: 11px; color: #bfc7d5; }
+.template-item.selected .t-name { color: #67E8F9; }
+.template-item .t-desc { font-size: 9px; color: #4a5568; margin-top: 2px; }
+.template-item .t-nodes { font-size: 9px; color: #3a4550; }
+
+/* Join flow */
+.join-input-group { display: flex; gap: 8px; margin-bottom: 12px; }
+.join-input-group .form-input { flex: 1; }
+.join-paste-btn {
+  padding: 0 12px; background: #0d1117; border: 1px solid #1a2030;
+  border-radius: 4px; color: #3a4550; cursor: pointer; font-family: inherit;
+  font-size: 10px; white-space: nowrap; transition: all 0.15s;
+}
+.join-paste-btn:hover { color: #0891B2; border-color: #0891B2; }
+
+.join-ring-info {
+  padding: 12px; border: 1px solid #1a2030; border-radius: 6px;
+  background: #080c12; margin-top: 12px; display: none;
+}
+.join-ring-info.visible { display: block; }
+.jri-name { font-size: 13px; color: #67E8F9; font-weight: 600; }
+.jri-meta { font-size: 10px; color: #4a5568; margin-top: 4px; line-height: 1.8; }
+.jri-meta strong { color: #6b7d8e; }
+
+/* LLM config */
+.llm-status { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #1a2030; border-radius: 4px; margin-bottom: 12px; }
+.llm-dot { width: 6px; height: 6px; border-radius: 50%; }
+.llm-dot.ok { background: #22c55e; }
+.llm-dot.fail { background: #f59e0b; }
+.llm-dot.checking { background: #3a4550; animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.llm-text { font-size: 10px; color: #6b7d8e; flex: 1; }
+
+/* Footer */
+.setup-footer {
+  padding: 16px 24px; border-top: 1px solid #1a2030;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.setup-skip {
+  font-size: 9px; color: #2a3540; cursor: pointer; background: none;
+  border: none; font-family: inherit; transition: color 0.15s;
+}
+.setup-skip:hover { color: #3a4550; }
+.setup-actions { display: flex; gap: 8px; }
+.btn-back {
+  padding: 8px 16px; background: none; border: 1px solid #1a2030;
+  border-radius: 4px; color: #3a4550; cursor: pointer; font-family: inherit;
+  font-size: 10px; transition: all 0.15s;
+}
+.btn-back:hover { color: #6b7d8e; border-color: #3a4550; }
+.btn-next {
+  padding: 8px 20px; background: #0891B2; border: none;
+  border-radius: 4px; color: #06080c; cursor: pointer; font-family: inherit;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; transition: background 0.15s;
+}
+.btn-next:hover { background: #06B6D4; }
+.btn-next:disabled { background: #1a2030; color: #3a4550; cursor: default; }
+
+/* Done state */
+.done-screen { text-align: center; padding: 20px 0; }
+.done-screen .done-icon { font-size: 40px; margin-bottom: 12px; }
+.done-screen .done-title {
+  font-family: 'Space Grotesk', sans-serif; font-size: 18px;
+  color: #67E8F9; font-weight: 700; margin-bottom: 8px;
+}
+.done-screen .done-desc { font-size: 11px; color: #4a5568; line-height: 1.8; }
+.done-screen .done-desc code { background: #0d1117; padding: 1px 5px; border-radius: 3px; color: #06B6D4; }
+
+.cli-preview {
+  margin-top: 16px; padding: 12px; background: #080c12;
+  border: 1px solid #1a2030; border-radius: 4px; text-align: left;
+  font-size: 10px; line-height: 1.8; color: #3a4550;
+}
+.cli-preview .cli-cmd { color: #0891B2; }
+.cli-preview .cli-comment { color: #22c55e; }
+</style>
+</head>
+<body>
+
+<div class="setup-container">
+  <div class="setup-header">
+    <svg class="setup-logo" viewBox="0 0 80 80" fill="none">
+      <path d="M 2 14 C 16 8, 32 22, 44 38 C 52 50, 62 52, 72 48 C 76 46, 78 44, 78 44" stroke="#67E8F9" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.75"/>
+      <path d="M 2 66 C 14 58, 28 46, 42 40 C 52 36, 62 40, 70 44 C 75 46, 78 44, 78 44" stroke="#0891B2" stroke-width="5" stroke-linecap="round" fill="none" opacity="1"/>
+      <path d="M 2 40 C 14 28, 30 26, 42 34 C 54 42, 60 46, 70 43 C 75 43, 78 44, 78 44" stroke="#06B6D4" stroke-width="3.5" stroke-linecap="round" fill="none" opacity="0.9"/>
+    </svg>
+    <div>
+      <div class="setup-title">RING</div>
+      <div class="setup-subtitle">group knowledge collaboration space</div>
+    </div>
+  </div>
+
+  <div class="setup-progress" id="progress"></div>
+
+  <div class="setup-body" id="body"></div>
+
+  <div class="setup-footer">
+    <button class="setup-skip" id="skipBtn" onclick="skip()">skip setup →</button>
+    <div class="setup-actions">
+      <button class="btn-back" id="backBtn" onclick="goBack()">← Back</button>
+      <button class="btn-next" id="nextBtn" onclick="goNext()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const steps = [
+  {
+    id: 'welcome',
+    label: 'Welcome',
+    html: () => `
+      <div class="step-title">Welcome to Ring</div>
+      <div class="step-desc">A group knowledge collaboration space with AI at its core.<br><br>
+        Ring runs locally on your machine. Data lives in <code>~/.ring/</code><br>
+        All AI conversations happen through your own LLM connection.</div>
+      <div class="step-label">Quick Setup</div>
+      <div class="choice-cards">
+        <div class="choice-card selected" onclick="selectChoice(this)">
+          <div class="cc-icon">🚀</div>
+          <div class="cc-title">New User</div>
+          <div class="cc-desc">Create identity and start fresh</div>
+        </div>
+        <div class="choice-card" onclick="selectChoice(this)">
+          <div class="cc-icon">🔗</div>
+          <div class="cc-title">Join Existing</div>
+          <div class="cc-desc">Got an invite? Join a Ring directly</div>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: 'identity',
+    label: 'Identity',
+    html: () => `
+      <div class="step-title">Who are you?</div>
+      <div class="step-desc">Your identity is stored locally. It's how others see you in Rings.</div>
+      <div class="step-label">Avatar</div>
+      <div class="avatar-picker">
+        <div class="avatar-preview" id="avatarPreview">K</div>
+        <div class="avatar-options">
+          <div class="avatar-opt selected" onclick="pickAvatar(this,'K')">K</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'🐱')">🐱</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'🔥')">🔥</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'⚡')">⚡</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'🌊')">🌊</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'🎯')">🎯</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'🦊')">🦊</div>
+          <div class="avatar-opt" onclick="pickAvatar(this,'💎')">💎</div>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input class="form-input" id="username" placeholder="e.g. kaiiang" value="kaiiang" oninput="updateAvatar()" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Display name</label>
+          <input class="form-input" placeholder="optional display name" />
+        </div>
+      </div>
+      <div class="form-hint">Username is your ID across all Rings. Cannot be changed later.</div>
+    `
+  },
+  {
+    id: 'llm',
+    label: 'LLM',
+    html: () => `
+      <div class="step-title">Connect your LLM</div>
+      <div class="step-desc">Ring uses your own LLM. No cloud dependency. Data never leaves your machine.</div>
+      <div class="llm-status">
+        <div class="llm-dot ok"></div>
+        <span class="llm-text">Ollama detected · <strong>llama3.1</strong> available</span>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Provider</label>
+        <select class="form-input" id="llmProvider">
+          <option value="ollama">Ollama (local)</option>
+          <option value="openai">OpenAI (API key)</option>
+          <option value="anthropic">Anthropic (API key)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Model</label>
+        <input class="form-input" value="llama3.1" />
+      </div>
+      <div class="form-group" id="apiKeyGroup" style="display:none">
+        <label class="form-label">API Key</label>
+        <input class="form-input" type="password" placeholder="sk-..." />
+        <div class="form-hint">Stored locally only. Never synced.</div>
+      </div>
+    `
+  },
+  {
+    id: 'create',
+    label: 'First Ring',
+    html: () => `
+      <div class="step-title">Create your first Ring</div>
+      <div class="step-desc">A Ring is a group knowledge space. You can always create more later with <code>/ring create</code></div>
+      <div class="form-group">
+        <label class="form-label">Ring Name</label>
+        <input class="form-input" value="竞品分析组" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Blueprint Template</label>
+        <div class="template-grid">
+          <div class="template-item selected" onclick="selectTemplate(this)">
+            <span class="t-icon">🗺</span>
+            <div class="t-info">
+              <div class="t-name">产品研究</div>
+              <div class="t-desc">Competitive analysis, feature comparison, market trends</div>
+            </div>
+            <span class="t-nodes">6 nodes</span>
+          </div>
+          <div class="template-item" onclick="selectTemplate(this)">
+            <span class="t-icon">🏗</span>
+            <div class="t-info">
+              <div class="t-name">项目管理</div>
+              <div class="t-desc">Milestones, tasks, decisions, meeting notes</div>
+            </div>
+            <span class="t-nodes">5 nodes</span>
+          </div>
+          <div class="template-item" onclick="selectTemplate(this)">
+            <span class="t-icon">📚</span>
+            <div class="t-info">
+              <div class="t-name">技术文档</div>
+              <div class="t-desc">Architecture, API docs, runbooks, RFCs</div>
+            </div>
+            <span class="t-nodes">4 nodes</span>
+          </div>
+          <div class="template-item" onclick="selectTemplate(this)">
+            <span class="t-icon">✨</span>
+            <div class="t-info">
+              <div class="t-name">空白</div>
+              <div class="t-desc">Start from scratch, build your own structure</div>
+            </div>
+            <span class="t-nodes">0 nodes</span>
+          </div>
+        </div>
+      </div>
+    `
+  },
+  {
+    id: 'join',
+    label: 'Join Ring',
+    html: () => `
+      <div class="step-title">Join a Ring</div>
+      <div class="step-desc">Paste the invite link or code shared by the Ring creator.</div>
+      <div class="form-group">
+        <label class="form-label">Invite Link / Code</label>
+        <div class="join-input-group">
+          <input class="form-input amber" id="joinCode" placeholder="https://ring.local/join/abc123  or  ring:abc123" />
+          <button class="join-paste-btn" onclick="pasteInvite()">paste</button>
+        </div>
+      </div>
+      <div class="join-ring-info visible" id="joinInfo">
+        <div class="jri-name">竞品分析组</div>
+        <div class="jri-meta">
+          <strong>Creator:</strong> kaiiang<br>
+          <strong>Members:</strong> 3<br>
+          <strong>Nodes:</strong> 12<br>
+          <strong>Skills:</strong> decision, review, research
+        </div>
+      </div>
+      <div class="form-hint" style="margin-top:12px">Joining will clone the Ring data to your <code>~/.ring/rings/</code></div>
+    `
+  },
+  {
+    id: 'done',
+    label: 'Done',
+    html: () => `
+      <div class="done-screen">
+        <div class="done-icon">🎉</div>
+        <div class="done-title">All Set!</div>
+        <div class="done-desc">
+          Ring is ready at <code>localhost:7420</code><br><br>
+          Your setup:<br>
+          · Identity: <strong>kaiiang</strong><br>
+          · LLM: <strong>ollama/llama3.1</strong><br>
+          · First Ring: <strong>竞品分析组</strong> (产品研究 template)
+        </div>
+        <div class="cli-preview">
+          <span class="cli-comment"># useful commands to get started</span><br>
+          <span class="cli-cmd">/ring create</span> → create a new Ring<br>
+          <span class="cli-cmd">/invite</span> → invite someone to current Ring<br>
+          <span class="cli-cmd">/session start review</span> → start a review session<br>
+          <span class="cli-cmd">@self</span> → talk to your private AI<br>
+          <span class="cli-cmd">/help</span> → see all commands
+        </div>
+      </div>
+    `
+  }
+];
+
+let currentStep = 0;
+let isJoinFlow = false;
+
+function render() {
+  const step = steps[currentStep];
+
+  // progress bar
+  const progHtml = steps.map((s, i) => {
+    let cls = '';
+    if (i < currentStep) cls = 'done';
+    else if (i === currentStep) cls = 'active';
+    if (isJoinFlow && s.id === 'create') return '';
+    if (!isJoinFlow && s.id === 'join') return '';
+    return `<div class="progress-step ${cls}">${s.label}</div>`;
+  }).filter(Boolean).join('');
+  document.getElementById('progress').innerHTML = progHtml;
+
+  // body
+  document.getElementById('body').innerHTML = `<div class="step active">${step.html()}</div>`;
+
+  // footer buttons
+  document.getElementById('backBtn').style.display = currentStep === 0 ? 'none' : '';
+  document.getElementById('skipBtn').style.display = currentStep === steps.length - 1 ? 'none' : '';
+
+  const nextBtn = document.getElementById('nextBtn');
+  if (currentStep === steps.length - 1) {
+    nextBtn.textContent = 'Launch →';
+  } else {
+    nextBtn.textContent = 'Next →';
+  }
+
+  // LLM provider toggle
+  const provider = document.getElementById('llmProvider');
+  if (provider) {
+    provider.addEventListener('change', function() {
+      document.getElementById('apiKeyGroup').style.display =
+        this.value === 'ollama' ? 'none' : 'block';
+    });
+  }
+}
+
+function goNext() {
+  if (currentStep === 0) {
+    const selected = document.querySelector('.choice-card.selected');
+    isJoinFlow = selected && selected.textContent.includes('Join');
+  }
+
+  if (currentStep === steps.length - 1) {
+    return;
+  }
+
+  if (isJoinFlow && steps[currentStep + 1].id === 'create') {
+    currentStep += 2;
+  } else if (!isJoinFlow && steps[currentStep + 1].id === 'join') {
+    currentStep += 2;
+  } else {
+    currentStep++;
+  }
+
+  if (currentStep >= steps.length) currentStep = steps.length - 1;
+  render();
+}
+
+function goBack() {
+  if (currentStep <= 0) return;
+
+  if (isJoinFlow && steps[currentStep - 1].id === 'create') {
+    currentStep -= 2;
+  } else if (!isJoinFlow && steps[currentStep - 1].id === 'join') {
+    currentStep -= 2;
+  } else {
+    currentStep--;
+  }
+
+  if (currentStep < 0) currentStep = 0;
+  render();
+}
+
+function skip() {
+  currentStep = steps.length - 1;
+  render();
+}
+
+function selectChoice(el) {
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function pickAvatar(el, char) {
+  document.querySelectorAll('.avatar-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  const preview = document.getElementById('avatarPreview');
+  if (char.length > 1) {
+    preview.textContent = char;
+    preview.classList.add('amber');
+  } else {
+    preview.textContent = char.toUpperCase();
+    preview.classList.remove('amber');
+  }
+}
+
+function updateAvatar() {
+  const val = document.getElementById('username').value;
+  const preview = document.getElementById('avatarPreview');
+  if (val && !preview.querySelector('.avatar-opt.selected')?.textContent?.match(/[^a-zA-Z0-9]/)) {
+    preview.textContent = val.charAt(0).toUpperCase();
+    preview.classList.remove('amber');
+  }
+}
+
+function selectTemplate(el) {
+  document.querySelectorAll('.template-item').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function pasteInvite() {
+  navigator.clipboard?.readText()?.then(text => {
+    const input = document.getElementById('joinCode');
+    if (input && text) input.value = text;
+  }).catch(() => {});
+}
+
+render();
+</script>
+</body>
+</html>

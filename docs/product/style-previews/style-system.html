@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ring Style System - IceChat</title>
+<link href="https://fonts.googleapis.com/css2?family=Cascadia+Code:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #06080c; color: #bfc7d5; font-family: 'Cascadia Code', 'Cascadia Mono', 'JetBrains Mono', monospace; font-variant-ligatures: contextual; }
+
+.container { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+
+.section { margin-bottom: 48px; }
+.section-title { color: #0891B2; font-size: 11px; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid #1a2030; }
+.section-title span { color: #3a4550; }
+
+/* ---- Typography ---- */
+.type-display { font-family: 'Space Grotesk', sans-serif; font-size: 36px; color: #67E8F9; font-weight: 700; letter-spacing: -0.5px; }
+.type-h1 { font-size: 24px; color: #e0e6ed; font-weight: 600; }
+.type-h2 { font-size: 16px; color: #bfc7d5; font-weight: 500; }
+.type-body { font-size: 13px; color: #8892a0; line-height: 1.7; }
+.type-caption { font-size: 11px; color: #4a5568; }
+.type-mono { font-size: 13px; color: #06B6D4; background: #0d1117; padding: 2px 6px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; }
+
+.type-row { display: flex; flex-direction: column; gap: 12px; }
+.type-sample { display: flex; align-items: baseline; gap: 16px; }
+.type-label { font-size: 10px; color: #3a4550; min-width: 80px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* ---- Colors ---- */
+.color-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.color-card { border: 1px solid #1a2030; border-radius: 6px; overflow: hidden; }
+.color-swatch { height: 56px; }
+.color-info { padding: 8px 10px; font-size: 10px; line-height: 1.6; }
+.color-info .name { color: #bfc7d5; font-weight: 500; font-size: 11px; }
+.color-info .hex { color: #4a5568; }
+
+/* ---- Spacing ---- */
+.spacing-demo { display: flex; align-items: flex-end; gap: 16px; padding: 20px 0; }
+.spacing-bar { background: #0891B2; border-radius: 2px; }
+.spacing-label { font-size: 10px; color: #4a5568; margin-top: 6px; text-align: center; }
+
+/* ---- Components ---- */
+.comp-grid { display: flex; flex-direction: column; gap: 16px; }
+
+.btn-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn {
+  padding: 8px 20px; border-radius: 4px; cursor: pointer;
+  font-family: 'Cascadia Code', monospace; font-size: 12px;
+  transition: all 0.15s; letter-spacing: 0.5px;
+}
+.btn-primary { background: #0891B2; color: #06080c; border: none; font-weight: 600; }
+.btn-primary:hover { background: #06B6D4; }
+.btn-secondary { background: transparent; color: #0891B2; border: 1px solid #0891B2; }
+.btn-secondary:hover { background: #0d1f28; }
+.btn-ghost { background: transparent; color: #6b7d8e; border: 1px solid #1a2030; }
+.btn-ghost:hover { border-color: #3a4550; color: #bfc7d5; }
+.btn-danger { background: transparent; color: #f87171; border: 1px solid #7f1d1d; }
+.btn-danger:hover { background: #1a0a0a; border-color: #f87171; }
+
+.badge-row { display: flex; gap: 8px; align-items: center; }
+.badge {
+  font-size: 10px; padding: 3px 8px; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.badge-cyan { background: #0d2a35; color: #0891B2; border: 1px solid #0891B2; }
+.badge-green { background: #0a1f0a; color: #22c55e; border: 1px solid #22c55e; }
+.badge-amber { background: #1a1a00; color: #f59e0b; border: 1px solid #f59e0b; }
+.badge-red { background: #1a0a0a; color: #f87171; border: 1px solid #f87171; }
+.badge-dim { background: #141a24; color: #6b7d8e; border: 1px solid #1a2030; }
+
+.input-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.input-field {
+  background: #0d1117; border: 1px solid #1a2030; border-radius: 4px;
+  padding: 8px 12px;   color: #bfc7d5; font-family: 'Cascadia Code', monospace;
+  font-size: 13px; outline: none; transition: border-color 0.15s; width: 240px;
+}
+.input-field:focus { border-color: #0891B2; }
+.input-field::placeholder { color: #2a3540; }
+.input-field:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.divider { border: none; border-top: 1px solid #1a2030; margin: 12px 0; }
+
+/* ---- Avatar ---- */
+.avatar-row { display: flex; gap: 12px; align-items: center; }
+.avatar {
+  width: 32px; height: 32px; border-radius: 4px; display: flex;
+  align-items: center; justify-content: center; font-size: 13px; font-weight: 600;
+}
+.avatar-cyan { background: #0d2a35; color: #0891B2; }
+.avatar-green { background: #0a1f0a; color: #22c55e; }
+.avatar-amber { background: #1a1a00; color: #f59e0b; }
+.avatar-dim { background: #141a24; color: #6b7d8e; }
+
+/* ---- Status indicator ---- */
+.status-row { display: flex; gap: 20px; align-items: center; }
+.status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-online .status-dot { background: #22c55e; }
+.status-away .status-dot { background: #f59e0b; }
+.status-offline .status-dot { background: #3a4550; }
+.status-online { color: #22c55e; }
+.status-away { color: #f59e0b; }
+.status-offline { color: #3a4550; }
+
+/* ---- Card ---- */
+.card {
+  border: 1px solid #1a2030; border-radius: 6px; padding: 14px 16px;
+  background: #0a0e14; transition: all 0.15s; cursor: pointer; max-width: 400px;
+}
+.card:hover { border-color: #0891B2; background: #0d1420; }
+.card-title { color: #67E8F9; font-size: 13px; margin-bottom: 4px; font-weight: 500; }
+.card-desc { color: #6b7d8e; font-size: 12px; }
+.card-meta { color: #3a4550; font-size: 11px; margin-top: 8px; }
+
+/* ---- Scrollbar ---- */
+.demo-scroll {
+  height: 100px; overflow-y: auto; background: #0a0e14;
+  border: 1px solid #1a2030; border-radius: 4px; padding: 12px;
+  font-size: 12px; line-height: 1.8;
+}
+.demo-scroll::-webkit-scrollbar { width: 6px; }
+.demo-scroll::-webkit-scrollbar-track { background: #0a0e14; }
+.demo-scroll::-webkit-scrollbar-thumb { background: #1a2030; border-radius: 3px; }
+.demo-scroll::-webkit-scrollbar-thumb:hover { background: #2a3540; }
+
+/* ---- Animation ---- */
+.anim-demo { display: flex; gap: 16px; padding: 20px 0; }
+.anim-item {
+  padding: 10px 20px; border: 1px solid #1a2030; border-radius: 4px;
+  font-size: 12px; cursor: pointer; transition: all 0.2s ease;
+  color: #6b7d8e;
+}
+.anim-item:hover {
+  border-color: #0891B2; color: #67E8F9;
+  box-shadow: 0 0 20px rgba(8,145,178,0.15);
+  transform: translateY(-1px);
+}
+
+/* ---- Code block ---- */
+.code-block {
+  background: #0d1117; border: 1px solid #1a2030; border-radius: 6px;
+  padding: 16px; font-size: 12px; line-height: 1.7; overflow-x: auto;
+}
+.code-block .kw { color: #06B6D4; }
+.code-block .str { color: #22c55e; }
+.code-block .num { color: #f59e0b; }
+.code-block .cmt { color: #3a4550; }
+.code-block .fn { color: #67E8F9; }
+
+/* ---- Toast ---- */
+.toast-demo { display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 10px 16px; border-radius: 4px; font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast-success { background: #0a1f0a; border: 1px solid #22c55e33; color: #22c55e; }
+.toast-error { background: #1a0a0a; border: 1px solid #f8717133; color: #f87171; }
+.toast-info { background: #0d2a35; border: 1px solid #0891B233; color: #0891B2; }
+
+/* ---- Message bubble ---- */
+.msg-demo { display: flex; flex-direction: column; gap: 12px; max-width: 500px; }
+.msg-bubble { padding: 10px 14px; border-radius: 6px; font-size: 13px; line-height: 1.6; }
+.msg-user { background: #0d2a35; border: 1px solid #0891B233; color: #bfc7d5; align-self: flex-end; }
+.msg-ai { background: #141a24; border: 1px solid #1a2030; color: #bfc7d5; }
+.msg-sys { background: transparent; border: 1px solid #22c55e33; color: #22c55e; font-size: 11px; text-align: center; padding: 6px 14px; }
+
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div style="margin-bottom:48px">
+    <div style="color:#3a4550;font-size:10px;text-transform:uppercase;letter-spacing:3px;margin-bottom:8px">Ring Style System</div>
+    <div class="type-display">IceChat</div>
+    <div class="type-body" style="margin-top:12px;max-width:560px">
+      深蓝冰色调 · Cascadia Code + Space Grotesk<br>
+      命令行交互 + 现代聊天 UI · 支持连字 · 未来可扩展为聊天软件
+    </div>
+  </div>
+
+  <!-- Typography -->
+  <div class="section">
+    <div class="section-title">Typography <span>字体</span></div>
+    <div class="type-row">
+      <div class="type-sample">
+        <span class="type-label">display</span>
+        <span class="type-display">Space Grotesk 36px</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">h1</span>
+        <span class="type-h1">Cascadia Code 24px Bold</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">h2</span>
+        <span class="type-h2">Cascadia Code 16px Medium</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">body</span>
+        <span class="type-body">Cascadia Code 13px · 正文字体，用于消息和界面文案 · #8892a0</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">caption</span>
+        <span class="type-caption">Cascadia Code 11px · 辅助信息 · #4a5568</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">mono</span>
+        <span class="type-mono">code inline != == >= <=</span>
+      </div>
+      <div class="type-sample">
+        <span class="type-label">ligatures</span>
+        <span style="font-size:16px;color:#67E8F9">-> => != == >= <= :: <!-- -->{{ }}</span>
+      </div>
+    </div>
+    <div style="margin-top:24px; padding:16px; border:1px solid #1a2030; border-radius:6px; background:#0a0e14">
+      <div style="font-size:11px;color:#3a4550;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Emphasis · 重点强调</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="font-size:13px;color:#8892a0">Normal weight 300 · 正文默认</div>
+        <div style="font-size:13px;color:#bfc7d5;font-weight:500">Medium weight 500 · <strong style="font-weight:600">Bold weight 600 · 重点内容</strong></div>
+        <div style="font-size:13px;color:#8892a0;font-style:italic">Italic · 用于术语、引用、强调语气</div>
+        <div style="font-size:13px;color:#67E8F9;font-weight:600">Bold + Accent color · 最强强调</div>
+        <div style="font-size:13px;color:#bfc7d5;font-weight:600;font-style:italic">Bold Italic · 关键决策或结论</div>
+      </div>
+      <hr class="divider">
+      <div style="font-size:12px;color:#6b7d8e;line-height:1.8">
+        示例：基于图谱数据，<strong style="color:#bfc7d5">A 产品的 API 生态</strong>覆盖 <strong style="color:#67E8F9">320+</strong> 个公开接口，<em style="color:#8892a0">远超 B 产品的 180 个</em>。<strong style="font-style:italic;color:#bfc7d5">建议在 Q2 评审中将 API 生态成熟度列为核心竞争优势。</strong>
+      </div>
+    </div>
+  </div>
+      <div class="type-sample">
+        <span class="type-label">mono</span>
+        <span class="type-mono">code inline</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Colors -->
+  <div class="section">
+    <div class="section-title">Colors <span>配色</span></div>
+    <div class="color-grid">
+      <div class="color-card">
+        <div class="color-swatch" style="background:#06080c"></div>
+        <div class="color-info"><div class="name">bg-base</div><div class="hex">#06080c</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#0a0e14"></div>
+        <div class="color-info"><div class="name">bg-surface</div><div class="hex">#0a0e14</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#0d1117"></div>
+        <div class="color-info"><div class="name">bg-elevated</div><div class="hex">#0d1117</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#141a24"></div>
+        <div class="color-info"><div class="name">bg-muted</div><div class="hex">#141a24</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#67E8F9"></div>
+        <div class="color-info"><div class="name">text-bright</div><div class="hex">#67E8F9</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#bfc7d5"></div>
+        <div class="color-info"><div class="name">text-primary</div><div class="hex">#bfc7d5</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#6b7d8e"></div>
+        <div class="color-info"><div class="name">text-secondary</div><div class="hex">#6b7d8e</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#3a4550"></div>
+        <div class="color-info"><div class="name">text-dim</div><div class="hex">#3a4550</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#0891B2"></div>
+        <div class="color-info"><div class="name">accent</div><div class="hex">#0891B2</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#06B6D4"></div>
+        <div class="color-info"><div class="name">accent-light</div><div class="hex">#06B6D4</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#22c55e"></div>
+        <div class="color-info"><div class="name">success</div><div class="hex">#22c55e</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#f59e0b"></div>
+        <div class="color-info"><div class="name">warning</div><div class="hex">#f59e0b</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#f87171"></div>
+        <div class="color-info"><div class="name">danger</div><div class="hex">#f87171</div></div>
+      </div>
+      <div class="color-card">
+        <div class="color-swatch" style="background:#1a2030"></div>
+        <div class="color-info"><div class="name">border</div><div class="hex">#1a2030</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Spacing -->
+  <div class="section">
+    <div class="section-title">Spacing <span>间距</span></div>
+    <div class="spacing-demo">
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:4px"></div>
+        <div class="spacing-label">4px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:8px"></div>
+        <div class="spacing-label">8px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:12px"></div>
+        <div class="spacing-label">12px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:16px"></div>
+        <div class="spacing-label">16px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:20px"></div>
+        <div class="spacing-label">20px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:24px"></div>
+        <div class="spacing-label">24px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:32px"></div>
+        <div class="spacing-label">32px</div>
+      </div>
+      <div style="text-align:center">
+        <div class="spacing-bar" style="width:4px;height:48px"></div>
+        <div class="spacing-label">48px</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Border Radius -->
+  <div class="section">
+    <div class="section-title">Border Radius <span>圆角</span></div>
+    <div style="display:flex;gap:16px;align-items:center">
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border:1px solid #0891B2;border-radius:2px"></div>
+        <div class="spacing-label">2px</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border:1px solid #0891B2;border-radius:4px"></div>
+        <div class="spacing-label">4px</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border:1px solid #0891B2;border-radius:6px"></div>
+        <div class="spacing-label">6px</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border:1px solid #0891B2;border-radius:8px"></div>
+        <div class="spacing-label">8px</div>
+      </div>
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border:1px solid #0891B2;border-radius:50%"></div>
+        <div class="spacing-label">50%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons -->
+  <div class="section">
+    <div class="section-title">Buttons <span>按钮</span></div>
+    <div class="comp-grid">
+      <div class="btn-row">
+        <button class="btn btn-primary">Primary</button>
+        <button class="btn btn-secondary">Secondary</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn btn-danger">Danger</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" style="padding:6px 12px;font-size:11px">Small</button>
+        <button class="btn btn-secondary" style="padding:6px 12px;font-size:11px">Small</button>
+        <button class="btn btn-ghost" style="padding:6px 12px;font-size:11px">Small</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Badges -->
+  <div class="section">
+    <div class="section-title">Badges <span>标签</span></div>
+    <div class="badge-row">
+      <span class="badge badge-cyan">chat</span>
+      <span class="badge badge-green">online</span>
+      <span class="badge badge-amber">review</span>
+      <span class="badge badge-red">archived</span>
+      <span class="badge badge-dim">offline</span>
+    </div>
+  </div>
+
+  <!-- Inputs -->
+  <div class="section">
+    <div class="section-title">Inputs <span>输入框</span></div>
+    <div class="comp-grid">
+      <div class="input-row">
+        <input class="input-field" placeholder="default" />
+        <input class="input-field" style="border-color:#0891B2" value="focused" />
+        <input class="input-field" disabled placeholder="disabled" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Avatars -->
+  <div class="section">
+    <div class="section-title">Avatars <span>头像</span></div>
+    <div class="avatar-row">
+      <div class="avatar avatar-cyan">K</div>
+      <div class="avatar avatar-green">Z</div>
+      <div class="avatar avatar-amber">L</div>
+      <div class="avatar avatar-dim">?</div>
+      <div class="avatar avatar-cyan" style="width:24px;height:24px;font-size:10px;border-radius:3px">K</div>
+      <div class="avatar avatar-green" style="width:24px;height:24px;font-size:10px;border-radius:3px">Z</div>
+    </div>
+  </div>
+
+  <!-- Status -->
+  <div class="section">
+    <div class="section-title">Status <span>状态</span></div>
+    <div class="status-row">
+      <div class="status status-online"><span class="status-dot"></span> online</div>
+      <div class="status status-away"><span class="status-dot"></span> away</div>
+      <div class="status status-offline"><span class="status-dot"></span> offline</div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="section">
+    <div class="section-title">Cards <span>卡片</span></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      <div class="card">
+        <div class="card-title">◉ 竞品分析组</div>
+        <div class="card-desc">产品竞品深度研究</div>
+        <div class="card-meta">12 nodes · 3 members · 2h ago</div>
+      </div>
+      <div class="card">
+        <div class="card-title">○ 技术架构组</div>
+        <div class="card-desc">后端架构决策</div>
+        <div class="card-meta">8 nodes · 2 members · 1d ago</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="section">
+    <div class="section-title">Messages <span>消息气泡</span></div>
+    <div class="msg-demo">
+      <div class="msg-bubble msg-user">帮我看下 A 产品的 API 生态</div>
+      <div class="msg-bubble msg-ai">
+        A 产品公开 API <strong style="color:#bfc7d5">320+</strong>，覆盖：<br>
+        · <strong style="color:#bfc7d5">用户管理</strong> (CRUD + SSO)<br>
+        · <em style="color:#8892a0">数据查询</em> (REST + GraphQL)<br>
+        · Webhook (实时通知)<br>
+        <br>
+        <strong style="font-style:italic;color:#67E8F9">建议归档到「A产品/API对比」节点。</strong>
+      </div>
+      <div class="msg-bubble msg-sys">✓ archived to 竞品概览/API 生态对比 · committed · graph: 13 nodes</div>
+    </div>
+  </div>
+
+  <!-- Code Block -->
+  <div class="section">
+    <div class="section-title">Code Block <span>代码块</span></div>
+    <div class="code-block">
+      <span class="cmt">// graph.json schema</span><br>
+      {<br>
+      &nbsp;&nbsp;<span class="kw">"id"</span>: <span class="str">"01HXYZ..."</span>,<br>
+      &nbsp;&nbsp;<span class="kw">"nodes"</span>: [<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;{<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">"label"</span>: <span class="str">"竞品概览"</span>,<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">"node_type"</span>: <span class="str">"topic"</span>,<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">"tags"</span>: [<span class="str">"竞品"</span>, <span class="str">"Q2"</span>]<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+      &nbsp;&nbsp;],<br>
+      &nbsp;&nbsp;<span class="kw">"edges"</span>: [<span class="num">8</span>]<br>
+      }
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div class="section">
+    <div class="section-title">Toasts <span>通知</span></div>
+    <div class="toast-demo">
+      <div class="toast toast-success">✓ 归档成功 · 竞品概览/API 生态对比</div>
+      <div class="toast toast-error">✗ PR 冲突 · 请 pull 最新后重新提交</div>
+      <div class="toast toast-info">ℹ Session 材料准备完成 · 4 份材料已就绪</div>
+    </div>
+  </div>
+
+  <!-- Scrollbar -->
+  <div class="section">
+    <div class="section-title">Scrollbar <span>滚动条</span></div>
+    <div class="demo-scroll">
+      <div style="color:#3a4550">scroll down ↓</div>
+      <div>节点 1: 竞品概览</div>
+      <div>节点 2: A 产品分析</div>
+      <div>节点 3: B 产品分析</div>
+      <div>节点 4: 市场趋势</div>
+      <div>节点 5: 决策记录</div>
+      <div>节点 6: API 对比</div>
+      <div>节点 7: 定价策略</div>
+      <div>节点 8: 功能对比</div>
+      <div style="color:#3a4550">end</div>
+    </div>
+  </div>
+
+  <!-- Hover Animation -->
+  <div class="section">
+    <div class="section-title">Interaction <span>交互动效</span></div>
+    <div class="anim-demo">
+      <div class="anim-item">hover me</div>
+      <div class="anim-item">hover me</div>
+      <div class="anim-item">hover me</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
