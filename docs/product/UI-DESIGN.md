@@ -1,6 +1,6 @@
 # Ring Frontend UI Design
 
-> **Affects**: `ring-frontend/src/`  
+> **Affects**: `ui/src/`
 > **Depends on**: [PRD.md](PRD.md) · [Redesign Design](../superpowers/specs/2026-04-15-ring-redesign-design.md)  
 > **Prototypes**: `style-previews/` 目录下所有 HTML 文件  
 > **Last updated**: 2026-04-17

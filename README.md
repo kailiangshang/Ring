@@ -56,9 +56,8 @@ AI 在材料准备阶段收集整理材料，让讨论有内容可依。讨论�
 ## 项目结构
 
 ```
-ring-server/     # Rust 后端（待实现）
-ring-frontend/  # React 前端
-public/          # 静态资源（logo.svg 等）
+src/            # Rust 后端（待实现）
+ui/             # React 前端
 docs/           # 设计文档
 ```
 

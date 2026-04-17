@@ -64,7 +64,7 @@ Ring Hub（用户入口）
 
 ```bash
 cargo test                    # Rust 单元 + 集成测试
-cd ring-frontend && npm test  # 前端测试
+cd ui && npm test  # 前端测试
 ```
 
 ## 命名约定
