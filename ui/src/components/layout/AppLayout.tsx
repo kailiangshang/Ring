@@ -6,6 +6,7 @@ import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { useAppStore } from '../../stores/app-store'
 
+
 function SuperRingHeader() {
   return (
     <div
@@ -37,27 +38,6 @@ function SuperRingHeader() {
       >
         Global Assistant
       </span>
-    </div>
-  )
-}
-
-function SuperRingWelcome() {
-  return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 16,
-        color: 'var(--text-muted)',
-      }}
-    >
-      <img src="/logo-pixel.svg" alt="Ring" width="64" height="64" />
-      <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>
-        Select a Ring to start, or chat with Super Ring here.
-      </p>
     </div>
   )
 }

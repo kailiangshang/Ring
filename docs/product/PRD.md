@@ -209,7 +209,7 @@ ring-{name}/
 ├── .ring-local/            # .gitignore 排除，纯本地
 │   └── identity.json       # 当前用户身份（不进 Git）
 ├── blueprint.json
-├── .ring/                  # AI 上下文文档（进 Git）
+├── .group/                 # AI 上下文文档（进 Git）
 ├── graphs/
 ├── nodes/
 └── assets/

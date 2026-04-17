@@ -1,3 +1,4 @@
+import { type ReactElement } from 'react'
 import { usePanelStore } from '../../stores/panel-store'
 import { PanelWrapper } from '../panels/PanelWrapper'
 import { GraphPanel } from '../panels/GraphPanel'
@@ -5,7 +6,7 @@ import { ArchivePanel } from '../panels/ArchivePanel'
 import { ConfigPanel } from '../panels/ConfigPanel'
 import { SessionPanel } from '../panels/SessionPanel'
 
-const PANEL_CONTENT: Record<string, () => JSX.Element> = {
+const PANEL_CONTENT: Record<string, () => ReactElement> = {
   graph: GraphPanel,
   archive: ArchivePanel,
   config: ConfigPanel,

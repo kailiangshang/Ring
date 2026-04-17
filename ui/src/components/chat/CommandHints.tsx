@@ -1,12 +1,12 @@
-import { usePanelStore } from '../../stores/panel-store'
+import { usePanelStore, type PanelType } from '../../stores/panel-store'
 import { useSelfStore } from '../../stores/self-store'
 
-const HINTS = [
-  { label: '!graph', action: 'graph' as const },
-  { label: '!archive', action: 'archive' as const },
-  { label: '!config', action: 'config' as const },
-  { label: '!session', action: 'session' as const },
-  { label: '@self', action: null as string | null },
+const HINTS: { label: string; action: PanelType | null }[] = [
+  { label: '!graph', action: 'graph' },
+  { label: '!archive', action: 'archive' },
+  { label: '!config', action: 'config' },
+  { label: '!session', action: 'session' },
+  { label: '@self', action: null },
 ]
 
 export function CommandHints() {
