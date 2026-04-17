@@ -20,23 +20,13 @@ export function SuperRingEntry() {
         borderBottom: '1px solid var(--border)',
       }}
     >
-      <div
-        style={{
-          width: 28,
-          height: 28,
-          borderRadius: 6,
-          background: 'linear-gradient(135deg, #0891B2, #67E8F9)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 14,
-          fontWeight: 700,
-          color: '#06080c',
-          flexShrink: 0,
-        }}
-      >
-        R
-      </div>
+      <img
+        src="/logo-pixel.svg"
+        alt="Ring"
+        width={28}
+        height={28}
+        style={{ flexShrink: 0, borderRadius: 4, imageRendering: 'pixelated' }}
+      />
       <span
         style={{
           color: isActive ? 'var(--accent-ice)' : 'var(--text-primary)',
