@@ -5,7 +5,9 @@ interface StepProps {
 export function StepWelcome({ onNext }: StepProps) {
   return (
     <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>&#x1F48E;</div>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>
+        <img src="/logo-pixel.svg" alt="Ring" width="48" height="48" />
+      </div>
       <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 8 }}>
         Welcome to Ring
       </h1>
