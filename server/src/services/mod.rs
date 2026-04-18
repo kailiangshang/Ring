@@ -1,5 +1,6 @@
 pub mod chat;
 pub mod config;
+pub mod git_service;
 pub mod graph;
 pub mod llm;
 pub mod member;
