@@ -6,6 +6,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::state::AppState;
 
+mod archive;
 mod chat;
 mod config;
 mod graph;
@@ -120,6 +121,19 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/sessions/{session_id}/material-prep/highlights",
             post(session::highlight_material_handler),
         )
+        .route("/rings/{ring_id}/archive", post(archive::trigger_archive))
+        .route("/rings/{ring_id}/archives", get(archive::list_archives))
+        .route(
+            "/rings/{ring_id}/archives/{archive_id}",
+            get(archive::get_archive),
+        )
+        .route(
+            "/rings/{ring_id}/archives/{archive_id}/review",
+            post(archive::review_archive),
+        )
+        .route("/rings/{ring_id}/archive-queue", get(archive::archive_queue))
+        .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
+        .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
