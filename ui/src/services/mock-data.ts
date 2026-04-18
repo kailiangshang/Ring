@@ -77,13 +77,15 @@ export const MOCK_MESSAGES: ChatMessage[] = [
 
 export const MOCK_SESSION: Session = {
   id: '01JTYSESS',
+  ring_id: '01JTYRING1',
   title: '竞品 A 深度讨论',
   description: '讨论竞品 A 的最新功能更新',
   skill: 'decision',
   phase: 'discussion',
   owner: 'user-001',
-  participants: ['user-001', 'user-002', 'user-003'],
   archivable: true,
   archive_enabled: true,
+  summary: null,
   created_at: '2026-04-17T08:00:00Z',
+  updated_at: '2026-04-17T08:00:00Z',
 }
