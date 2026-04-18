@@ -14,6 +14,7 @@ mod health;
 mod members;
 mod mode;
 mod rings;
+mod session;
 mod setup;
 
 pub fn build_router(state: AppState) -> Router {
@@ -68,6 +69,38 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/rings/{ring_id}/graph/edges/{edge_id}",
             delete(graph::delete_edge),
+        )
+        .route(
+            "/rings/{ring_id}/sessions",
+            get(session::list_sessions).post(session::create_session),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}",
+            get(session::get_session).delete(session::delete_session),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/close",
+            post(session::close_session),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/reopen",
+            post(session::reopen_session),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/participants",
+            post(session::invite_participants),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/participants/{target_id}",
+            delete(session::remove_participant),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/archive-toggle",
+            put(session::archive_toggle),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/messages",
+            get(session::get_messages),
         )
         .with_state(state);
 
