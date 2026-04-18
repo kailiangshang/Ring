@@ -7,6 +7,8 @@ use crate::models::ring;
 use crate::models::session::{
     self, CreateSessionInput, InviteParticipantsInput, SessionParticipantRow, SessionRow,
 };
+use crate::models::user;
+use crate::services::llm::{LlmClient, SseEvent};
 use crate::state::AppState;
 
 const VALID_SKILLS: &[&str] = &[
@@ -267,4 +269,89 @@ pub async fn get_messages(
         return Err(RingError::Forbidden("not a session participant".into()));
     }
     session::get_messages(&state.db, session_id, after_seq, limit).await
+}
+
+pub async fn start_session(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+) -> Result<SessionResponse> {
+    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    if !session::is_owner(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden(
+            "only owner can start session".into(),
+        ));
+    }
+    let sess = session::get_session(&state.db, session_id).await?;
+    if sess.phase != "material_prep" {
+        return Err(RingError::BadRequest(
+            "session is not in material_prep phase".into(),
+        ));
+    }
+    let sess = session::update_phase(&state.db, session_id, "discussion").await?;
+    let participants = session::get_participants(&state.db, session_id).await?;
+    Ok(SessionResponse {
+        session: sess,
+        participants,
+    })
+}
+
+pub async fn get_materials_service(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+) -> Result<Vec<session::SessionMaterialRow>> {
+    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    if !session::is_participant(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden("not a session participant".into()));
+    }
+    session::get_materials(&state.db, session_id).await
+}
+
+pub async fn highlight_material(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+    material_id: &str,
+    note: &str,
+) -> Result<session::SessionMaterialRow> {
+    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    if !session::is_owner(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden(
+            "only owner can highlight materials".into(),
+        ));
+    }
+    session::update_material_highlight(&state.db, material_id, note).await
+}
+
+pub struct SummarizeContext {
+    pub session_id: String,
+    pub skill: String,
+    pub messages_text: String,
+}
+
+pub fn start_summarize_stream(
+    _state: &AppState,
+    user_row: &user::UserRow,
+    ctx: SummarizeContext,
+) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
+    let system_prompt = crate::services::skill::build_summary_system_prompt(&ctx.skill)
+        .unwrap_or_else(|| "Summarize the following discussion.".to_string());
+
+    let user_message = format!(
+        "Here is the discussion transcript:\n\n{}\n\nPlease generate the summary.",
+        ctx.messages_text
+    );
+
+    let llm = LlmClient::from_user(user_row)?;
+    let rx = llm.chat_stream(
+        system_prompt,
+        vec![],
+        user_message,
+        "session_ring".to_string(),
+    );
+    Ok(rx)
 }
