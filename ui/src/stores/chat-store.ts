@@ -5,6 +5,8 @@ import { streamChat } from '../services/sse'
 import { usePanelStore } from './panel-store'
 import { useSelfStore } from './self-store'
 import { useModeStore } from './mode-store'
+import { useArchiveStore } from './archive-store'
+import { useSessionStore } from './session-store'
 import { useRingStore } from './ring-store'
 import { useAppStore } from './app-store'
 import { useGraphStore } from './graph-store'
@@ -55,7 +57,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
         switch (cmd.type) {
           case 'action': {
             if (cmd.action === 'graph') usePanelStore.getState().toggle('graph')
-            else if (cmd.action === 'archive') usePanelStore.getState().toggle('archive')
+            else if (cmd.action === 'archive') {
+              const sub = cmd.args?.split(/\s+/)[0]
+              if (sub === 'list' || sub === 'queue') {
+                usePanelStore.getState().toggle('archive')
+              } else if (sub === 'review') {
+                const parts = cmd.args?.split(/\s+/)
+                const reviewId = parts?.[1]
+                const reviewAction = parts?.[2] as 'merge' | 'reject' | undefined
+                const rid = useRingStore.getState().active_ring_id
+                if (reviewId && reviewAction && rid) {
+                  useArchiveStore.getState().reviewArchive(rid, reviewId, reviewAction)
+                  addMessage({
+                    id: `sys-${Date.now()}`,
+                    role: 'system',
+                    sender_name: 'SYSTEM',
+                    content: `MR ${reviewId} ${reviewAction === 'merge' ? 'merged' : 'rejected'}`,
+                    created_at: new Date().toISOString(),
+                  })
+                }
+              } else {
+                usePanelStore.getState().toggle('archive')
+              }
+            }
             else if (cmd.action === 'config') usePanelStore.getState().toggle('config')
             else if (cmd.action === 'session') usePanelStore.getState().toggle('session')
             else if (cmd.action === 'auto') useModeStore.getState().toggleAuto()
@@ -66,13 +90,22 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
             }
             else if (cmd.action === 'save') {
-              addMessage({
-                id: `sys-${Date.now()}`,
-                role: 'system',
-                sender_name: 'SYSTEM',
-                content: '归档功能将在后续版本实现',
-                created_at: new Date().toISOString(),
-              })
+              const rid = useRingStore.getState().active_ring_id
+              const sid = useSessionStore.getState().active_session?.id
+              const msgs = get().messages.filter((m) => m.role === 'user' || m.role === 'group_ring')
+              const lastUserMsg = [...msgs].reverse().find((m) => m.role === 'user')
+              const title = cmd.args || lastUserMsg?.content.slice(0, 40) || 'untitled'
+              const content = msgs.slice(-6).map((m) => `${m.sender_name}: ${m.content}`).join('\n')
+              if (rid) {
+                useArchiveStore.getState().triggerArchive(rid, content, title, sid)
+                addMessage({
+                  id: `sys-${Date.now()}`,
+                  role: 'system',
+                  sender_name: 'SYSTEM',
+                  content: `Archiving: ${title}`,
+                  created_at: new Date().toISOString(),
+                })
+              }
             }
             else if (cmd.action === 'node') {
               const name = cmd.args
