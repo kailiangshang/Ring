@@ -5,4 +5,5 @@ pub mod llm;
 pub mod member;
 pub mod mode;
 pub mod ring;
+pub mod session;
 pub mod setup;
