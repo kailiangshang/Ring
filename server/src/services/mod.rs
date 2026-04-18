@@ -11,3 +11,4 @@ pub mod ring;
 pub mod session;
 pub mod setup;
 pub mod skill;
+pub mod super_chat;
