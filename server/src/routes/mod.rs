@@ -104,6 +104,22 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/sessions/{session_id}/messages",
             get(session::get_messages),
         )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/start",
+            post(session::start_session_handler),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/summarize",
+            post(session::summarize_session),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/material-prep",
+            get(session::get_material_prep),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/material-prep/highlights",
+            post(session::highlight_material_handler),
+        )
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
