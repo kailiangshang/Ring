@@ -234,3 +234,185 @@ async fn create_ring(app: &axum::Router, token: &str) -> String {
     let json = read_body(resp).await;
     json["id"].as_str().unwrap().to_string()
 }
+
+#[tokio::test]
+async fn test_session_crud() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let session_body = r#"{"title":"Test Session","skill":"discussion","archivable":true}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions"),
+            Some(session_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let json = read_body(resp).await;
+    let session_id = json["id"].as_str().unwrap();
+    assert_eq!(json["phase"], "discussion");
+    assert_eq!(json["owner"], token);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/sessions"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["sessions"].as_array().unwrap().len(), 1);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["title"], "Test Session");
+    assert_eq!(json["participants"].as_array().unwrap().len(), 1);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/close"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["phase"], "closed");
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/reopen"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["phase"], "discussion");
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/close"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "DELETE",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["status"], "deleted");
+}
+
+#[tokio::test]
+async fn test_session_single_active() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let session_body = r#"{"title":"First Session"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions"),
+            Some(session_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+
+    let session_body2 = r#"{"title":"Second Session"}"#;
+    let resp = app
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions"),
+            Some(session_body2),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn test_session_archive_toggle() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let session_body = r#"{"title":"Archive Session","skill":"discussion","archivable":true}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions"),
+            Some(session_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let json = read_body(resp).await;
+    let session_id = json["id"].as_str().unwrap();
+
+    let archive_body = r#"{"enabled":true}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/archive-toggle"),
+            Some(archive_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["archive_enabled"], true);
+}
