@@ -72,6 +72,11 @@ struct QueryRingDetailArgs {
     ring_name: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct UpdatePreferencesArgs {
+    content: String,
+}
+
 pub fn get_super_tools() -> Vec<ChatCompletionTool> {
     vec![
         ChatCompletionTool {
@@ -110,6 +115,45 @@ pub fn get_super_tools() -> Vec<ChatCompletionTool> {
                             }
                         },
                         "required": ["ring_name"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
+        ChatCompletionTool {
+            r#type: ChatCompletionToolType::Function,
+            function: FunctionObject {
+                name: "query_user_preferences".to_string(),
+                description: Some(
+                    "读取用户的全局偏好设置，包括语言、默认 LLM、输出格式、默认模式等。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {},
+                        "required": []
+                    }),
+                ),
+                strict: None,
+            },
+        },
+        ChatCompletionTool {
+            r#type: ChatCompletionToolType::Function,
+            function: FunctionObject {
+                name: "update_user_preferences".to_string(),
+                description: Some(
+                    "更新用户的全局偏好设置。接收完整的 Markdown 内容覆盖写入户好文件。修改前应先用 query_user_preferences 读取当前内容。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "content": {
+                                "type": "string",
+                                "description": "完整的偏好设置 Markdown 内容"
+                            }
+                        },
+                        "required": ["content"]
                     }),
                 ),
                 strict: None,
@@ -168,6 +212,7 @@ pub async fn build_ring_summary(pool: &sqlx::SqlitePool, user_id: &str) -> Strin
 pub async fn execute_tool(
     pool: &sqlx::SqlitePool,
     rings_dir: &Path,
+    hub_dir: &Path,
     user_id: &str,
     tool_name: &str,
     arguments: &str,
@@ -179,8 +224,23 @@ pub async fn execute_tool(
                 .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
             execute_query_ring_detail(pool, rings_dir, user_id, &args.ring_name).await
         }
+        "query_user_preferences" => execute_query_user_preferences(hub_dir),
+        "update_user_preferences" => {
+            let args: UpdatePreferencesArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            execute_update_user_preferences(hub_dir, &args.content)
+        }
         _ => Err(RingError::BadRequest(format!("unknown tool: {tool_name}"))),
     }
+}
+
+fn execute_query_user_preferences(hub_dir: &Path) -> Result<String> {
+    Ok(get_user_preferences(hub_dir))
+}
+
+fn execute_update_user_preferences(hub_dir: &Path, content: &str) -> Result<String> {
+    update_user_preferences(hub_dir, content)?;
+    Ok("偏好设置已更新。".to_string())
 }
 
 async fn execute_query_rings(pool: &sqlx::SqlitePool, user_id: &str) -> Result<String> {
@@ -339,6 +399,7 @@ pub async fn start_super_chat(
                 let tool_result = execute_tool(
                     &state.db,
                     &state.rings_dir,
+                    &state.hub_dir,
                     &user.token_id,
                     &tc.function.name,
                     args,
