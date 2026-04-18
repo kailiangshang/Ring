@@ -357,3 +357,69 @@ pub async fn insert_message(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))
 }
+
+pub async fn get_materials(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+) -> Result<Vec<SessionMaterialRow>> {
+    let rows = sqlx::query_as::<_, SessionMaterialRow>(
+        "SELECT * FROM session_materials WHERE session_id = ?1 ORDER BY created_at",
+    )
+    .bind(session_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows)
+}
+
+pub async fn create_material(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+    session_id: &str,
+    item_type: &str,
+    title: &str,
+    content: &str,
+) -> Result<SessionMaterialRow> {
+    sqlx::query_as::<_, SessionMaterialRow>(
+        "INSERT INTO session_materials (id, session_id, item_type, title, content, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, 'collecting')
+         RETURNING *",
+    )
+    .bind(id)
+    .bind(session_id)
+    .bind(item_type)
+    .bind(title)
+    .bind(content)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| RingError::Internal(e.to_string()))
+}
+
+pub async fn update_material_highlight(
+    pool: &sqlx::SqlitePool,
+    material_id: &str,
+    highlight: &str,
+) -> Result<SessionMaterialRow> {
+    sqlx::query_as::<_, SessionMaterialRow>(
+        "UPDATE session_materials SET highlight = ?1 WHERE id = ?2 RETURNING *",
+    )
+    .bind(highlight)
+    .bind(material_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| RingError::NotFound(format!("material {material_id} not found")))
+}
+
+pub async fn set_summary(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    summary: &str,
+) -> Result<SessionRow> {
+    sqlx::query_as::<_, SessionRow>(
+        "UPDATE sessions SET summary = ?1, updated_at = datetime('now') WHERE id = ?2 RETURNING *",
+    )
+    .bind(summary)
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| RingError::NotFound(format!("session {session_id} not found")))
+}
