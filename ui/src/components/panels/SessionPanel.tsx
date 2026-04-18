@@ -4,7 +4,6 @@ import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill } from '../../types/session'
-
 const SKILLS: { value: SessionSkill; label: string }[] = [
   { value: 'discussion', label: 'Discussion' },
   { value: 'decision', label: 'Decision' },
@@ -134,6 +133,246 @@ function CreateSessionForm() {
       >
         CREATE
       </button>
+    </div>
+  )
+}
+
+function MaterialPrepView() {
+  const session = useSessionStore((s) => s.active_session)
+  const materials = useSessionStore((s) => s.materials)
+  const fetchMaterials = useSessionStore((s) => s.fetchMaterials)
+  const highlightMaterial = useSessionStore((s) => s.highlightMaterial)
+  const startSession = useSessionStore((s) => s.startSession)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
+
+  useEffect(() => {
+    if (session && active_ring_id) {
+      fetchMaterials(active_ring_id, session.id)
+    }
+  }, [session, active_ring_id, fetchMaterials])
+
+  if (!session) return null
+
+  const handleStart = async () => {
+    if (!active_ring_id) return
+    await startSession(active_ring_id, session.id)
+  }
+
+  const handleHighlight = async (material_id: string) => {
+    if (!active_ring_id) return
+    const note = prompt('Highlight note:')
+    if (note) {
+      await highlightMaterial(active_ring_id, session.id, material_id, note)
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+          {session.title}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
+          <span>Skill: {session.skill}</span>
+          <span style={{ color: 'var(--accent-cyan)' }}>Phase: material_prep</span>
+        </div>
+      </div>
+
+      <ScrollContainer>
+        {materials.length === 0 ? (
+          <div style={{ padding: '16px 0', color: 'var(--text-dim)', fontSize: 11, textAlign: 'center' }}>
+            No materials yet
+          </div>
+        ) : (
+          materials.map((mat) => (
+            <div
+              key={mat.id}
+              style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
+                  {mat.title}
+                </span>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      padding: '1px 6px',
+                      borderRadius: 2,
+                      background: mat.status === 'ready' ? 'var(--accent-green)' : mat.status === 'analyzing' ? 'var(--accent-amber)' : 'var(--bg-hover)',
+                      color: mat.status === 'ready' ? 'var(--bg-base)' : 'var(--text-dim)',
+                    }}
+                  >
+                    {mat.status}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 9,
+                      padding: '1px 4px',
+                      borderRadius: 2,
+                      background: 'var(--bg-hover)',
+                      color: 'var(--text-dim)',
+                    }}
+                  >
+                    {mat.item_type}
+                  </span>
+                  <button
+                    onClick={() => handleHighlight(mat.id)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: mat.highlight ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      padding: '0 2px',
+                    }}
+                  >
+                    ★
+                  </button>
+                </div>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                {mat.content}
+              </div>
+              {mat.highlight && (
+                <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4, fontStyle: 'italic' }}>
+                  ★ {mat.highlight}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </ScrollContainer>
+
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+        <button
+          onClick={handleStart}
+          style={{
+            background: 'var(--accent-cyan)',
+            color: 'var(--bg-base)',
+            border: 'none',
+            borderRadius: 4,
+            padding: '8px 16px',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            width: '100%',
+            letterSpacing: '0.05em',
+          }}
+        >
+          START DISCUSSION
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SummarizeView() {
+  const session = useSessionStore((s) => s.active_session)
+  const fetchActiveSession = useSessionStore((s) => s.fetchActiveSession)
+  const [summary, setSummary] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!session) return
+
+    const token = localStorage.getItem('ring_token')
+    const ring_id = useRingStore.getState().active_ring_id
+    if (!ring_id) return
+
+    const url = `/api/rings/${ring_id}/sessions/${session.id}/summarize`
+
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'X-Ring-Token': token } : {}),
+      },
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          setError(err?.error?.message ?? 'Summarize failed')
+          return
+        }
+        const reader = res.body?.getReader()
+        if (!reader) { setError('No response body'); return }
+
+        const decoder = new TextDecoder()
+        let buffer = ''
+
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() ?? ''
+
+          let currentEvent = ''
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.slice(7).trim()
+            } else if (line.startsWith('data: ')) {
+              const data = line.slice(6)
+              try {
+                const parsed = JSON.parse(data)
+                if (currentEvent === 'delta' && parsed.content) {
+                  setSummary((prev) => prev + parsed.content)
+                }
+                if (currentEvent === 'error') {
+                  setError(parsed.error ?? 'Unknown error')
+                }
+                if (currentEvent === 'message_end') {
+                  fetchActiveSession(ring_id)
+                }
+              } catch {
+                // skip
+              }
+              currentEvent = ''
+            }
+          }
+        }
+      })
+      .catch((e) => setError(e.message))
+  }, [session, fetchActiveSession])
+
+  if (!session) return null
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+          {session.title}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
+          Generating summary...
+        </div>
+      </div>
+
+      <ScrollContainer>
+        {error ? (
+          <div style={{ padding: 16, color: 'var(--accent-amber)', fontSize: 12 }}>
+            Error: {error}
+          </div>
+        ) : (
+          <div style={{ color: 'var(--text-primary)', fontSize: 11, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+            {summary || (
+              <span style={{ color: 'var(--text-dim)' }}>Waiting for AI response...</span>
+            )}
+            {summary && !error && (
+              <span style={{
+                display: 'inline-block',
+                width: 6,
+                height: 14,
+                background: 'var(--accent-cyan)',
+                marginLeft: 2,
+                verticalAlign: 'middle',
+                animation: 'blink 1s step-end infinite',
+              }} />
+            )}
+          </div>
+        )}
+      </ScrollContainer>
     </div>
   )
 }
@@ -280,20 +519,42 @@ function SessionChat() {
 
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {is_discussion && (
-            <button
-              onClick={handleClose}
-              style={{
-                background: 'var(--bg-hover)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                padding: '3px 8px',
-                fontSize: 10,
-                color: 'var(--accent-amber)',
-                cursor: 'pointer',
-              }}
-            >
-              Close
-            </button>
+            <>
+              <button
+                onClick={handleClose}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  color: 'var(--accent-amber)',
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+              {session.skill !== 'discussion' && (
+                <button
+                  onClick={() => {
+                    useSessionStore.setState((s) => ({
+                      active_session: s.active_session ? { ...s.active_session, phase: 'summary' as const } : null,
+                    }))
+                  }}
+                  style={{
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 3,
+                    padding: '3px 8px',
+                    fontSize: 10,
+                    color: 'var(--accent-cyan)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Summarize
+                </button>
+              )}
+            </>
           )}
           {is_closed && (
             <>
@@ -397,6 +658,8 @@ export function SessionPanel() {
   }
 
   if (active_session) {
+    if (active_session.phase === 'material_prep') return <MaterialPrepView />
+    if (active_session.phase === 'summary') return <SummarizeView />
     return <SessionChat />
   }
 
