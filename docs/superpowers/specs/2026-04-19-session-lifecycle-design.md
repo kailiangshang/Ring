@@ -148,7 +148,7 @@ All endpoints follow existing pattern: route → service → model.
 **Create Session:**
 ```json
 // POST /api/rings/{ring_id}/sessions
-// Request:
+// Request (skill=decision → phase starts at "material_prep"):
 {
   "title": "竞品 A 深度讨论",
   "description": "讨论竞品 A 的最新功能更新",
