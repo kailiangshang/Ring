@@ -32,7 +32,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/setup", post(setup::submit_setup).put(setup::update_setup))
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
         .route("/rings/{ring_id}", get(rings::get_ring))
-        .route("/rings/{ring_id}/members", get(members::list_members))
+        .route(
+            "/rings/{ring_id}/members",
+            get(members::list_members).post(members::add_member),
+        )
         .route(
             "/rings/{ring_id}/members/{target_id}/role",
             put(members::update_role),

@@ -40,3 +40,19 @@ pub async fn remove_member(
     member::remove_member(&state, &ring_id, &user.token_id, &target_id).await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
+
+#[derive(Deserialize)]
+pub struct AddMemberRequest {
+    pub user_id: String,
+}
+
+pub async fn add_member(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Json(body): Json<AddMemberRequest>,
+) -> Result<Json<Value>> {
+    let result =
+        member::add_member_service(&state, &ring_id, &user.token_id, &body.user_id).await?;
+    Ok(Json(serde_json::to_value(result).unwrap()))
+}
