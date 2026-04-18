@@ -147,6 +147,10 @@ pub fn build_router(state: AppState) -> Router {
             "/super/system-prompt",
             get(super_chat::get_system_prompt).put(super_chat::update_system_prompt),
         )
+        .route(
+            "/super/preferences",
+            get(super_chat::get_preferences).put(super_chat::update_preferences),
+        )
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

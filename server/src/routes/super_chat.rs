@@ -48,6 +48,17 @@ pub struct SystemPromptResponse {
     pub is_custom: bool,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct PreferencesResponse {
+    pub content: String,
+    pub is_custom: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PreferencesRequest {
+    pub content: String,
+}
+
 pub async fn super_chat_handler(
     State(state): State<AppState>,
     user: AuthUser,
@@ -187,4 +198,22 @@ pub async fn update_system_prompt(
     super_chat::update_system_prompt(&state.hub_dir, &body.prompt)?;
     let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir);
     Ok(Json(SystemPromptResponse { prompt, is_custom }))
+}
+
+pub async fn get_preferences(
+    State(state): State<AppState>,
+    _user: AuthUser,
+) -> Result<Json<PreferencesResponse>> {
+    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir);
+    Ok(Json(PreferencesResponse { content, is_custom }))
+}
+
+pub async fn update_preferences(
+    State(state): State<AppState>,
+    _user: AuthUser,
+    Json(body): Json<PreferencesRequest>,
+) -> Result<Json<PreferencesResponse>> {
+    super_chat::update_user_preferences(&state.hub_dir, &body.content)?;
+    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir);
+    Ok(Json(PreferencesResponse { content, is_custom }))
 }
