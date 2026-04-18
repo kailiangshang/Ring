@@ -1,15 +1,413 @@
-import { MOCK_SESSION } from '../../services/mock-data'
+import { useEffect, useState } from 'react'
+import { useSessionStore } from '../../stores/session-store'
+import { useRingStore } from '../../stores/ring-store'
+import { useWsStore } from '../../stores/ws-store'
+import { ScrollContainer } from '../common/ScrollContainer'
+import type { SessionSkill } from '../../types/session'
+
+const SKILLS: { value: SessionSkill; label: string }[] = [
+  { value: 'discussion', label: 'Discussion' },
+  { value: 'decision', label: 'Decision' },
+  { value: 'research', label: 'Research' },
+  { value: 'review', label: 'Review' },
+  { value: 'retrospective', label: 'Retrospective' },
+  { value: 'knowledge_sharing', label: 'Knowledge Sharing' },
+]
+
+function CreateSessionForm() {
+  const createSession = useSessionStore((s) => s.createSession)
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [skill, setSkill] = useState<SessionSkill>('discussion')
+  const [archivable, setArchivable] = useState(false)
+
+  const handleCreate = async () => {
+    if (!title.trim()) return
+    await createSession({
+      title: title.trim(),
+      description: description.trim() || undefined,
+      skill,
+      archivable: archivable || undefined,
+    })
+    setTitle('')
+    setDescription('')
+    setSkill('discussion')
+    setArchivable(false)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', letterSpacing: '0.05em' }}>
+        New Session
+      </div>
+
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && title.trim()) handleCreate()
+        }}
+        placeholder="Session title..."
+        style={{
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+          padding: '8px 10px',
+          color: 'var(--text-primary)',
+          fontSize: 12,
+          fontFamily: 'inherit',
+          outline: 'none',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+
+      <textarea
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Description (optional)..."
+        rows={2}
+        style={{
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border)',
+          borderRadius: 4,
+          padding: '8px 10px',
+          color: 'var(--text-primary)',
+          fontSize: 11,
+          fontFamily: 'inherit',
+          outline: 'none',
+          resize: 'vertical',
+          width: '100%',
+          boxSizing: 'border-box',
+        }}
+      />
+
+      <div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, letterSpacing: '0.05em' }}>
+          Skill
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {SKILLS.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setSkill(s.value)}
+              style={{
+                background: skill === s.value ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                color: skill === s.value ? 'var(--bg-base)' : 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '3px 8px',
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-secondary)', cursor: 'pointer' }}>
+        <input
+          type="checkbox"
+          checked={archivable}
+          onChange={(e) => setArchivable(e.target.checked)}
+          style={{ accentColor: 'var(--accent-cyan)' }}
+        />
+        Archive enabled
+      </label>
+
+      <button
+        onClick={handleCreate}
+        disabled={!title.trim()}
+        style={{
+          background: title.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+          color: title.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+          border: 'none',
+          borderRadius: 4,
+          padding: '8px 16px',
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: title.trim() ? 'pointer' : 'default',
+          letterSpacing: '0.05em',
+        }}
+      >
+        CREATE
+      </button>
+    </div>
+  )
+}
+
+function SessionChat() {
+  const session = useSessionStore((s) => s.active_session)
+  const participants = useSessionStore((s) => s.participants)
+  const messages = useSessionStore((s) => s.messages)
+  const sendMessage = useSessionStore((s) => s.sendMessage)
+  const closeSession = useSessionStore((s) => s.closeSession)
+  const reopenSession = useSessionStore((s) => s.reopenSession)
+  const deleteSession = useSessionStore((s) => s.deleteSession)
+  const toggleArchive = useSessionStore((s) => s.toggleArchive)
+  const clearActive = useSessionStore((s) => s.clearActive)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
+  const connected = useWsStore((s) => s.connected)
+
+  const [input, setInput] = useState('')
+
+  if (!session) return null
+
+  const is_closed = session.phase === 'closed'
+  const is_discussion = session.phase === 'discussion'
+  const can_send = is_discussion && connected && !is_closed
+
+  const handleSend = () => {
+    if (!input.trim()) return
+    sendMessage(session.id, input.trim())
+    setInput('')
+  }
+
+  const handleClose = async () => {
+    if (!active_ring_id) return
+    await closeSession(active_ring_id, session.id)
+  }
+
+  const handleReopen = async () => {
+    if (!active_ring_id) return
+    await reopenSession(active_ring_id, session.id)
+  }
+
+  const handleDelete = async () => {
+    if (!active_ring_id) return
+    await deleteSession(active_ring_id, session.id)
+  }
+
+  const handleArchive = async () => {
+    if (!active_ring_id) return
+    await toggleArchive(active_ring_id, session.id, !session.archive_enabled)
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+          {session.title}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <span>Skill: {session.skill}</span>
+          <span style={{ color: is_closed ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
+            Phase: {session.phase}
+          </span>
+          <span>{participants.length} participants</span>
+          {!connected && <span style={{ color: 'var(--accent-amber)' }}>disconnected</span>}
+        </div>
+      </div>
+
+      <ScrollContainer>
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            style={{ padding: '6px 0', borderBottom: '1px solid var(--border)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: msg.sender === session.owner ? 'var(--accent-ice)' : 'var(--accent-cyan)',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                {msg.sender_name.toUpperCase()}
+              </span>
+              <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
+                {new Date(msg.created_at).toLocaleTimeString()}
+              </span>
+            </div>
+            <div style={{ color: 'var(--text-primary)', fontSize: 11, whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+        {messages.length === 0 && (
+          <div style={{ padding: '16px 0', color: 'var(--text-dim)', fontSize: 11, textAlign: 'center' }}>
+            No messages yet
+          </div>
+        )}
+      </ScrollContainer>
+
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+        {can_send && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
+              placeholder="message..."
+              style={{
+                flex: 1,
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '6px 10px',
+                color: 'var(--text-primary)',
+                fontSize: 11,
+                fontFamily: 'inherit',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleSend}
+              disabled={!input.trim()}
+              style={{
+                background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '6px 12px',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: input.trim() ? 'pointer' : 'default',
+              }}
+            >
+              SEND
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {is_discussion && (
+            <button
+              onClick={handleClose}
+              style={{
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '3px 8px',
+                fontSize: 10,
+                color: 'var(--accent-amber)',
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          )}
+          {is_closed && (
+            <>
+              <button
+                onClick={handleReopen}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  color: 'var(--accent-green)',
+                  cursor: 'pointer',
+                }}
+              >
+                Reopen
+              </button>
+              <button
+                onClick={handleDelete}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  color: 'var(--accent-amber)',
+                  cursor: 'pointer',
+                }}
+              >
+                Delete
+              </button>
+            </>
+          )}
+          {session.archivable && (
+            <button
+              onClick={handleArchive}
+              style={{
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '3px 8px',
+                fontSize: 10,
+                color: session.archive_enabled ? 'var(--accent-cyan)' : 'var(--text-dim)',
+                cursor: 'pointer',
+              }}
+            >
+              {session.archive_enabled ? 'Archive: ON' : 'Archive: OFF'}
+            </button>
+          )}
+          <button
+            onClick={clearActive}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              fontSize: 10,
+              marginLeft: 'auto',
+            }}
+          >
+            Back to list
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export function SessionPanel() {
+  const active_session = useSessionStore((s) => s.active_session)
+  const loading = useSessionStore((s) => s.loading)
+  const fetchActiveSession = useSessionStore((s) => s.fetchActiveSession)
+  const handleWsMessage = useSessionStore((s) => s.handleWsMessage)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
+  const connected = useWsStore((s) => s.connected)
+  const wsConnect = useWsStore((s) => s.connect)
+  const addHandler = useWsStore((s) => s.addHandler)
+  const removeHandler = useWsStore((s) => s.removeHandler)
+
+  useEffect(() => {
+    wsConnect()
+  }, [wsConnect])
+
+  useEffect(() => {
+    addHandler(handleWsMessage)
+    return () => removeHandler(handleWsMessage)
+  }, [addHandler, removeHandler, handleWsMessage])
+
+  useEffect(() => {
+    if (active_ring_id && !active_session) {
+      fetchActiveSession(active_ring_id)
+    }
+  }, [active_ring_id, active_session, fetchActiveSession])
+
+  if (loading) {
+    return (
+      <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 12 }}>
+        Loading session...
+      </div>
+    )
+  }
+
+  if (active_session) {
+    return <SessionChat />
+  }
+
   return (
-    <div style={{ fontSize: 12 }}>
-      <p style={{ color: 'var(--accent-ice)', fontWeight: 700, marginBottom: 8 }}>
-        {MOCK_SESSION.title}
-      </p>
-      <p style={{ color: 'var(--text-muted)', marginBottom: 4 }}>
-        Skill: {MOCK_SESSION.skill} &middot; Phase: {MOCK_SESSION.phase}
-      </p>
-      <p style={{ color: 'var(--text-secondary)' }}>{MOCK_SESSION.description}</p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <CreateSessionForm />
+      {!connected && (
+        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--accent-amber)' }}>
+          WebSocket disconnected — messages may be delayed
+        </div>
+      )}
     </div>
   )
 }
