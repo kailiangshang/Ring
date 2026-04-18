@@ -498,3 +498,67 @@ async fn test_archive_queue_empty() {
     let json = read_body(resp).await;
     assert_eq!(json["queue"].as_array().unwrap().len(), 0);
 }
+
+#[tokio::test]
+async fn test_close_session_triggers_auto_archive_check() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/mode"),
+            Some(r#"{"interaction_mode":"auto"}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let session_body =
+        r#"{"title":"Auto Archive Test","skill":"discussion","archivable":true}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions"),
+            Some(session_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CREATED);
+    let json = read_body(resp).await;
+    let session_id = json["id"].as_str().unwrap();
+
+    let archive_body = r#"{"enabled":true}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/archive-toggle"),
+            Some(archive_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/sessions/{session_id}/close"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["phase"], "closed");
+}
