@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { api } from '../services/api'
 import { useWsStore } from './ws-store'
 import { useRingStore } from './ring-store'
-import type { Session, SessionParticipant, SessionMessage, CreateSessionInput } from '../types/session'
+import type { Session, SessionParticipant, SessionMessage, CreateSessionInput, SessionMaterial } from '../types/session'
 
 interface FlatSessionResponse {
   id: string
@@ -41,6 +41,7 @@ interface SessionState {
   active_session: Session | null
   participants: SessionParticipant[]
   messages: SessionMessage[]
+  materials: SessionMaterial[]
   loading: boolean
   list: Session[]
   createSession: (input: CreateSessionInput) => Promise<Session | null>
@@ -52,6 +53,9 @@ interface SessionState {
   inviteParticipants: (ring_id: string, session_id: string, token_ids: string[]) => Promise<void>
   removeParticipant: (ring_id: string, session_id: string, token_id: string) => Promise<void>
   toggleArchive: (ring_id: string, session_id: string, enabled: boolean) => Promise<void>
+  startSession: (ring_id: string, session_id: string) => Promise<void>
+  fetchMaterials: (ring_id: string, session_id: string) => Promise<void>
+  highlightMaterial: (ring_id: string, session_id: string, material_id: string, note: string) => Promise<void>
   sendMessage: (session_id: string, content: string) => void
   handleWsMessage: (data: unknown) => void
   fetchMessages: (ring_id: string, session_id: string) => Promise<void>
@@ -62,6 +66,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   active_session: null,
   participants: [],
   messages: [],
+  materials: [],
   loading: false,
   list: [],
 
@@ -240,5 +245,36 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  clearActive: () => set({ active_session: null, participants: [], messages: [] }),
+  startSession: async (ring_id, session_id) => {
+    try {
+      const res = await api.post<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/start`, {})
+      set({ active_session: toSession(res) })
+    } catch {
+      // keep state
+    }
+  },
+
+  fetchMaterials: async (ring_id, session_id) => {
+    try {
+      const res = await api.get<{ materials: SessionMaterial[] }>(`/rings/${ring_id}/sessions/${session_id}/material-prep`)
+      set({ materials: res.materials ?? [] })
+    } catch {
+      // keep existing
+    }
+  },
+
+  highlightMaterial: async (ring_id, session_id, material_id, note) => {
+    try {
+      await api.post(`/rings/${ring_id}/sessions/${session_id}/material-prep/highlights`, { material_id, note })
+      set((s) => ({
+        materials: s.materials.map((m) =>
+          m.id === material_id ? { ...m, highlight: note } : m
+        ),
+      }))
+    } catch {
+      // keep state
+    }
+  },
+
+  clearActive: () => set({ active_session: null, participants: [], messages: [], materials: [] }),
 }))

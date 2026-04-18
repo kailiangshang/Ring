@@ -46,3 +46,14 @@ export interface SessionDetail {
   session: Session
   participants: SessionParticipant[]
 }
+
+export interface SessionMaterial {
+  id: string
+  session_id: string
+  item_type: 'document' | 'graph_node' | 'ai_generated'
+  title: string
+  content: string
+  status: 'collecting' | 'analyzing' | 'ready'
+  highlight: string | null
+  created_at: string
+}
