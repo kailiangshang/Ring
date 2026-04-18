@@ -234,3 +234,117 @@ impl ArchiveStep {
         }
     }
 }
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ArchiveUnit {
+    pub title: String,
+    pub content: String,
+}
+
+pub async fn auto_archive_session(
+    pool: &SqlitePool,
+    git: &GitService,
+    rings_dir: &std::path::Path,
+    ring_id: &str,
+    session_id: &str,
+    session_title: &str,
+    session_skill: &str,
+    creator_user: &crate::models::user::UserRow,
+) {
+    tracing::info!("auto_archive started: session={session_id}, ring={ring_id}");
+
+    let messages = match crate::models::session::get_all_messages_ordered(pool, session_id, 100).await {
+        Ok(m) => m,
+        Err(e) => {
+            tracing::warn!("auto_archive failed to load messages: {e}");
+            return;
+        }
+    };
+
+    if messages.is_empty() {
+        tracing::info!("auto_archive: no messages in session {session_id}, skipping");
+        return;
+    }
+
+    let messages_text = messages
+        .iter()
+        .map(|m| format!("[{}]: {}", m.sender_name, m.content))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    let system_prompt = "你是一个知识管理助手。分析以下讨论记录，提取值得长期保存的知识单元。\n\n每个单元包含：\n- title: 简短标题（用于文件名，不超过 30 字，不含特殊字符）\n- content: Markdown 格式的完整归档内容\n\n归档单元可以是：决策记录、结论总结、知识点、调研发现、方案对比等。\n只提取有实质内容的单元。如果讨论内容没有值得归档的，返回空数组。\n\n返回纯 JSON 数组，不要 markdown code block：\n[{\"title\": \"...\", \"content\": \"...\"}]";
+
+    let user_message = format!(
+        "Session 标题: {session_title}\nSkill: {session_skill}\n\n讨论记录：\n{messages_text}"
+    );
+
+    let llm = match crate::services::llm::LlmClient::from_user(creator_user) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::warn!("auto_archive failed to create LLM client: {e}");
+            return;
+        }
+    };
+
+    let response = match llm.chat_complete(system_prompt.to_string(), user_message).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("auto_archive LLM call failed: {e}");
+            return;
+        }
+    };
+
+    let cleaned = response.trim();
+    let json_str = if cleaned.starts_with("```") {
+        cleaned
+            .lines()
+            .skip(1)
+            .take_while(|l| !l.starts_with("```"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        cleaned.to_string()
+    };
+
+    let units: Vec<ArchiveUnit> = match serde_json::from_str(&json_str) {
+        Ok(u) => u,
+        Err(e) => {
+            tracing::warn!("auto_archive failed to parse LLM JSON: {e}\nraw: {json_str}");
+            return;
+        }
+    };
+
+    tracing::info!("auto_archive extracted {} units", units.len());
+
+    if units.is_empty() {
+        return;
+    }
+
+    let mut success_count = 0u32;
+    for unit in &units {
+        let title_with_ts = format!("{}_{}", chrono::Utc::now().format("%H%M%S"), unit.title);
+        match archive_content_creator(
+            pool,
+            git,
+            rings_dir,
+            ring_id,
+            Some(session_id),
+            None,
+            &unit.content,
+            &title_with_ts,
+            &creator_user.token_id,
+        )
+        .await
+        {
+            Ok(_) => success_count += 1,
+            Err(e) => {
+                tracing::warn!("auto_archive unit failed: title={}, error={}", unit.title, e);
+            }
+        }
+    }
+
+    tracing::info!(
+        "auto_archive completed: session={session_id}, {success_count}/{} files created",
+        units.len()
+    );
+}
