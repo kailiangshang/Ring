@@ -416,3 +416,85 @@ async fn test_session_archive_toggle() {
     let json = read_body(resp).await;
     assert_eq!(json["archive_enabled"], true);
 }
+
+#[tokio::test]
+async fn test_archive_repo_init() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/repo/status"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["initialized"], false);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/repo/init"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["initialized"], true);
+}
+
+#[tokio::test]
+async fn test_archive_list_empty() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/archives"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["archives"].as_array().unwrap().len(), 0);
+}
+
+#[tokio::test]
+async fn test_archive_queue_empty() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let resp = app
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/archive-queue"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["queue"].as_array().unwrap().len(), 0);
+}
