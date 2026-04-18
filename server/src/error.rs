@@ -21,6 +21,28 @@ pub enum RingError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Git command failed: {cmd}: {stderr}")]
+    GitCommandFailed { cmd: String, stderr: String },
+
+    #[error("GitLab API error ({status}): {message}")]
+    GitlabApiError { status: u16, message: String },
+
+    #[error("GitLab not configured")]
+    GitlabNotConfigured,
+
+    #[error("Repository not found for ring: {ring_id}")]
+    RepoNotFound { ring_id: String },
+
+    #[error("Archive conflict: {record_id}")]
+    ArchiveConflict { record_id: String },
+
+    #[error("Invalid archive state: record {record_id} is {current}, expected {expected}")]
+    InvalidArchiveState {
+        record_id: String,
+        current: String,
+        expected: String,
+    },
 }
 
 impl From<sqlx::Error> for RingError {
@@ -60,6 +82,39 @@ impl IntoResponse for RingError {
                     "internal server error".into(),
                 )
             }
+            RingError::GitCommandFailed { cmd, stderr } => {
+                tracing::error!("Git command failed: {cmd}: {stderr}");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal server error".into(),
+                )
+            }
+            RingError::GitlabApiError { status, message } => {
+                tracing::error!("GitLab API error ({status}): {message}");
+                (
+                    StatusCode::BAD_GATEWAY,
+                    format!("gitlab api error: {message}"),
+                )
+            }
+            RingError::GitlabNotConfigured => {
+                (StatusCode::BAD_REQUEST, "gitlab not configured".into())
+            }
+            RingError::RepoNotFound { ring_id } => (
+                StatusCode::NOT_FOUND,
+                format!("repo not found for ring: {ring_id}"),
+            ),
+            RingError::ArchiveConflict { record_id } => (
+                StatusCode::CONFLICT,
+                format!("archive conflict: {record_id}"),
+            ),
+            RingError::InvalidArchiveState {
+                record_id,
+                current,
+                expected,
+            } => (
+                StatusCode::CONFLICT,
+                format!("archive {record_id} is {current}, expected {expected}"),
+            ),
         };
         let code = status
             .canonical_reason()

@@ -23,7 +23,10 @@ async fn main() {
         .await
         .expect("failed to run migrations");
 
-    let state = AppState::new(pool);
+    let rings_dir = std::path::PathBuf::from(format!("{data_dir}/rings"));
+    std::fs::create_dir_all(&rings_dir).expect("failed to create rings dir");
+
+    let state = AppState::new(pool, rings_dir);
     let app = build_router(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:7420")
