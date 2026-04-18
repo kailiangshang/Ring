@@ -8,6 +8,7 @@ use crate::state::AppState;
 
 mod chat;
 mod config;
+mod graph;
 mod group_docs;
 mod health;
 mod members;
@@ -48,16 +49,26 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/group-docs/{doc_name}",
             get(group_docs::get_group_doc).put(group_docs::update_group_doc),
         )
-        .route(
-            "/rings/{ring_id}/chat",
-            post(chat::ring_chat),
-        )
-        .route(
-            "/rings/{ring_id}/chat/history",
-            get(chat::ring_history),
-        )
+        .route("/rings/{ring_id}/chat", post(chat::ring_chat))
+        .route("/rings/{ring_id}/chat/history", get(chat::ring_history))
         .route("/self/chat", post(chat::self_chat))
         .route("/self/chat/history", get(chat::self_history))
+        .route(
+            "/rings/{ring_id}/graph",
+            get(graph::get_graph).post(graph::create_node_handler),
+        )
+        .route(
+            "/rings/{ring_id}/graph/nodes/{node_id}",
+            put(graph::update_node).delete(graph::delete_node),
+        )
+        .route(
+            "/rings/{ring_id}/graph/edges",
+            post(graph::create_edge_handler),
+        )
+        .route(
+            "/rings/{ring_id}/graph/edges/{edge_id}",
+            delete(graph::delete_edge),
+        )
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

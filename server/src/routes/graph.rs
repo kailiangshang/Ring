@@ -1,0 +1,81 @@
+use axum::extract::{Path, State};
+use axum::Json;
+
+use crate::error::{Result, RingError};
+use crate::extractors::auth::AuthUser;
+use crate::models::graph::{CreateEdgeInput, CreateNodeInput, UpdateNodeInput};
+use crate::models::ring;
+use crate::services;
+use crate::state::AppState;
+
+pub async fn get_graph(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<Json<services::graph::GraphResponse>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let graph = services::graph::get_full_graph(&state, &ring_id).await?;
+    Ok(Json(graph))
+}
+
+pub async fn create_node_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Json(body): Json<CreateNodeInput>,
+) -> Result<Json<crate::models::graph::GraphNodeRow>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let node = services::graph::create_node(&state, &ring_id, &body).await?;
+    Ok(Json(node))
+}
+
+pub async fn update_node(
+    State(state): State<AppState>,
+    _user: AuthUser,
+    Path((_ring_id, node_id)): Path<(String, String)>,
+    Json(body): Json<UpdateNodeInput>,
+) -> Result<Json<crate::models::graph::GraphNodeRow>> {
+    let node = services::graph::update_node(&state, &node_id, &body).await?;
+    Ok(Json(node))
+}
+
+pub async fn delete_node(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, node_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    if role != "creator" && role != "admin" {
+        return Err(RingError::Forbidden(
+            "only creator/admin can delete nodes".into(),
+        ));
+    }
+    services::graph::delete_node(&state, &node_id).await?;
+    Ok(Json(serde_json::json!({"status": "deleted"})))
+}
+
+pub async fn create_edge_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Json(body): Json<CreateEdgeInput>,
+) -> Result<Json<crate::models::graph::GraphEdgeRow>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let edge = services::graph::create_edge(&state, &ring_id, &body).await?;
+    Ok(Json(edge))
+}
+
+pub async fn delete_edge(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, edge_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    if role != "creator" && role != "admin" {
+        return Err(RingError::Forbidden(
+            "only creator/admin can delete edges".into(),
+        ));
+    }
+    services::graph::delete_edge(&state, &edge_id).await?;
+    Ok(Json(serde_json::json!({"status": "deleted"})))
+}

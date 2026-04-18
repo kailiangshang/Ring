@@ -1,0 +1,130 @@
+import { create } from 'zustand'
+import type { GraphNode, GraphEdge } from '../types/graph'
+import { api } from '../services/api'
+
+interface GraphState {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  graph_id: string | null
+  loading: boolean
+  selected_node_id: string | null
+  fetchGraph: (ringId: string) => Promise<void>
+  createNode: (ringId: string, label: string, nodeType?: string) => Promise<void>
+  deleteNode: (ringId: string, nodeId: string) => Promise<void>
+  createEdge: (ringId: string, sourceId: string, targetId: string, relation?: string) => Promise<void>
+  deleteEdge: (ringId: string, edgeId: string) => Promise<void>
+  selectNode: (nodeId: string | null) => void
+}
+
+interface GraphResponse {
+  id: string
+  name: string
+  ring_id: string
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+}
+
+interface NodeResponse {
+  id: string
+  graph_id: string
+  ring_id: string
+  label: string
+  parent_id: string | null
+  node_type: string
+  content: string
+  tags: string
+  created_at: string
+  updated_at: string
+}
+
+interface EdgeResponse {
+  id: string
+  graph_id: string
+  ring_id: string
+  source_id: string
+  target_id: string
+  relation: string
+  label: string
+  created_at: string
+}
+
+function toGraphNode(r: NodeResponse): GraphNode {
+  return {
+    id: r.id,
+    label: r.label,
+    parent_id: r.parent_id,
+    markdown_path: '',
+    node_type: r.node_type as GraphNode['node_type'],
+    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags,
+    metadata: {},
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  }
+}
+
+function toGraphEdge(r: EdgeResponse): GraphEdge {
+  return {
+    id: r.id,
+    source_id: r.source_id,
+    target_id: r.target_id,
+    relation: r.relation as GraphEdge['relation'],
+    label: r.label,
+    created_at: r.created_at,
+  }
+}
+
+export const useGraphStore = create<GraphState>((set) => ({
+  nodes: [],
+  edges: [],
+  graph_id: null,
+  loading: false,
+  selected_node_id: null,
+
+  fetchGraph: async (ringId: string) => {
+    set({ loading: true })
+    try {
+      const res = await api.get<GraphResponse>(`/rings/${ringId}/graph`)
+      set({
+        graph_id: res.id,
+        nodes: (res.nodes as unknown as NodeResponse[]).map(toGraphNode),
+        edges: (res.edges as unknown as EdgeResponse[]).map(toGraphEdge),
+        loading: false,
+      })
+    } catch {
+      set({ loading: false })
+    }
+  },
+
+  createNode: async (ringId, label, nodeType) => {
+    const res = await api.post<NodeResponse>(`/rings/${ringId}/graph`, {
+      label,
+      node_type: nodeType ?? 'topic',
+    })
+    set((s) => ({ nodes: [...s.nodes, toGraphNode(res)] }))
+  },
+
+  deleteNode: async (ringId, nodeId) => {
+    await api.delete(`/rings/${ringId}/graph/nodes/${nodeId}`)
+    set((s) => ({
+      nodes: s.nodes.filter((n) => n.id !== nodeId),
+      edges: s.edges.filter((e) => e.source_id !== nodeId && e.target_id !== nodeId),
+      selected_node_id: s.selected_node_id === nodeId ? null : s.selected_node_id,
+    }))
+  },
+
+  createEdge: async (ringId, sourceId, targetId, relation) => {
+    const res = await api.post<EdgeResponse>(`/rings/${ringId}/graph/edges`, {
+      source_id: sourceId,
+      target_id: targetId,
+      relation: relation ?? 'related_to',
+    })
+    set((s) => ({ edges: [...s.edges, toGraphEdge(res)] }))
+  },
+
+  deleteEdge: async (ringId, edgeId) => {
+    await api.delete(`/rings/${ringId}/graph/edges/${edgeId}`)
+    set((s) => ({ edges: s.edges.filter((e) => e.id !== edgeId) }))
+  },
+
+  selectNode: (nodeId) => set({ selected_node_id: nodeId }),
+}))

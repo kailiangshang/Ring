@@ -1,5 +1,6 @@
 pub mod chat;
 pub mod config;
+pub mod graph;
 pub mod llm;
 pub mod member;
 pub mod mode;

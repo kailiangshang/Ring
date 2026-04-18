@@ -7,6 +7,7 @@ import { useSelfStore } from './self-store'
 import { useModeStore } from './mode-store'
 import { useRingStore } from './ring-store'
 import { useAppStore } from './app-store'
+import { useGraphStore } from './graph-store'
 
 interface ChatState {
   messages: ChatMessage[]
@@ -72,6 +73,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 content: '归档功能将在后续版本实现',
                 created_at: new Date().toISOString(),
               })
+            }
+            else if (cmd.action === 'node') {
+              const name = cmd.args
+              const rid = useRingStore.getState().active_ring_id
+              if (name && rid) {
+                useGraphStore.getState().createNode(rid, name)
+              }
             }
             break
           }
