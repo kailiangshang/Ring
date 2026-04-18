@@ -15,7 +15,12 @@ async fn setup_app() -> AppState {
         .await
         .expect("failed to run migrations");
 
-    AppState::new(pool, std::path::PathBuf::from("/tmp/ring-test-rings"), std::path::PathBuf::from("/tmp/ring-test-hub"))
+    let rings_dir = std::path::PathBuf::from("/tmp/ring-test-rings");
+    let hub_dir = std::path::PathBuf::from("/tmp/ring-test-hub");
+    let _ = std::fs::create_dir_all(&rings_dir);
+    let _ = std::fs::create_dir_all(&hub_dir);
+
+    AppState::new(pool, rings_dir, hub_dir)
 }
 
 fn make_request(method: &str, uri: &str, body: Option<&str>, token: Option<&str>) -> Request<Body> {
@@ -654,4 +659,101 @@ async fn test_add_member_forbidden() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_super_chat_history_empty() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/super/chat/history?limit=50",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["messages"].as_array().unwrap().len(), 0);
+    assert_eq!(json["has_more"], false);
+}
+
+#[tokio::test]
+async fn test_super_system_prompt_default() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/super/system-prompt",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], false);
+    assert!(json["prompt"].as_str().unwrap().len() > 0);
+}
+
+#[tokio::test]
+async fn test_super_system_prompt_update() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let update_body = r#"{"prompt":"Custom prompt for testing"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/super/system-prompt",
+            Some(update_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], true);
+    assert_eq!(json["prompt"], "Custom prompt for testing");
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/super/system-prompt",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["prompt"], "Custom prompt for testing");
+
+    let reset_body = r#"{"prompt":""}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/super/system-prompt",
+            Some(reset_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], false);
 }
