@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../../types/chat'
+import { useChatStore } from '../../stores/chat-store'
 
 const ROLE_COLORS: Record<string, string> = {
   user: 'var(--accent-ice)',
@@ -14,6 +15,8 @@ interface MessageItemProps {
 }
 
 export function MessageItem({ message }: MessageItemProps) {
+  const streaming_message_id = useChatStore((s) => s.streaming_message_id)
+  const isStreaming = message.id === streaming_message_id
   const labelColor = ROLE_COLORS[message.role] ?? 'var(--text-muted)'
   const label = message.role === 'user' ? 'YOU' : message.sender_name.toUpperCase()
 
@@ -29,6 +32,17 @@ export function MessageItem({ message }: MessageItemProps) {
       </div>
       <div style={{ color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
         {message.content}
+        {isStreaming && (
+          <span style={{
+            display: 'inline-block',
+            width: 6,
+            height: 14,
+            background: 'var(--accent-cyan)',
+            marginLeft: 2,
+            verticalAlign: 'middle',
+            animation: 'blink 1s step-end infinite',
+          }} />
+        )}
       </div>
     </div>
   )

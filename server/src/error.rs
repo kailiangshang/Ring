@@ -39,6 +39,12 @@ impl From<sqlx::Error> for RingError {
     }
 }
 
+impl From<async_openai::error::OpenAIError> for RingError {
+    fn from(e: async_openai::error::OpenAIError) -> Self {
+        RingError::Internal(format!("LLM error: {e}"))
+    }
+}
+
 impl IntoResponse for RingError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {

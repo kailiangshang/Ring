@@ -6,6 +6,7 @@ use tower_http::trace::TraceLayer;
 
 use crate::state::AppState;
 
+mod chat;
 mod config;
 mod group_docs;
 mod health;
@@ -47,6 +48,16 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/group-docs/{doc_name}",
             get(group_docs::get_group_doc).put(group_docs::update_group_doc),
         )
+        .route(
+            "/rings/{ring_id}/chat",
+            post(chat::ring_chat),
+        )
+        .route(
+            "/rings/{ring_id}/chat/history",
+            get(chat::ring_history),
+        )
+        .route("/self/chat", post(chat::self_chat))
+        .route("/self/chat/history", get(chat::self_history))
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

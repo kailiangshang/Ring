@@ -7,6 +7,7 @@ import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
+import { useChatStore } from '../../stores/chat-store'
 
 
 function SuperRingHeader() {
@@ -47,10 +48,18 @@ function SuperRingHeader() {
 export function AppLayout() {
   const current_context = useAppStore((s) => s.current_context)
   const fetchRings = useRingStore((s) => s.fetchRings)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
+  const loadHistory = useChatStore((s) => s.loadHistory)
 
   useEffect(() => {
     fetchRings()
   }, [fetchRings])
+
+  useEffect(() => {
+    if (active_ring_id) {
+      loadHistory()
+    }
+  }, [active_ring_id, loadHistory])
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%' }}>

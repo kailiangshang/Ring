@@ -65,3 +65,7 @@ html, body, #root {
   font-weight: 700;
   font-display: swap;
 }
+
+@keyframes blink {
+  50% { opacity: 0; }
+}

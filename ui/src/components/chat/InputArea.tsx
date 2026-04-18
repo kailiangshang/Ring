@@ -3,7 +3,7 @@ import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 
 export function InputArea() {
-  const { input, setInput, send } = useChatStore()
+  const { input, setInput, send, sending, stopStreaming } = useChatStore()
 
   return (
     <div>
@@ -27,6 +27,7 @@ export function InputArea() {
               send()
             }
           }}
+          disabled={sending}
           placeholder="message / command..."
           style={{
             flex: 1,
@@ -38,24 +39,43 @@ export function InputArea() {
             fontSize: 13,
             fontFamily: 'inherit',
             outline: 'none',
+            opacity: sending ? 0.6 : 1,
           }}
         />
-        <button
-          onClick={send}
-          style={{
-            background: 'var(--accent-cyan)',
-            color: 'var(--bg-base)',
-            border: 'none',
-            borderRadius: 4,
-            padding: '8px 16px',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-            letterSpacing: '0.05em',
-          }}
-        >
-          SEND
-        </button>
+        {sending ? (
+          <button
+            onClick={stopStreaming}
+            style={{
+              background: 'var(--accent-amber)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '8px 16px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            STOP
+          </button>
+        ) : (
+          <button
+            onClick={send}
+            style={{
+              background: 'var(--accent-cyan)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '8px 16px',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.05em',
+            }}
+          >
+            SEND
+          </button>
+        )}
       </div>
       <CommandHints />
     </div>
