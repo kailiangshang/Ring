@@ -3,6 +3,7 @@ export type ParsedCommand =
   | { type: 'reference'; name: string }
   | { type: 'action'; action: string; args: string }
   | { type: 'meta'; key: string; value: string }
+  | { type: 'prefs'; subcommand: 'show' | 'set'; key?: string; value?: string }
 
 export function parseCommand(input: string): ParsedCommand[] | null {
   const trimmed = input.trim()
@@ -49,6 +50,15 @@ export function parseCommand(input: string): ParsedCommand[] | null {
     if (token.startsWith('%')) {
       hasCommand = true
       const body = token.slice(1).toLowerCase()
+      if (body === 'prefs') {
+        const subcommand = tokens[i + 1]?.toLowerCase()
+        if (subcommand === 'set' && tokens[i + 2] && tokens[i + 3]) {
+          commands.push({ type: 'prefs', subcommand: 'set', key: tokens[i + 2].toLowerCase(), value: tokens.slice(i + 3).join(' ') })
+        } else {
+          commands.push({ type: 'prefs', subcommand: 'show' })
+        }
+        break
+      }
       const nextToken = tokens[i + 1]
       commands.push({ type: 'meta', key: body, value: nextToken ?? '' })
       break

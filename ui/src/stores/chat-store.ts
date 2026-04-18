@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { ChatMessage } from '../types/chat'
 import { parseCommand } from '../services/command-parser'
 import { streamChat } from '../services/sse'
+import { getPreferences, updatePreferences } from '../services/api'
 import { usePanelStore } from './panel-store'
 import { useSelfStore } from './self-store'
 import { useModeStore } from './mode-store'
@@ -10,6 +11,98 @@ import { useSessionStore } from './session-store'
 import { useRingStore } from './ring-store'
 import { useAppStore } from './app-store'
 import { useGraphStore } from './graph-store'
+
+const PREFS_KEY_MAP: Record<string, { section: string; key: string }> = {
+  language: { section: '语言', key: 'default' },
+  provider: { section: 'LLM', key: 'default_provider' },
+  style: { section: '输出格式', key: 'style' },
+  mode: { section: '默认模式', key: 'mode' },
+}
+
+async function handlePrefsShow(addMessage: (msg: ChatMessage) => void) {
+  try {
+    const { content, is_custom } = await getPreferences()
+    const label = is_custom ? '当前偏好设置（自定义）：' : '当前偏好设置（默认）：'
+    addMessage({
+      id: `sys-prefs-${Date.now()}`,
+      role: 'system',
+      sender_name: 'SYSTEM',
+      content: `${label}\n\`\`\`\n${content}\n\`\`\``,
+      created_at: new Date().toISOString(),
+    })
+  } catch {
+    addMessage({
+      id: `sys-prefs-err-${Date.now()}`,
+      role: 'system',
+      sender_name: 'SYSTEM',
+      content: 'Failed to load preferences.',
+      created_at: new Date().toISOString(),
+    })
+  }
+}
+
+async function handlePrefsSet(key: string, value: string, addMessage: (msg: ChatMessage) => void) {
+  const mapping = PREFS_KEY_MAP[key]
+  if (!mapping) {
+    addMessage({
+      id: `sys-prefs-err-${Date.now()}`,
+      role: 'system',
+      sender_name: 'SYSTEM',
+      content: `Unknown preference key "${key}". Supported keys: ${Object.keys(PREFS_KEY_MAP).join(', ')}. For other changes, ask Super Ring.`,
+      created_at: new Date().toISOString(),
+    })
+    return
+  }
+
+  try {
+    const { content } = await getPreferences()
+    const lines = content.split('\n')
+    let inSection = false
+    let found = false
+    const updated = lines.map(line => {
+      if (line.trim() === `## ${mapping.section}`) {
+        inSection = true
+        return line
+      }
+      if (inSection && line.trim().startsWith(`- ${mapping.key}:`)) {
+        found = true
+        return `- ${mapping.key}: ${value}`
+      }
+      if (line.startsWith('## ') && inSection) {
+        inSection = false
+      }
+      return line
+    }).join('\n')
+
+    if (!found) {
+      addMessage({
+        id: `sys-prefs-err-${Date.now()}`,
+        role: 'system',
+        sender_name: 'SYSTEM',
+        content: `Could not find preference "${key}" in current settings. Please use Super Ring to modify.`,
+        created_at: new Date().toISOString(),
+      })
+      return
+    }
+
+    await updatePreferences(updated)
+    addMessage({
+      id: `sys-prefs-${Date.now()}`,
+      role: 'system',
+      sender_name: 'SYSTEM',
+      content: `Preference updated: ${key} = ${value}`,
+      created_at: new Date().toISOString(),
+    })
+  } catch {
+    addMessage({
+      id: `sys-prefs-err-${Date.now()}`,
+      role: 'system',
+      sender_name: 'SYSTEM',
+      content: `Failed to update preference "${key}".`,
+      created_at: new Date().toISOString(),
+    })
+  }
+}
 
 interface ChatState {
   messages: ChatMessage[]
@@ -123,6 +216,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           case 'meta': {
             if (cmd.key === 'mode' && cmd.value) useModeStore.getState().setInteractionMode(cmd.value as 'normal' | 'auto')
             else if (cmd.key === 'skill' && cmd.value) useModeStore.getState().setSkillMode(cmd.value as 'auto' | 'plan' | 'edit')
+            break
+          }
+          case 'prefs': {
+            if (cmd.subcommand === 'set' && cmd.key && cmd.value) {
+              handlePrefsSet(cmd.key, cmd.value, addMessage)
+            } else {
+              handlePrefsShow(addMessage)
+            }
             break
           }
           case 'reference':
