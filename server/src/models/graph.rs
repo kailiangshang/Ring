@@ -22,6 +22,7 @@ pub struct GraphNodeRow {
     pub node_type: String,
     pub content: String,
     pub tags: String,
+    pub markdown_path: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -219,4 +220,20 @@ pub async fn delete_edge(pool: &sqlx::SqlitePool, edge_id: &str) -> Result<()> {
         return Err(RingError::NotFound("edge not found".into()));
     }
     Ok(())
+}
+
+pub async fn update_node_markdown_path(
+    pool: &sqlx::SqlitePool,
+    node_id: &str,
+    markdown_path: &str,
+) -> Result<GraphNodeRow> {
+    sqlx::query_as::<_, GraphNodeRow>(
+        "UPDATE graph_nodes SET markdown_path = ?1, updated_at = datetime('now')
+         WHERE id = ?2 RETURNING *",
+    )
+    .bind(markdown_path)
+    .bind(node_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| RingError::NotFound("node not found".into()))
 }
