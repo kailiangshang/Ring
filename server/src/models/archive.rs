@@ -104,10 +104,7 @@ pub async fn update_status(
     .ok_or_else(|| RingError::NotFound(format!("archive record {id} not found")))
 }
 
-pub async fn get_record(
-    pool: &sqlx::SqlitePool,
-    id: &str,
-) -> Result<ArchiveRecord> {
+pub async fn get_record(pool: &sqlx::SqlitePool, id: &str) -> Result<ArchiveRecord> {
     sqlx::query_as::<_, ArchiveRecord>("SELECT * FROM archive_records WHERE id = ?1")
         .bind(id)
         .fetch_optional(pool)
@@ -115,10 +112,7 @@ pub async fn get_record(
         .ok_or_else(|| RingError::NotFound(format!("archive record {id} not found")))
 }
 
-pub async fn list_by_ring(
-    pool: &sqlx::SqlitePool,
-    ring_id: &str,
-) -> Result<Vec<ArchiveRecord>> {
+pub async fn list_by_ring(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<Vec<ArchiveRecord>> {
     sqlx::query_as::<_, ArchiveRecord>(
         "SELECT * FROM archive_records WHERE ring_id = ?1 ORDER BY created_at DESC",
     )

@@ -84,8 +84,11 @@ pub async fn create_session(
     let sess = session::create_session(&state.db, &id, ring_id, user_id, &input).await?;
     let participants = session::get_participants(&state.db, &id).await?;
 
-    let participant_ids: HashSet<String> = participants.iter().map(|p| p.token_id.clone()).collect();
-    state.ws_hub.register_session(id.clone(), user_id.to_string(), participant_ids);
+    let participant_ids: HashSet<String> =
+        participants.iter().map(|p| p.token_id.clone()).collect();
+    state
+        .ws_hub
+        .register_session(id.clone(), user_id.to_string(), participant_ids);
 
     Ok(SessionResponse {
         session: sess,
@@ -138,13 +141,12 @@ pub async fn close_session(
     let session = session::update_phase(&state.db, session_id, "closed").await?;
     let participants = session::get_participants(&state.db, session_id).await?;
 
-    let interaction_mode: String = sqlx::query_scalar(
-        "SELECT interaction_mode FROM rings WHERE id = ?1",
-    )
-    .bind(ring_id)
-    .fetch_one(&state.db)
-    .await
-    .unwrap_or_else(|_| "normal".to_string());
+    let interaction_mode: String =
+        sqlx::query_scalar("SELECT interaction_mode FROM rings WHERE id = ?1")
+            .bind(ring_id)
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or_else(|_| "normal".to_string());
 
     if interaction_mode == "auto" && session.archive_enabled {
         let pool = state.db.clone();
@@ -205,8 +207,11 @@ pub async fn reopen_session(
     let sess = session::update_phase(&state.db, session_id, "discussion").await?;
     let participants = session::get_participants(&state.db, session_id).await?;
 
-    let participant_ids: HashSet<String> = participants.iter().map(|p| p.token_id.clone()).collect();
-    state.ws_hub.register_session(session_id.to_string(), sess.owner.clone(), participant_ids);
+    let participant_ids: HashSet<String> =
+        participants.iter().map(|p| p.token_id.clone()).collect();
+    state
+        .ws_hub
+        .register_session(session_id.to_string(), sess.owner.clone(), participant_ids);
 
     Ok(SessionResponse {
         session: sess,
@@ -252,7 +257,9 @@ pub async fn invite_participants(
     }
     let result = session::add_participants(&state.db, session_id, &input.token_ids).await?;
     for tid in &input.token_ids {
-        state.ws_hub.add_session_participant(session_id, tid.clone());
+        state
+            .ws_hub
+            .add_session_participant(session_id, tid.clone());
     }
     Ok(result)
 }
@@ -271,7 +278,9 @@ pub async fn remove_participant(
         ));
     }
     session::remove_participant(&state.db, session_id, target_id).await?;
-    state.ws_hub.remove_session_participant(session_id, target_id);
+    state
+        .ws_hub
+        .remove_session_participant(session_id, target_id);
     Ok(())
 }
 
@@ -321,9 +330,7 @@ pub async fn start_session(
 ) -> Result<SessionResponse> {
     let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
-        return Err(RingError::Forbidden(
-            "only owner can start session".into(),
-        ));
+        return Err(RingError::Forbidden("only owner can start session".into()));
     }
     let sess = session::get_session(&state.db, session_id).await?;
     if sess.phase != "material_prep" {

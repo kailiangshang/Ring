@@ -18,7 +18,13 @@ pub fn sanitize_filename(title: &str) -> String {
     let date = Utc::now().format("%Y-%m-%d").to_string();
     let safe_title: String = title
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let safe_title = safe_title.trim_matches('-');
     format!("{date}_{safe_title}.md")
@@ -46,9 +52,12 @@ pub fn init_ring_repo(
 
     let gitignore_path = repo_path.join(".gitignore");
     if !gitignore_path.exists() {
-        std::fs::write(&gitignore_path, ".ring-local/
+        std::fs::write(
+            &gitignore_path,
+            ".ring-local/
 assets/
-")?;
+",
+        )?;
     }
 
     if let Some(url) = gitlab_url {
@@ -60,6 +69,7 @@ assets/
     Ok(repo_path)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn archive_content_creator(
     pool: &SqlitePool,
     git: &GitService,
@@ -74,7 +84,9 @@ pub async fn archive_content_creator(
     let repo_path = ring_repo_path(rings_dir, ring_id);
 
     if !repo_path.join(".git").exists() {
-        return Err(RingError::RepoNotFound { ring_id: ring_id.to_string() });
+        return Err(RingError::RepoNotFound {
+            ring_id: ring_id.to_string(),
+        });
     }
 
     if git.has_remote(&repo_path) {
@@ -99,12 +111,16 @@ pub async fn archive_content_creator(
     }
 
     let record_id = ulid::Ulid::new().to_string();
-    archive::insert_record(pool, &record_id, ring_id, session_id, node_id, &file_name, user_id).await?;
+    archive::insert_record(
+        pool, &record_id, ring_id, session_id, node_id, &file_name, user_id,
+    )
+    .await?;
 
     let status = if has_remote { "pushed" } else { "committed" };
     archive::update_status(pool, &record_id, status, Some(&sha), None, None).await
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn archive_content_member(
     pool: &SqlitePool,
     git: &GitService,
@@ -121,7 +137,9 @@ pub async fn archive_content_member(
     let repo_path = ring_repo_path(rings_dir, ring_id);
 
     if !repo_path.join(".git").exists() {
-        return Err(RingError::RepoNotFound { ring_id: ring_id.to_string() });
+        return Err(RingError::RepoNotFound {
+            ring_id: ring_id.to_string(),
+        });
     }
 
     let _ = git.pull(&repo_path);
@@ -144,8 +162,19 @@ pub async fn archive_content_member(
     git.push(&repo_path, "origin", &branch_name)?;
     git.checkout(&repo_path, "main")?;
 
-    archive::insert_record(pool, &record_id, ring_id, session_id, node_id, &file_name, user_id).await?;
-    archive::update_status(pool, &record_id, "committed", Some(&sha), Some(&branch_name), None).await?;
+    archive::insert_record(
+        pool, &record_id, ring_id, session_id, node_id, &file_name, user_id,
+    )
+    .await?;
+    archive::update_status(
+        pool,
+        &record_id,
+        "committed",
+        Some(&sha),
+        Some(&branch_name),
+        None,
+    )
+    .await?;
 
     let mr = gitlab
         .create_mr(
@@ -241,6 +270,7 @@ pub struct ArchiveUnit {
     pub content: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn auto_archive_session(
     pool: &SqlitePool,
     git: &GitService,
@@ -253,13 +283,14 @@ pub async fn auto_archive_session(
 ) {
     tracing::info!("auto_archive started: session={session_id}, ring={ring_id}");
 
-    let messages = match crate::models::session::get_all_messages_ordered(pool, session_id, 100).await {
-        Ok(m) => m,
-        Err(e) => {
-            tracing::warn!("auto_archive failed to load messages: {e}");
-            return;
-        }
-    };
+    let messages =
+        match crate::models::session::get_all_messages_ordered(pool, session_id, 100).await {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!("auto_archive failed to load messages: {e}");
+                return;
+            }
+        };
 
     if messages.is_empty() {
         tracing::info!("auto_archive: no messages in session {session_id}, skipping");
@@ -286,7 +317,10 @@ pub async fn auto_archive_session(
         }
     };
 
-    let response = match llm.chat_complete(system_prompt.to_string(), user_message).await {
+    let response = match llm
+        .chat_complete(system_prompt.to_string(), user_message)
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             tracing::warn!("auto_archive LLM call failed: {e}");
@@ -338,7 +372,11 @@ pub async fn auto_archive_session(
         {
             Ok(_) => success_count += 1,
             Err(e) => {
-                tracing::warn!("auto_archive unit failed: title={}, error={}", unit.title, e);
+                tracing::warn!(
+                    "auto_archive unit failed: title={}, error={}",
+                    unit.title,
+                    e
+                );
             }
         }
     }

@@ -131,7 +131,10 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/archives/{archive_id}/review",
             post(archive::review_archive),
         )
-        .route("/rings/{ring_id}/archive-queue", get(archive::archive_queue))
+        .route(
+            "/rings/{ring_id}/archive-queue",
+            get(archive::archive_queue),
+        )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
         .with_state(state);

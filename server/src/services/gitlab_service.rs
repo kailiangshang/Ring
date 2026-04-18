@@ -65,7 +65,10 @@ impl GitLabClient {
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
-            return Err(RingError::GitlabApiError { status, message: body });
+            return Err(RingError::GitlabApiError {
+                status,
+                message: body,
+            });
         }
 
         resp.json::<GitLabUser>()
@@ -118,7 +121,10 @@ impl GitLabClient {
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(RingError::GitlabApiError { status, message: body });
+            return Err(RingError::GitlabApiError {
+                status,
+                message: body,
+            });
         }
 
         resp.json::<MergeRequest>()
@@ -157,7 +163,10 @@ impl GitLabClient {
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
-            return Err(RingError::GitlabApiError { status, message: body });
+            return Err(RingError::GitlabApiError {
+                status,
+                message: body,
+            });
         }
 
         resp.json::<MergeRequest>()
@@ -192,7 +201,10 @@ impl GitLabClient {
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
-            return Err(RingError::GitlabApiError { status, message: body });
+            return Err(RingError::GitlabApiError {
+                status,
+                message: body,
+            });
         }
 
         resp.json::<MergeRequest>()
@@ -203,11 +215,7 @@ impl GitLabClient {
             })
     }
 
-    pub async fn get_mr_diffs(
-        &self,
-        project_url: &str,
-        mr_iid: i64,
-    ) -> Result<Vec<DiffRef>> {
+    pub async fn get_mr_diffs(&self, project_url: &str, mr_iid: i64) -> Result<Vec<DiffRef>> {
         let project_id = Self::project_id_from_url(project_url);
         let url = format!(
             "{}/api/v4/projects/{}/merge_requests/{}/diffs",
@@ -228,7 +236,10 @@ impl GitLabClient {
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
-            return Err(RingError::GitlabApiError { status, message: body });
+            return Err(RingError::GitlabApiError {
+                status,
+                message: body,
+            });
         }
 
         #[derive(Deserialize)]

@@ -162,18 +162,14 @@ impl LlmClient {
         user_message: String,
     ) -> crate::error::Result<String> {
         let messages = vec![
-            ChatCompletionRequestMessage::System(
-                ChatCompletionRequestSystemMessage {
-                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
-                    name: None,
-                },
-            ),
-            ChatCompletionRequestMessage::User(
-                ChatCompletionRequestUserMessage {
-                    content: ChatCompletionRequestUserMessageContent::Text(user_message),
-                    name: None,
-                },
-            ),
+            ChatCompletionRequestMessage::System(ChatCompletionRequestSystemMessage {
+                content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+                name: None,
+            }),
+            ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessage {
+                content: ChatCompletionRequestUserMessageContent::Text(user_message),
+                name: None,
+            }),
         ];
 
         let request = CreateChatCompletionRequest {

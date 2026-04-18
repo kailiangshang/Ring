@@ -1,5 +1,5 @@
-use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::extract::ws::{Message, WebSocket};
+use axum::extract::{Query, State, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::Deserialize;
@@ -61,10 +61,13 @@ async fn handle_socket(socket: WebSocket, state: AppState, token_id: String) {
                     handle_text_message(&db, &ws_hub_recv, &token_id_recv, &text).await;
                 }
                 Message::Ping(data) => {
-                    ws_hub_recv.send_to_user(&token_id_recv, &format!(
-                        r#"{{"type":"pong","data":"{}"}}"#,
-                        String::from_utf8_lossy(&data)
-                    ));
+                    ws_hub_recv.send_to_user(
+                        &token_id_recv,
+                        &format!(
+                            r#"{{"type":"pong","data":"{}"}}"#,
+                            String::from_utf8_lossy(&data)
+                        ),
+                    );
                 }
                 Message::Close(_) => break,
                 _ => {}
@@ -140,8 +143,17 @@ async fn handle_text_message(
             };
 
             let Ok(msg_row) = session::insert_message(
-                db, &id, session_id, seq_num, token_id, &sender_name, content, "user",
-            ).await else {
+                db,
+                &id,
+                session_id,
+                seq_num,
+                token_id,
+                &sender_name,
+                content,
+                "user",
+            )
+            .await
+            else {
                 return;
             };
 
@@ -161,10 +173,7 @@ async fn handle_text_message(
             let Some(session_id) = value.get("session_id").and_then(|v| v.as_str()) else {
                 return;
             };
-            let last_seq = value
-                .get("last_seq")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
+            let last_seq = value.get("last_seq").and_then(|v| v.as_i64()).unwrap_or(0);
 
             let Ok(is_participant) = session::is_participant(db, session_id, token_id).await else {
                 return;

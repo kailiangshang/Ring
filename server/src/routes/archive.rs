@@ -63,17 +63,34 @@ pub async fn trigger_archive(
 
         if is_creator {
             match archive_service::archive_content_creator(
-                &pool, &git, &rings_dir, &ring_id_c,
-                session_id.as_deref(), node_id.as_deref(),
-                &content, &title, &token_id,
-            ).await {
-                Ok(_) => { let _ = tx.send(ArchiveStep::Complete).await; }
-                Err(e) => { tracing::error!("archive failed: {e}"); }
+                &pool,
+                &git,
+                &rings_dir,
+                &ring_id_c,
+                session_id.as_deref(),
+                node_id.as_deref(),
+                &content,
+                &title,
+                &token_id,
+            )
+            .await
+            {
+                Ok(_) => {
+                    let _ = tx.send(ArchiveStep::Complete).await;
+                }
+                Err(e) => {
+                    tracing::error!("archive failed: {e}");
+                }
             }
         } else {
             let repo_url = sqlx::query_scalar::<_, Option<String>>(
                 "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
-            ).bind(&ring_id_c).fetch_one(&pool).await.ok().flatten();
+            )
+            .bind(&ring_id_c)
+            .fetch_one(&pool)
+            .await
+            .ok()
+            .flatten();
 
             let user_row = crate::models::user::get_user(&pool, &token_id).await;
             let (gitlab_url, gitlab_token) = match user_row {
@@ -86,15 +103,31 @@ pub async fn trigger_archive(
                     let gitlab = GitLabClient::new(&gl_url, &gl_token);
                     let _ = tx.send(ArchiveStep::CreatingMR).await;
                     match archive_service::archive_content_member(
-                        &pool, &git, &gitlab, &rings_dir, &ring_id_c, &url,
-                        session_id.as_deref(), node_id.as_deref(),
-                        &content, &title, &token_id,
-                    ).await {
-                        Ok(_) => { let _ = tx.send(ArchiveStep::Complete).await; }
-                        Err(e) => { tracing::error!("member archive failed: {e}"); }
+                        &pool,
+                        &git,
+                        &gitlab,
+                        &rings_dir,
+                        &ring_id_c,
+                        &url,
+                        session_id.as_deref(),
+                        node_id.as_deref(),
+                        &content,
+                        &title,
+                        &token_id,
+                    )
+                    .await
+                    {
+                        Ok(_) => {
+                            let _ = tx.send(ArchiveStep::Complete).await;
+                        }
+                        Err(e) => {
+                            tracing::error!("member archive failed: {e}");
+                        }
                     }
                 }
-                _ => { tracing::error!("GitLab not configured for member archive"); }
+                _ => {
+                    tracing::error!("GitLab not configured for member archive");
+                }
             }
         }
     });
@@ -149,9 +182,12 @@ pub async fn review_archive(
         _ => return Err(RingError::GitlabNotConfigured),
     };
 
-    let repo_url: Option<String> = sqlx::query_scalar(
-        "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
-    ).bind(&ring_id).fetch_optional(&state.db).await?.flatten();
+    let repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(&ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
 
     let repo_url = repo_url.ok_or(RingError::GitlabNotConfigured)?;
 
@@ -159,9 +195,15 @@ pub async fn review_archive(
     let gitlab = GitLabClient::new(&gitlab_url, &gitlab_token);
 
     let record = archive_service::review_mr(
-        &state.db, &git, &gitlab, &state.rings_dir,
-        &archive_id, &repo_url, body.action,
-    ).await?;
+        &state.db,
+        &git,
+        &gitlab,
+        &state.rings_dir,
+        &archive_id,
+        &repo_url,
+        body.action,
+    )
+    .await?;
 
     Ok(Json(record))
 }
@@ -173,7 +215,9 @@ pub async fn archive_queue(
 ) -> Result<Json<ArchiveQueueResponse>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" && role != "admin" {
-        return Err(RingError::Forbidden("only creator/admin can view queue".into()));
+        return Err(RingError::Forbidden(
+            "only creator/admin can view queue".into(),
+        ));
     }
     let records = archive::list_pending_reviews(&state.db, &ring_id).await?;
     Ok(Json(ArchiveQueueResponse { queue: records }))
@@ -192,7 +236,10 @@ pub async fn repo_status(
     } else {
         false
     };
-    Ok(Json(RepoStatusResponse { initialized, has_remote }))
+    Ok(Json(RepoStatusResponse {
+        initialized,
+        has_remote,
+    }))
 }
 
 pub async fn init_repo(
@@ -201,14 +248,19 @@ pub async fn init_repo(
     Path(ring_id): Path<String>,
 ) -> Result<Json<RepoStatusResponse>> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
-    let repo_url: Option<String> = sqlx::query_scalar(
-        "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
-    ).bind(&ring_id).fetch_optional(&state.db).await?.flatten();
+    let repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(&ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
 
     let git = GitService::new();
-    let repo_path = archive_service::init_ring_repo(
-        &git, &state.rings_dir, &ring_id, repo_url.as_deref(),
-    )?;
+    let repo_path =
+        archive_service::init_ring_repo(&git, &state.rings_dir, &ring_id, repo_url.as_deref())?;
     let has_remote = git.has_remote(&repo_path);
-    Ok(Json(RepoStatusResponse { initialized: true, has_remote }))
+    Ok(Json(RepoStatusResponse {
+        initialized: true,
+        has_remote,
+    }))
 }

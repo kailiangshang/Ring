@@ -337,16 +337,16 @@ pub async fn get_all_messages_ordered(
 }
 
 pub async fn next_seq_num(pool: &sqlx::SqlitePool, session_id: &str) -> Result<i64> {
-    let max: Option<i64> = sqlx::query_scalar(
-        "SELECT MAX(seq_num) FROM session_messages WHERE session_id = ?1",
-    )
-    .bind(session_id)
-    .fetch_optional(pool)
-    .await?
-    .flatten();
+    let max: Option<i64> =
+        sqlx::query_scalar("SELECT MAX(seq_num) FROM session_messages WHERE session_id = ?1")
+            .bind(session_id)
+            .fetch_optional(pool)
+            .await?
+            .flatten();
     Ok(max.unwrap_or(0) + 1)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn insert_message(
     pool: &sqlx::SqlitePool,
     id: &str,
