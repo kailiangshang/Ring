@@ -5,8 +5,8 @@ export function Sidebar() {
   return (
     <div
       style={{
-        width: 220,
-        minWidth: 220,
+        width: 200,
+        minWidth: 200,
         height: '100%',
         background: 'var(--bg-sidebar)',
         borderRight: '1px solid var(--border)',

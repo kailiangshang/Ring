@@ -1,4 +1,9 @@
-export function StepDone() {
+interface StepDoneProps {
+  token: string | null
+  onEnter: () => void
+}
+
+export function StepDone({ onEnter }: StepDoneProps) {
   return (
     <div style={{ textAlign: 'center', padding: '40px 20px' }}>
       <div style={{ fontSize: 48, marginBottom: 16 }}>&#10003;</div>
@@ -14,7 +19,7 @@ export function StepDone() {
           borderRadius: 4,
           padding: 16,
           maxWidth: 360,
-          margin: '0 auto',
+          margin: '0 auto 20px',
           color: 'var(--text-secondary)',
           fontSize: 12,
           lineHeight: 2,
@@ -29,6 +34,23 @@ export function StepDone() {
         <div><span style={{ color: 'var(--accent-cyan)' }}>!save</span> — Trigger archive</div>
         <div><span style={{ color: 'var(--accent-cyan)' }}>!auto</span> — Toggle Auto mode</div>
       </div>
+
+      <button
+        onClick={onEnter}
+        style={{
+          background: 'var(--accent-cyan)',
+          color: 'var(--bg-base)',
+          border: 'none',
+          borderRadius: 4,
+          padding: '10px 32px',
+          fontSize: 13,
+          fontWeight: 700,
+          cursor: 'pointer',
+          letterSpacing: '0.05em',
+        }}
+      >
+        Enter Ring
+      </button>
     </div>
   )
 }

@@ -82,12 +82,10 @@ pub async fn list_rings_for_user(
     pool: &sqlx::SqlitePool,
     user_id: &str,
 ) -> Result<Vec<RingListItem>> {
-    let rows = sqlx::query_as::<_, RingListItem>(
+    let rings = sqlx::query_as::<_, (String, String, String, i64, String)>(
         "SELECT r.id, r.name, m.role,
                 (SELECT COUNT(*) FROM members m2 WHERE m2.ring_id = r.id) as member_count,
-                0 as node_count,
-                r.created_at as last_activity_at,
-                0 as has_active_session
+                r.created_at as last_activity_at
          FROM rings r
          JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
          ORDER BY r.created_at DESC",
@@ -95,7 +93,27 @@ pub async fn list_rings_for_user(
     .bind(user_id)
     .fetch_all(pool)
     .await?;
-    Ok(rows)
+
+    let mut result = Vec::with_capacity(rings.len());
+    for (id, name, role, member_count, last_activity_at) in rings {
+        let node_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM graph_nodes WHERE ring_id = ?1")
+                .bind(&id)
+                .fetch_one(pool)
+                .await
+                .unwrap_or(0);
+
+        result.push(RingListItem {
+            id,
+            name,
+            role,
+            member_count,
+            node_count,
+            last_activity_at,
+            has_active_session: false,
+        });
+    }
+    Ok(result)
 }
 
 pub async fn get_ring_detail(
@@ -103,9 +121,20 @@ pub async fn get_ring_detail(
     ring_id: &str,
     user_id: &str,
 ) -> Result<RingDetail> {
-    let row = sqlx::query_as::<_, (String, String, Option<String>, String, String, String)>(
+    let row = sqlx::query_as::<
+        _,
+        (
+            String,
+            String,
+            Option<String>,
+            String,
+            String,
+            String,
+            String,
+        ),
+    >(
         "SELECT r.id, r.name, r.role_description, r.blueprint_status,
-                r.interaction_mode, r.skill_permission_mode
+                r.interaction_mode, r.skill_permission_mode, r.created_at
          FROM rings r
          JOIN members m ON m.ring_id = r.id AND m.user_id = ?2
          WHERE r.id = ?1",
@@ -121,17 +150,23 @@ pub async fn get_ring_detail(
         .fetch_one(pool)
         .await?;
 
+    let node_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM graph_nodes WHERE ring_id = ?1")
+        .bind(ring_id)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+
     Ok(RingDetail {
         id: row.0,
         name: row.1,
         role: get_user_role(pool, ring_id, user_id).await?,
         role_description: row.2,
         member_count,
-        node_count: 0,
+        node_count,
         blueprint_status: row.3,
         interaction_mode: row.4,
         skill_permission_mode: row.5,
-        created_at: String::new(),
+        created_at: row.6,
     })
 }
 

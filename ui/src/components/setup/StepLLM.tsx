@@ -1,7 +1,9 @@
-import { useState } from 'react'
 import type { LLMProvider } from '../../types/config'
+import type { SetupData } from './SetupWizard'
 
 interface StepProps {
+  data: SetupData
+  onChange: (partial: Partial<SetupData>) => void
   onNext: () => void
   onBack: () => void
 }
@@ -31,10 +33,8 @@ const navButtonStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 }
 
-export function StepLLM({ onNext, onBack }: StepProps) {
-  const [provider, setProvider] = useState<LLMProvider>('openai')
-  const [apiKey, setApiKey] = useState('')
-  const [baseUrl, setBaseUrl] = useState('')
+export function StepLLM({ data, onChange, onNext, onBack }: StepProps) {
+  const provider = data.llm_provider as LLMProvider
 
   return (
     <div style={{ padding: '20px', maxWidth: 400, margin: '0 auto' }}>
@@ -46,7 +46,7 @@ export function StepLLM({ onNext, onBack }: StepProps) {
         {(['openai', 'anthropic', 'ollama'] as const).map((p) => (
           <button
             key={p}
-            onClick={() => setProvider(p)}
+            onClick={() => onChange({ llm_provider: p })}
             style={{
               background: provider === p ? 'var(--accent-cyan)' : 'var(--bg-hover)',
               color: provider === p ? 'var(--bg-base)' : 'var(--text-secondary)',
@@ -68,8 +68,8 @@ export function StepLLM({ onNext, onBack }: StepProps) {
           <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>API Key</label>
           <input
             type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
+            value={data.llm_api_key}
+            onChange={(e) => onChange({ llm_api_key: e.target.value })}
             placeholder={`sk-${provider === 'openai' ? 'xxx' : 'ant-xxx'}`}
             style={inputStyle}
           />
@@ -80,8 +80,8 @@ export function StepLLM({ onNext, onBack }: StepProps) {
         Base URL {provider === 'ollama' ? '(e.g. http://localhost:11434)' : '(optional)'}
       </label>
       <input
-        value={baseUrl}
-        onChange={(e) => setBaseUrl(e.target.value)}
+        value={data.llm_base_url}
+        onChange={(e) => onChange({ llm_base_url: e.target.value })}
         placeholder={provider === 'ollama' ? 'http://localhost:11434' : ''}
         style={inputStyle}
       />
@@ -90,10 +90,10 @@ export function StepLLM({ onNext, onBack }: StepProps) {
         <button onClick={onBack} style={navButtonStyle}>Back</button>
         <button
           onClick={onNext}
-          disabled={provider !== 'ollama' && !apiKey.trim()}
+          disabled={provider !== 'ollama' && !data.llm_api_key.trim()}
           style={{
             ...navButtonStyle,
-            opacity: provider !== 'ollama' && !apiKey.trim() ? 0.4 : 1,
+            opacity: provider !== 'ollama' && !data.llm_api_key.trim() ? 0.4 : 1,
             marginLeft: 'auto',
           }}
         >

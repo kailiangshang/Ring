@@ -3,7 +3,7 @@ import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 
 export function InputArea() {
-  const { input, setInput } = useChatStore()
+  const { input, setInput, send } = useChatStore()
 
   return (
     <div>
@@ -21,6 +21,12 @@ export function InputArea() {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              send()
+            }
+          }}
           placeholder="message / command..."
           style={{
             flex: 1,
@@ -35,6 +41,7 @@ export function InputArea() {
           }}
         />
         <button
+          onClick={send}
           style={{
             background: 'var(--accent-cyan)',
             color: 'var(--bg-base)',

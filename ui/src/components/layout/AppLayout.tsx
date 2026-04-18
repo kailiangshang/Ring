@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Sidebar } from './Sidebar'
 import { HeaderTabBar } from './HeaderTabBar'
 import { PanelStack } from './PanelStack'
@@ -5,6 +6,7 @@ import { ChatArea } from '../chat/ChatArea'
 import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { useAppStore } from '../../stores/app-store'
+import { useRingStore } from '../../stores/ring-store'
 
 
 function SuperRingHeader() {
@@ -44,6 +46,11 @@ function SuperRingHeader() {
 
 export function AppLayout() {
   const current_context = useAppStore((s) => s.current_context)
+  const fetchRings = useRingStore((s) => s.fetchRings)
+
+  useEffect(() => {
+    fetchRings()
+  }, [fetchRings])
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%' }}>

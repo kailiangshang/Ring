@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import type { SetupData } from './SetupWizard'
 
 interface StepProps {
+  data: SetupData
+  onChange: (partial: Partial<SetupData>) => void
   onNext: () => void
   onBack: () => void
 }
@@ -18,10 +20,7 @@ const navButtonStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 }
 
-export function StepIdentity({ onNext, onBack }: StepProps) {
-  const [name, setName] = useState('')
-  const [avatar, setAvatar] = useState<string | null>(null)
-
+export function StepIdentity({ data, onChange, onNext, onBack }: StepProps) {
   return (
     <div style={{ padding: '20px', maxWidth: 400, margin: '0 auto' }}>
       <h2 style={{ fontSize: 16, color: 'var(--accent-ice)', marginBottom: 16 }}>
@@ -32,8 +31,8 @@ export function StepIdentity({ onNext, onBack }: StepProps) {
         Display Name
       </label>
       <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+        value={data.display_name}
+        onChange={(e) => onChange({ display_name: e.target.value })}
         placeholder="Enter your name"
         style={{
           width: '100%',
@@ -57,12 +56,12 @@ export function StepIdentity({ onNext, onBack }: StepProps) {
         {EMOJIS.map((emoji) => (
           <button
             key={emoji}
-            onClick={() => setAvatar(emoji)}
+            onClick={() => onChange({ avatar: emoji })}
             style={{
               width: 36,
               height: 36,
-              background: avatar === emoji ? 'var(--accent-amber)' : 'var(--bg-hover)',
-              border: avatar === emoji ? '2px solid var(--accent-amber)' : '1px solid var(--border)',
+              background: data.avatar === emoji ? 'var(--accent-amber)' : 'var(--bg-hover)',
+              border: data.avatar === emoji ? '2px solid var(--accent-amber)' : '1px solid var(--border)',
               borderRadius: 4,
               fontSize: 18,
               cursor: 'pointer',
@@ -82,10 +81,10 @@ export function StepIdentity({ onNext, onBack }: StepProps) {
         </button>
         <button
           onClick={onNext}
-          disabled={!name.trim()}
+          disabled={!data.display_name.trim()}
           style={{
             ...navButtonStyle,
-            opacity: name.trim() ? 1 : 0.4,
+            opacity: data.display_name.trim() ? 1 : 0.4,
             marginLeft: 'auto',
           }}
         >

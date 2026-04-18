@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import type { SetupData } from './SetupWizard'
 
 interface StepProps {
+  data: SetupData
+  onChange: (partial: Partial<SetupData>) => void
   onNext: () => void
   onBack: () => void
+  error: string | null
 }
 
 const inputStyle: React.CSSProperties = {
@@ -30,10 +33,7 @@ const navButtonStyle: React.CSSProperties = {
   fontFamily: 'inherit',
 }
 
-export function StepGitLab({ onNext, onBack }: StepProps) {
-  const [url, setUrl] = useState('')
-  const [token, setToken] = useState('')
-
+export function StepGitLab({ data, onChange, onNext, onBack, error }: StepProps) {
   return (
     <div style={{ padding: '20px', maxWidth: 400, margin: '0 auto' }}>
       <h2 style={{ fontSize: 16, color: 'var(--accent-ice)', marginBottom: 16 }}>
@@ -42,8 +42,8 @@ export function StepGitLab({ onNext, onBack }: StepProps) {
 
       <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>GitLab URL</label>
       <input
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
+        value={data.gitlab_url}
+        onChange={(e) => onChange({ gitlab_url: e.target.value })}
         placeholder="https://gitlab.company.com"
         style={inputStyle}
       />
@@ -51,20 +51,26 @@ export function StepGitLab({ onNext, onBack }: StepProps) {
       <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>Personal Access Token</label>
       <input
         type="password"
-        value={token}
-        onChange={(e) => setToken(e.target.value)}
+        value={data.gitlab_token}
+        onChange={(e) => onChange({ gitlab_token: e.target.value })}
         placeholder="glpat-xxx"
         style={inputStyle}
       />
+
+      {error && (
+        <div style={{ color: 'var(--accent-amber)', fontSize: 11, marginBottom: 8 }}>
+          {error}
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
         <button onClick={onBack} style={navButtonStyle}>Back</button>
         <button
           onClick={onNext}
-          disabled={!url.trim() || !token.trim()}
+          disabled={!data.gitlab_url.trim() || !data.gitlab_token.trim()}
           style={{
             ...navButtonStyle,
-            opacity: !url.trim() || !token.trim() ? 0.4 : 1,
+            opacity: !data.gitlab_url.trim() || !data.gitlab_token.trim() ? 0.4 : 1,
             marginLeft: 'auto',
           }}
         >

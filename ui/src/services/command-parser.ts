@@ -1,0 +1,61 @@
+export type ParsedCommand =
+  | { type: 'address'; target: string; rest: string }
+  | { type: 'reference'; name: string }
+  | { type: 'action'; action: string; args: string }
+  | { type: 'meta'; key: string; value: string }
+
+export function parseCommand(input: string): ParsedCommand[] | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  const commands: ParsedCommand[] = []
+  const tokens = trimmed.split(/\s+/)
+  let hasCommand = false
+  let i = 0
+
+  while (i < tokens.length) {
+    const token = tokens[i]
+
+    if (token.startsWith('@')) {
+      hasCommand = true
+      const target = token.slice(1).toLowerCase()
+      const restTokens: string[] = []
+      let j = i + 1
+      while (j < tokens.length && !tokens[j].match(/^[@#!%]/)) {
+        restTokens.push(tokens[j])
+        j++
+      }
+      commands.push({ type: 'address', target, rest: restTokens.join(' ') })
+      i = j
+      continue
+    }
+
+    if (token.startsWith('#')) {
+      hasCommand = true
+      const name = token.slice(1)
+      commands.push({ type: 'reference', name })
+      i++
+      continue
+    }
+
+    if (token.startsWith('!')) {
+      hasCommand = true
+      const action = token.slice(1).toLowerCase()
+      const args = tokens.slice(i + 1).join(' ')
+      commands.push({ type: 'action', action, args })
+      break
+    }
+
+    if (token.startsWith('%')) {
+      hasCommand = true
+      const body = token.slice(1).toLowerCase()
+      const nextToken = tokens[i + 1]
+      commands.push({ type: 'meta', key: body, value: nextToken ?? '' })
+      break
+    }
+
+    break
+  }
+
+  return hasCommand && commands.length > 0 ? commands : null
+}

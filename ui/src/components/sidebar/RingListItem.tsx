@@ -1,23 +1,13 @@
 import type { Ring } from '../../types/ring'
-import { useRingStore } from '../../stores/ring-store'
-import { useAppStore } from '../../stores/app-store'
 
 interface RingListItemProps {
   ring: Ring
+  isActive: boolean
 }
 
-export function RingListItem({ ring }: RingListItemProps) {
-  const active_ring_id = useRingStore((s) => s.active_ring_id)
-  const selectRing = useRingStore((s) => s.selectRing)
-  const setActiveRing = useAppStore((s) => s.setActiveRing)
-  const isActive = active_ring_id === ring.id
-
+export function RingListItem({ ring, isActive }: RingListItemProps) {
   return (
     <div
-      onClick={() => {
-        selectRing(ring.id)
-        setActiveRing(ring.id)
-      }}
       style={{
         display: 'flex',
         alignItems: 'center',

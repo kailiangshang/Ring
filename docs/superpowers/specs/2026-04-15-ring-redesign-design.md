@@ -188,6 +188,7 @@ Instructions here...
 ├── hub/                            # Super Ring 行为定义
 ├── rings/                          # Group Ring 数据
 │   └── <ring-id>/
+│       ├── blueprint.json             # Ring 蓝图配置
 │       ├── graphs/                  # 图谱数据（可多个图谱）
 │       │   └── main.json           # 默认图谱
 │       ├── sessions/               # Session Ring 数据

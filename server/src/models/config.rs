@@ -44,11 +44,10 @@ pub async fn update_llm_config(
 
     let provider = input.provider.as_deref().unwrap_or(&current.provider);
     let model = input.model.as_deref().unwrap_or(&current.model);
-    let api_key =
-        input
-            .api_key
-            .as_deref()
-            .or(if current.api_key_set { None } else { Some("") });
+    let api_key = input
+        .api_key
+        .as_deref()
+        .or(if current.api_key_set { None } else { Some("") });
 
     if let Some(key) = api_key {
         sqlx::query("UPDATE users SET llm_provider = ?1, llm_model = ?2, llm_api_key = ?3, llm_base_url = ?4 WHERE token_id = ?5")

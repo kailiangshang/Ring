@@ -262,7 +262,7 @@ GET /api/rings/{ring_id}/join-requests?status=pending
 ### 3.7 安装导航页（创建者托管）
 
 ```
-GET /join?token=xxx
+GET /ring/join?token=xxx
 ```
 
 非 API 路径，由创建者 ring-server 提供的 HTML 页面。检测 User-Agent，显示 Ring 信息、下载按钮、"继续加入"链接。
@@ -678,7 +678,7 @@ POST /api/rings/{ring_id}/invitations
 {
   "id": "01JTYINV",
   "token": "base64url-random-32bytes",
-  "join_url": "http://192.168.1.100:7420/join?token=base64url-random-32bytes",
+  "join_url": "http://192.168.1.100:7420/ring/join?token=base64url-random-32bytes",
   "expires_at": "2026-04-18T08:00:00Z"
 }
 ```

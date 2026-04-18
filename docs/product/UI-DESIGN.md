@@ -305,63 +305,52 @@ Weight 支持：300 / 400 / 500 / 600 / 700。
 
 ---
 
-## 9. Setup / Join Flow
+## 9. Setup Flow
 
-首次启动和加入 Ring 共用同一个引导流程。
+首次启动引导流程，共 5 步。Setup = Join（首次用户和加入已有 Ring 共用流程，未来扩展）。
 
-### 9.1 流程分支
+### 9.1 流程步骤
 
-用户在首页选择：
-
-| 选择 | 流程 |
-|------|------|
-| 🚀 New User | Welcome → Identity → LLM → Create Ring → Done |
-| 🔗 Join Existing | Welcome → Identity → LLM → Join Ring → Done |
+| 步骤 | 名称 | 内容 |
+|------|------|------|
+| 0 | Welcome | 品牌展示（Logo + RING + 副标题） |
+| 1 | Identity | Avatar（字母或 emoji）+ Display Name |
+| 2 | LLM | Provider 选择 + API Key / Base URL |
+| 3 | GitLab | GitLab URL + Personal Access Token |
+| 4 | Done | 完成确认 + 命令速查 + Enter Ring 按钮 |
 
 ### 9.2 Welcome Step
 
 - 品牌展示（Logo + RING + 副标题）
-- 两张选择卡片：New User / Join Existing
+- 单个 Next 按钮进入设置
 - 进度条显示当前步骤
 
 ### 9.3 Identity Step
 
 - **Avatar 选择**：字母或 emoji，实时预览
-- **Username**（必填，不可修改）+ Display name（可选）
+- **Display Name**（必填）
 - 字母头像时背景 `#0d2a35` + cyan 色，emoji 头像时 amber 色
 
 ### 9.4 LLM Step
 
-- 自动检测本地 Ollama（显示绿色状态点 + 可用模型）
-- Provider 下拉：Ollama (local) / OpenAI / Anthropic
+- Provider 选择：Ollama (local) / OpenAI / Anthropic
 - 选 OpenAI/Anthropic 时显示 API Key 输入框
-- API Key 声明：仅本地存储
+- Base URL 输入（Ollama 必填，其他可选）
 
-### 9.5 Create Ring Step
+### 9.5 GitLab Step
 
-- Ring 名称输入
-- Blueprint 模板选择（卡片列表）：
-  - 产品研究（6 nodes）
-  - 项目管理（5 nodes）
-  - 技术文档（4 nodes）
-  - 空白（0 nodes）
+- GitLab URL 输入（必填）
+- Personal Access Token 输入（必填）
+- 点击 Done 提交所有数据到 `POST /api/setup`
 
-### 9.6 Join Ring Step
+### 9.6 Done Step
 
-- 邀请链接/代码输入框 + paste 按钮
-- 链接解析后显示 Ring 信息（名称、成员数、节点数、Skills）
-- 声明：加入后 clone 数据到 `~/.ring/rings/`
+- 完成确认 + 命令速查表
+- Enter Ring 按钮进入主界面
 
-### 9.7 Done Step
-
-- 完成总结（身份、LLM、Ring 信息）
-- 常用命令速查 CLI 风格展示
-- Launch 按钮进入主界面
-
-### 9.8 导航规则
+### 9.7 导航规则
 
 - Back/Next 按钮控制步骤
-- Skip 可跳过直接进入主界面
 - 进度条实时反映当前步骤
 
 ---

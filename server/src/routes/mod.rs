@@ -49,9 +49,11 @@ pub fn build_router(state: AppState) -> Router {
         )
         .with_state(state);
 
+    let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
+
     Router::new()
         .nest("/api", api)
-        .fallback_service(ServeDir::new("ui/dist").append_index_html_on_directories(true))
+        .fallback_service(ServeDir::new(&static_dir).append_index_html_on_directories(true))
         .layer(cors)
         .layer(TraceLayer::new_for_http())
 }
