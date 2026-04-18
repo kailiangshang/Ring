@@ -235,6 +235,25 @@ async fn create_ring(app: &axum::Router, token: &str) -> String {
     json["id"].as_str().unwrap().to_string()
 }
 
+async fn create_second_user(pool: &SqlitePool) -> String {
+    let token_id = format!(
+        "user-test-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    );
+    sqlx::query(
+        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, gitlab_url, gitlab_token)
+         VALUES (?1, 'Bob', '🧑', 0, 'openai', 'sk-test', 'gpt-4o', 'https://gitlab.test.com', 'glpat-test')",
+    )
+    .bind(&token_id)
+    .execute(pool)
+    .await
+    .unwrap();
+    token_id
+}
+
 #[tokio::test]
 async fn test_session_crud() {
     let state = setup_app().await;
@@ -519,8 +538,7 @@ async fn test_close_session_triggers_auto_archive_check() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
 
-    let session_body =
-        r#"{"title":"Auto Archive Test","skill":"discussion","archivable":true}"#;
+    let session_body = r#"{"title":"Auto Archive Test","skill":"discussion","archivable":true}"#;
     let resp = app
         .clone()
         .oneshot(make_request(
@@ -561,4 +579,79 @@ async fn test_close_session_triggers_auto_archive_check() {
     assert_eq!(resp.status(), StatusCode::OK);
     let json = read_body(resp).await;
     assert_eq!(json["phase"], "closed");
+}
+
+#[tokio::test]
+async fn test_add_member() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+    let bob_token = create_second_user(&pool).await;
+
+    let add_body = &format!(r#"{{"user_id":"{bob_token}"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["token_id"], bob_token);
+    assert_eq!(json["role"], "member");
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn test_add_member_forbidden() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+    let bob_token = create_second_user(&pool).await;
+
+    let add_body = &format!(r#"{{"user_id":"{bob_token}"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&bob_token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }

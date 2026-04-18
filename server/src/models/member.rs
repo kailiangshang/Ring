@@ -116,7 +116,7 @@ pub async fn add_member(
             })
         }
         Err(sqlx::Error::Database(ref db)) => {
-            if db.code().is_some_and(|c| c == "2067") {
+            if db.code().is_some_and(|c| c == "2067" || c == "1555") {
                 Err(crate::error::RingError::Conflict(
                     "user is already a member".into(),
                 ))

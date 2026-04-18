@@ -50,7 +50,7 @@ impl From<sqlx::Error> for RingError {
         match e {
             sqlx::Error::RowNotFound => RingError::NotFound("resource not found".into()),
             sqlx::Error::Database(ref db) => {
-                if db.code().is_some_and(|c| c == "2067") {
+                if db.code().is_some_and(|c| c == "2067" || c == "1555") {
                     RingError::Conflict("resource already exists".into())
                 } else {
                     RingError::Internal(e.to_string())
