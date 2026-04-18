@@ -371,7 +371,8 @@ pub async fn start_super_chat(
 
     let base_prompt = get_system_prompt(&state.hub_dir);
     let ring_summary = build_ring_summary(&state.db, &user.token_id).await;
-    let system_prompt = format!("{base_prompt}\n\n{ring_summary}");
+    let prefs = get_user_preferences(&state.hub_dir);
+    let system_prompt = format!("{base_prompt}\n\n{ring_summary}\n\n## 用户偏好\n{prefs}");
 
     let history =
         chat::load_history_context(&state.db, Some(SUPER_RING_ID), &user.token_id, 20).await?;
