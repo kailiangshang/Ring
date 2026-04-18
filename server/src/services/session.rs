@@ -137,6 +137,48 @@ pub async fn close_session(
     }
     let session = session::update_phase(&state.db, session_id, "closed").await?;
     let participants = session::get_participants(&state.db, session_id).await?;
+
+    let interaction_mode: String = sqlx::query_scalar(
+        "SELECT interaction_mode FROM rings WHERE id = ?1",
+    )
+    .bind(ring_id)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or_else(|_| "normal".to_string());
+
+    if interaction_mode == "auto" && session.archive_enabled {
+        let pool = state.db.clone();
+        let rings_dir = state.rings_dir.clone();
+        let ring_id = ring_id.to_string();
+        let session_id = session_id.to_string();
+        let session_title = session.title.clone();
+        let session_skill = session.skill.clone();
+        let creator_id = session.owner.clone();
+
+        tokio::spawn(async move {
+            let creator_user = match crate::models::user::get_user(&pool, &creator_id).await {
+                Ok(u) => u,
+                Err(e) => {
+                    tracing::warn!("auto_archive: failed to get creator user: {e}");
+                    return;
+                }
+            };
+
+            let git = crate::services::git_service::GitService::new();
+            crate::services::archive_service::auto_archive_session(
+                &pool,
+                &git,
+                &rings_dir,
+                &ring_id,
+                &session_id,
+                &session_title,
+                &session_skill,
+                &creator_user,
+            )
+            .await;
+        });
+    }
+
     Ok(SessionResponse {
         session,
         participants,
