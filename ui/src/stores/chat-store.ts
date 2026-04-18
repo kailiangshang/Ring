@@ -151,6 +151,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let url = ''
     if (context === 'ring' && ring_id) {
       url = `/api/rings/${ring_id}/chat`
+    } else if (context === 'super') {
+      url = '/api/super/chat'
     } else {
       set({ sending: false })
       return
@@ -161,7 +163,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         const aiMsg: ChatMessage = {
           id: data.message_id,
           role: data.role as ChatMessage['role'],
-          sender_name: data.role === 'group_ring' ? 'GROUP RING' : data.role.toUpperCase(),
+          sender_name: data.role === 'group_ring' ? 'GROUP RING' : data.role === 'super_ring' ? 'SUPER RING' : data.role.toUpperCase(),
           content: '',
           created_at: new Date().toISOString(),
         }
@@ -218,6 +220,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     let url = ''
     if (context === 'ring' && ring_id) {
       url = `/api/rings/${ring_id}/chat/history?limit=50`
+    } else if (context === 'super') {
+      url = '/api/super/chat/history?limit=50'
     } else {
       return
     }
