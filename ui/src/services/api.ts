@@ -65,3 +65,53 @@ export const api = {
   delete: <T>(path: string) =>
     request<T>(path, { method: 'DELETE' }),
 }
+
+export async function triggerArchiveSSE(
+  ringId: string,
+  input: import('../types/archive').CreateArchiveInput,
+  onProgress: (event: import('../types/archive').ArchiveProgressEvent) => void,
+  onComplete: () => void,
+  onError: (err: string) => void,
+): Promise<void> {
+  const token = await getToken()
+  const resp = await fetch(`${API_BASE}/rings/${ringId}/archive`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Ring-Token': token || '',
+    },
+    body: JSON.stringify(input),
+  })
+
+  if (!resp.ok || !resp.body) {
+    onError(`archive failed: ${resp.status}`)
+    return
+  }
+
+  const reader = resp.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() || ''
+    for (const line of lines) {
+      if (line.startsWith('data:')) {
+        const data = line.slice(5).trim()
+        if (!data) continue
+        try {
+          const parsed = JSON.parse(data)
+          if (parsed.step && parsed.message) {
+            onProgress(parsed)
+          }
+        } catch {
+          /* skip */
+        }
+      }
+    }
+  }
+  onComplete()
+}
