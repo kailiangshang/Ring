@@ -29,7 +29,7 @@ impl GitService {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     }
 
-    pub fn init(path: &Path) -> Result<()> {
+    pub fn init(&self, path: &Path) -> Result<()> {
         Self::run_git(path, &["init"])?;
         Ok(())
     }
@@ -39,37 +39,37 @@ impl GitService {
         Ok(())
     }
 
-    pub fn pull(repo_path: &Path) -> Result<()> {
+    pub fn pull(&self, repo_path: &Path) -> Result<()> {
         Self::run_git(repo_path, &["pull", "--rebase"])?;
         Ok(())
     }
 
-    pub fn add_all(repo_path: &Path) -> Result<()> {
+    pub fn add_all(&self, repo_path: &Path) -> Result<()> {
         Self::run_git(repo_path, &["add", "."])?;
         Ok(())
     }
 
-    pub fn commit(repo_path: &Path, msg: &str) -> Result<String> {
+    pub fn commit(&self, repo_path: &Path, msg: &str) -> Result<String> {
         Self::run_git(repo_path, &["commit", "-m", msg])?;
         Self::run_git(repo_path, &["rev-parse", "HEAD"])
     }
 
-    pub fn push(repo_path: &Path, remote: &str, branch: &str) -> Result<()> {
+    pub fn push(&self, repo_path: &Path, remote: &str, branch: &str) -> Result<()> {
         Self::run_git(repo_path, &["push", remote, branch])?;
         Ok(())
     }
 
-    pub fn create_branch(repo_path: &Path, name: &str) -> Result<()> {
+    pub fn create_branch(&self, repo_path: &Path, name: &str) -> Result<()> {
         Self::run_git(repo_path, &["checkout", "-b", name])?;
         Ok(())
     }
 
-    pub fn checkout(repo_path: &Path, branch: &str) -> Result<()> {
+    pub fn checkout(&self, repo_path: &Path, branch: &str) -> Result<()> {
         Self::run_git(repo_path, &["checkout", branch])?;
         Ok(())
     }
 
-    pub fn log(repo_path: &Path, n: usize) -> Result<Vec<LogEntry>> {
+    pub fn log(&self, repo_path: &Path, n: usize) -> Result<Vec<LogEntry>> {
         let format = "--pretty=format:%H|%s|%an|%ai";
         let output = Self::run_git(repo_path, &["log", format, "-n", &n.to_string()])?;
         let entries = output
@@ -91,13 +91,13 @@ impl GitService {
         Ok(entries)
     }
 
-    pub fn has_remote(path: &Path) -> bool {
+    pub fn has_remote(&self, path: &Path) -> bool {
         Self::run_git(path, &["remote"])
             .map(|r| !r.is_empty())
             .unwrap_or(false)
     }
 
-    pub fn set_remote(path: &Path, name: &str, url: &str) -> Result<()> {
+    pub fn set_remote(&self, path: &Path, name: &str, url: &str) -> Result<()> {
         let has_origin = Self::run_git(path, &["remote"])
             .map(|r| r.lines().any(|l| l == name))
             .unwrap_or(false);

@@ -67,6 +67,12 @@ impl From<async_openai::error::OpenAIError> for RingError {
     }
 }
 
+impl From<std::io::Error> for RingError {
+    fn from(e: std::io::Error) -> Self {
+        RingError::Internal(format!("IO error: {e}"))
+    }
+}
+
 impl IntoResponse for RingError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {

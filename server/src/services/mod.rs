@@ -1,3 +1,4 @@
+pub mod archive_service;
 pub mod chat;
 pub mod config;
 pub mod git_service;
