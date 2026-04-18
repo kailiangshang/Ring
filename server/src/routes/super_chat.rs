@@ -107,13 +107,9 @@ pub async fn super_history(
     Query(query): Query<HistoryQuery>,
 ) -> Result<Json<HistoryResponse>> {
     let limit = query.limit + 1;
-    let messages = super_chat::get_super_history(
-        &state,
-        &user.token_id,
-        query.before.as_deref(),
-        limit,
-    )
-    .await?;
+    let messages =
+        super_chat::get_super_history(&state, &user.token_id, query.before.as_deref(), limit)
+            .await?;
 
     let has_more = messages.len() > query.limit as usize;
     let messages = if has_more {
