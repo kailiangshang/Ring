@@ -15,7 +15,7 @@ async fn setup_app() -> AppState {
         .await
         .expect("failed to run migrations");
 
-    AppState::new(pool, std::path::PathBuf::from("/tmp/ring-test-rings"))
+    AppState::new(pool, std::path::PathBuf::from("/tmp/ring-test-rings"), std::path::PathBuf::from("/tmp/ring-test-hub"))
 }
 
 fn make_request(method: &str, uri: &str, body: Option<&str>, token: Option<&str>) -> Request<Body> {
