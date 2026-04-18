@@ -319,3 +319,41 @@ pub async fn get_messages(
     .await?;
     Ok(rows)
 }
+
+pub async fn next_seq_num(pool: &sqlx::SqlitePool, session_id: &str) -> Result<i64> {
+    let max: Option<i64> = sqlx::query_scalar(
+        "SELECT MAX(seq_num) FROM session_messages WHERE session_id = ?1",
+    )
+    .bind(session_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    Ok(max.unwrap_or(0) + 1)
+}
+
+pub async fn insert_message(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+    session_id: &str,
+    seq_num: i64,
+    sender: &str,
+    sender_name: &str,
+    content: &str,
+    message_type: &str,
+) -> Result<SessionMessageRow> {
+    sqlx::query_as::<_, SessionMessageRow>(
+        "INSERT INTO session_messages (id, session_id, seq_num, sender, sender_name, content, message_type)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         RETURNING *",
+    )
+    .bind(id)
+    .bind(session_id)
+    .bind(seq_num)
+    .bind(sender)
+    .bind(sender_name)
+    .bind(content)
+    .bind(message_type)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| RingError::Internal(e.to_string()))
+}

@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use serde::Serialize;
 
 use crate::error::{Result, RingError};
@@ -77,11 +79,14 @@ pub async fn create_session(
     }
 
     let id = ulid::Ulid::new().to_string();
-    let session = session::create_session(&state.db, &id, ring_id, user_id, &input).await?;
+    let sess = session::create_session(&state.db, &id, ring_id, user_id, &input).await?;
     let participants = session::get_participants(&state.db, &id).await?;
 
+    let participant_ids: HashSet<String> = participants.iter().map(|p| p.token_id.clone()).collect();
+    state.ws_hub.register_session(id.clone(), user_id.to_string(), participant_ids);
+
     Ok(SessionResponse {
-        session,
+        session: sess,
         participants,
     })
 }
@@ -153,10 +158,14 @@ pub async fn reopen_session(
     if session::has_active_session(&state.db, ring_id).await? {
         return Err(RingError::Conflict("active session already exists".into()));
     }
-    let session = session::update_phase(&state.db, session_id, "discussion").await?;
+    let sess = session::update_phase(&state.db, session_id, "discussion").await?;
     let participants = session::get_participants(&state.db, session_id).await?;
+
+    let participant_ids: HashSet<String> = participants.iter().map(|p| p.token_id.clone()).collect();
+    state.ws_hub.register_session(session_id.to_string(), sess.owner.clone(), participant_ids);
+
     Ok(SessionResponse {
-        session,
+        session: sess,
         participants,
     })
 }
@@ -171,7 +180,9 @@ pub async fn delete_session(
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can delete session".into()));
     }
-    session::delete_session(&state.db, session_id).await
+    session::delete_session(&state.db, session_id).await?;
+    state.ws_hub.remove_session(session_id);
+    Ok(())
 }
 
 pub async fn invite_participants(
@@ -195,7 +206,11 @@ pub async fn invite_participants(
             )));
         }
     }
-    session::add_participants(&state.db, session_id, &input.token_ids).await
+    let result = session::add_participants(&state.db, session_id, &input.token_ids).await?;
+    for tid in &input.token_ids {
+        state.ws_hub.add_session_participant(session_id, tid.clone());
+    }
+    Ok(result)
 }
 
 pub async fn remove_participant(
@@ -211,7 +226,9 @@ pub async fn remove_participant(
             "only owner can remove participants".into(),
         ));
     }
-    session::remove_participant(&state.db, session_id, target_id).await
+    session::remove_participant(&state.db, session_id, target_id).await?;
+    state.ws_hub.remove_session_participant(session_id, target_id);
+    Ok(())
 }
 
 pub async fn toggle_archive(

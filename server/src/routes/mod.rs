@@ -16,6 +16,7 @@ mod mode;
 mod rings;
 mod session;
 mod setup;
+mod ws;
 
 pub fn build_router(state: AppState) -> Router {
     let cors = CorsLayer::new()
@@ -25,6 +26,7 @@ pub fn build_router(state: AppState) -> Router {
 
     let api = Router::new()
         .route("/health", get(health::health_check))
+        .route("/ws", get(ws::ws_handler))
         .route("/setup/status", get(setup::get_status))
         .route("/setup", post(setup::submit_setup).put(setup::update_setup))
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
