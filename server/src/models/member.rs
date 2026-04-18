@@ -85,14 +85,12 @@ pub async fn add_member(
     user_id: &str,
     role: &str,
 ) -> Result<MemberResponse> {
-    let result = sqlx::query(
-        "INSERT INTO members (ring_id, user_id, role) VALUES (?1, ?2, ?3)",
-    )
-    .bind(ring_id)
-    .bind(user_id)
-    .bind(role)
-    .execute(pool)
-    .await;
+    let result = sqlx::query("INSERT INTO members (ring_id, user_id, role) VALUES (?1, ?2, ?3)")
+        .bind(ring_id)
+        .bind(user_id)
+        .bind(role)
+        .execute(pool)
+        .await;
 
     match result {
         Ok(_) => {

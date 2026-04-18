@@ -65,13 +65,12 @@ pub async fn add_member_service(
 
     tracing::info!("member added: user={target_id}, ring={ring_id}");
 
-    let repo_url: Option<String> = sqlx::query_scalar(
-        "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
-    )
-    .bind(ring_id)
-    .fetch_optional(&state.db)
-    .await?
-    .flatten();
+    let repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
 
     if let Some(url) = repo_url {
         let rings_dir = state.rings_dir.clone();
@@ -85,9 +84,7 @@ pub async fn add_member_service(
                     tracing::warn!("git pull failed for ring {ring_id}: {e}");
                 }
             } else {
-                if let Err(e) =
-                    crate::services::git_service::GitService::clone(&url, &repo_path)
-                {
+                if let Err(e) = crate::services::git_service::GitService::clone(&url, &repo_path) {
                     tracing::warn!("git clone failed for ring {ring_id}: {e}");
                     return;
                 }
