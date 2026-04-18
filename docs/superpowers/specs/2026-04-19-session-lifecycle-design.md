@@ -25,9 +25,10 @@ CREATE TABLE sessions (
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     skill TEXT NOT NULL DEFAULT 'discussion',
-    phase TEXT NOT NULL DEFAULT 'discussing',
+    phase TEXT NOT NULL DEFAULT 'material_prep',
     owner TEXT NOT NULL,
     archivable INTEGER NOT NULL DEFAULT 0,
+    archive_enabled INTEGER NOT NULL DEFAULT 0,
     summary TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -41,15 +42,17 @@ CREATE TABLE sessions (
 | `title` | Session title |
 | `description` | Optional description |
 | `skill` | One of: `decision`, `research`, `review`, `retrospective`, `knowledge_sharing`, `discussion` |
-| `phase` | `material_prep`, `discussing`, `summarizing`, `closed` |
+| `phase` | `material_prep`, `discussion`, `summary`, `closed` — matches frontend `SessionPhase` type |
 | `owner` | token_id of the session creator |
-| `archivable` | 0 or 1, archive toggle (owner controls) |
-| `summary` | AI-generated summary text (nullable, set after summarize phase) |
+| `archivable` | 0 or 1 — whether this session has archive capability |
+| `archive_enabled` | 0 or 1 — whether archiving is currently active (owner toggles) |
+| `summary` | AI-generated summary text (nullable, set after summary phase) |
 
 **Business rules:**
-- Only one active session per Ring at a time (enforced in service layer)
+- Only one active session per Ring at a time — service layer checks with `SELECT 1 FROM sessions WHERE ring_id = ? AND phase != 'closed'` inside a transaction to prevent race conditions
 - `phase` transitions follow state machine (see §5)
-- `discussion` skill sessions skip `material_prep` and `summarizing` phases
+- `discussion` skill sessions skip `material_prep` and `summary` phases — phase set to `discussion` on creation
+- `invitees` from the create request are batch-inserted into `session_participants` within the same transaction as session creation
 
 ### 2.2 `session_participants` table
 
@@ -125,16 +128,17 @@ All endpoints follow existing pattern: route → service → model.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/api/rings/{ring_id}/sessions` | Ring member (creator/admin, or member with grant) | Create session |
+| POST | `/api/rings/{ring_id}/sessions` | Ring member (creator/admin, or member with `session_grant`) | Create session |
 | GET | `/api/rings/{ring_id}/sessions?status=active` | Ring member | List sessions |
 | GET | `/api/rings/{ring_id}/sessions/{session_id}` | Ring member | Get session detail |
 | POST | `/api/rings/{ring_id}/sessions/{session_id}/close` | Session owner | Close session |
 | POST | `/api/rings/{ring_id}/sessions/{session_id}/reopen` | Session owner | Reopen closed session |
 | DELETE | `/api/rings/{ring_id}/sessions/{session_id}` | Session owner | Delete session permanently |
 | POST | `/api/rings/{ring_id}/sessions/{session_id}/participants` | Session owner | Invite Ring members |
-| DELETE | `/api/rings/{ring_id}/sessions/{session_id}/participants/{token_id}` | Session owner | Remove participant |
-| PUT | `/api/rings/{ring_id}/sessions/{session_id}/archive-toggle` | Session owner | Toggle archive capability |
-| POST | `/api/rings/{ring_id}/sessions/{session_id}/summarize` | Session owner | Trigger AI summary (SSE stream) |
+| DELETE | `/api/rings/{ring_id}/sessions/{session_id}/participants/{token_id}` | Session owner | Remove participant (kicked member receives `session_member_kicked` WS event; re-join blocked until re-invited, returns `403 Forbidden` with `{"error": {"code": "kicked", "message": "removed from session"}}`) |
+| PUT | `/api/rings/{ring_id}/sessions/{session_id}/archive-toggle` | Session owner | Toggle `archive_enabled` |
+| POST | `/api/rings/{ring_id}/sessions/{session_id}/start` | Session owner | Transition `material_prep` → `discussion` |
+| POST | `/api/rings/{ring_id}/sessions/{session_id}/summarize` | Session owner | Transition `discussion` → `summary` (SSE stream, phase auto-transitions to `closed` on success; on error phase reverts to `discussion`) |
 | GET | `/api/rings/{ring_id}/sessions/{session_id}/messages?after_seq=0&limit=50` | Session participant | Get message history |
 | GET | `/api/rings/{ring_id}/sessions/{session_id}/material-prep` | Session participant | Get material prep progress |
 | POST | `/api/rings/{ring_id}/sessions/{session_id}/material-prep/highlights` | Session owner | Mark material highlight |
@@ -170,10 +174,14 @@ All endpoints follow existing pattern: route → service → model.
 ```
 
 **Phase transition rules:**
-- `discussion` skill → phase starts at `discussing` (skip material_prep)
+- `discussion` skill → phase starts at `discussion` (skip material_prep)
 - Other skills → phase starts at `material_prep`
-- Owner manually transitions from `material_prep` → `discussing`
-- Summarize is triggered by owner → phase becomes `summarizing` → `closed` when done
+- Owner triggers `POST .../start` → `material_prep` → `discussion`
+- Owner triggers `POST .../summarize` → `discussion` → `summary` (SSE stream)
+- `summary` phase: on SSE success → auto-transition to `closed`; on SSE error → revert to `discussion`
+- Owner triggers `POST .../close` → any active phase → `closed`
+- Owner triggers `POST .../reopen` → `closed` → `discussion`
+- Delete: only from `closed` state, permanent
 
 ### 3.3 File Structure
 
@@ -224,6 +232,10 @@ Using `dashmap` for concurrent access. `Sender` is `tokio::sync::mpsc::Unbounded
 2. Server validates token, registers connection in `WsHub::connections`
 3. Client sends/receives JSON messages
 4. On disconnect: remove from `connections`, check if any session owner went offline → broadcast `session_paused`
+
+**Heartbeat:** Server sends `{"type":"ping"}` every 30 seconds. Client must respond with `{"type":"pong"}` within 10 seconds. No response → server closes connection. This enables reliable owner-offline detection.
+
+**Token validity:** Tokens are static local identifiers (not JWT), so they don't expire during a session. Token validity is only checked at connection time. If a user is removed from a Ring while connected, the next WS message triggers a re-check and disconnect with `{"type":"auth_revoked"}`.
 
 ### 4.3 Message Types
 
@@ -304,30 +316,31 @@ When a participant reconnects:
 ## 5. Phase State Machine
 
 ```
-                        ┌── skill=discussion ──┐
-                        │                      ▼
-[create] ──→ material_prep ────────→ discussing ────→ closed
-                 │                       │               ▲
-                 └──(owner: start)───────┘               │
-                                         │               │
-                                  [owner: summarize]     │
-                                         │               │
-                                         ▼               │
-                                    summarizing ──────────┘
-                                         │        (reopen)
-                                    [AI complete]
-                                         │
-                                         ▼
-                                      closed
+[create with skill≠discussion] ──→ material_prep ──(POST .../start)──→ discussion
+[create with skill=discussion] ──────────────────────────────────────→ discussion
+                                                                              │
+                                              ┌───────────────────────────────┤
+                                              │                               │
+                                     (POST .../summarize)          (POST .../close)
+                                              │                               │
+                                              ▼                               ▼
+                                          summary ──(AI done)──→ closed  closed
+                                              │                       ▲
+                                     (AI error: revert)               │
+                                              │               (POST .../reopen)
+                                              ▼                       │
+                                          discussion ─────────────────┘
 ```
 
 **Phase rules:**
-- `discussion` skill: skip `material_prep`, go directly to `discussing`
-- `material_prep` → `discussing`: owner triggers "start discussion"
-- `discussing` → `summarizing`: owner triggers summarize (optional, skill-dependent)
-- `summarizing` → `closed`: AI completes summary automatically
-- `discussing` → `closed`: owner closes directly (if no summarize needed)
-- `closed` → `discussing`: owner reopens
+- `discussion` skill: phase = `discussion` immediately on create
+- Other skills: phase = `material_prep` → `POST .../start` → `discussion`
+- `discussion` → `summary`: owner triggers `POST .../summarize` (SSE stream)
+- `summary` → `closed`: AI completes summary → auto-transition, store in `sessions.summary`
+- `summary` → `discussion`: SSE stream error → phase reverts, user can retry
+- `discussion` → `closed`: owner closes directly (no summarize needed)
+- `closed` → `discussion`: owner reopens
+- `skill=discussion`: summarize button not shown, close goes directly to `closed`
 - Delete: only from `closed` state, permanent
 
 ---
@@ -337,13 +350,15 @@ When a participant reconnects:
 ### 6.1 Skill Loading
 
 When a session is created with a non-`discussion` skill:
-1. Load skill definition from `~/.ring/skills/{skill}/SKILL.md` (or built-in)
-2. Inject into Session Ring system prompt
-3. Skill determines material prep behavior and summary format
+1. Check `~/.ring/skills/{skill}/SKILL.md` for user-installed skill
+2. Fall back to built-in skill definitions (embedded in binary as `&str` constants)
+3. Parse YAML frontmatter + Markdown body
+4. Inject into Session Ring system prompt
+5. Skill determines material prep behavior and summary format
 
 ### 6.2 Built-in Skills
 
-5 pre-installed skills, stored as embedded strings in the binary (not files):
+5 pre-installed skills. On first use, written to `~/.ring/skills/{skill}/SKILL.md` so users can inspect and customize. If the file exists, the file version takes precedence over the embedded version.
 
 | Skill | Material Prep | Summary Output |
 |-------|--------------|----------------|
@@ -361,18 +376,19 @@ When a session is created with a non-`discussion` skill:
 3. AI collects materials based on session title/description:
    - Searches graph nodes for relevant content
    - Generates AI analysis of the topic
-   - Creates `session_materials` entries
+   - Creates `session_materials` entries with status `collecting` → `analyzing` → `ready` (AI transitions automatically)
 4. Participants can view progress via `GET material-prep`
 5. Owner can highlight items via `POST material-prep/highlights`
-6. Owner triggers "start discussion" → phase = `discussing`
+6. Owner triggers `POST .../start` → phase = `discussion`
 
 ### 6.4 Summary Flow
 
-1. Owner triggers summarize → phase = `summarizing`
+1. Owner triggers `POST .../summarize` → phase = `summary`
 2. Session Ring generates summary via SSE stream (same pattern as chat)
-3. Summary text stored in `sessions.summary`
-4. Phase transitions to `closed`
-5. If archivable, owner can trigger archive (uses Ring standard archive flow)
+3. On SSE stream success: summary text stored in `sessions.summary`, phase transitions to `closed`
+4. On SSE stream error (LLM failure, client disconnect): phase reverts to `discussion`, owner can retry
+5. Client disconnect during summary does not affect server-side generation — server completes the summary regardless, stores it, and transitions phase. Client fetches result on reconnect via `GET sessions/{id}`
+6. If `archive_enabled`, owner can trigger archive after close (uses Ring standard archive flow)
 
 ---
 
@@ -442,7 +458,7 @@ ui/src/
 **Scope:** DB migrations + models + services + routes for session CRUD. No WebSocket.
 
 **Files:**
-- `server/migrations/005_sessions.sql`
+- `server/migrations/005_sessions.sql` — includes `ALTER TABLE members ADD COLUMN session_grant INTEGER NOT NULL DEFAULT 0`
 - `server/src/models/session.rs`
 - `server/src/services/session.rs`
 - `server/src/routes/session.rs`
@@ -492,9 +508,11 @@ ui/src/
 
 ## 9. Constraints
 
-- **Single active session per Ring** — enforced at service layer, not DB constraint
+- **Single active session per Ring** — service layer checks `SELECT 1 FROM sessions WHERE ring_id = ? AND phase != 'closed'` inside a SQLite transaction (SQLite serializes writes, preventing race conditions)
 - **Messages stored on creator backend SQLite** — no cross-backend sync needed (single-user binary)
-- **Owner offline = session paused** — all participants blocked until owner reconnects
-- **No temporary ownership transfer** — messages always on owner's backend
-- **Session participants must be Ring members** — verified on invite
-- **`discussion` skill skips material_prep and summarizing** — simplified lifecycle
+- **Owner offline = session paused** — detected via heartbeat timeout (30s ping, 10s pong grace), all participants blocked until owner reconnects
+- **No temporary ownership transfer** — enforced in routes: only `owner` field from `sessions` table can call owner-only endpoints
+- **Session participants must be Ring members** — verified on invite via `SELECT role FROM members WHERE ring_id = ? AND token_id = ?`
+- **`discussion` skill skips `material_prep` and `summary`** — phase set to `discussion` on creation, summarize button hidden
+- **Message retention** — closed session messages retained indefinitely (user can delete session to clear). No auto-cleanup.
+- **Session creation permission** — `members` table gets a new `session_grant INTEGER NOT NULL DEFAULT 0` column (migration 005). Checked in service layer: `role IN ('creator', 'admin') OR session_grant = 1`
