@@ -320,6 +320,22 @@ pub async fn get_messages(
     Ok(rows)
 }
 
+pub async fn get_all_messages_ordered(
+    pool: &sqlx::SqlitePool,
+    session_id: &str,
+    limit: i64,
+) -> Result<Vec<SessionMessageRow>> {
+    let mut rows = sqlx::query_as::<_, SessionMessageRow>(
+        "SELECT * FROM session_messages WHERE session_id = ?1 ORDER BY seq_num DESC LIMIT ?2",
+    )
+    .bind(session_id)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+    rows.reverse();
+    Ok(rows)
+}
+
 pub async fn next_seq_num(pool: &sqlx::SqlitePool, session_id: &str) -> Result<i64> {
     let max: Option<i64> = sqlx::query_scalar(
         "SELECT MAX(seq_num) FROM session_messages WHERE session_id = ?1",
