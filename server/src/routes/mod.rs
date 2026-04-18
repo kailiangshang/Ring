@@ -17,6 +17,7 @@ mod mode;
 mod rings;
 mod session;
 mod setup;
+mod super_chat;
 mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -140,6 +141,12 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
+        .route("/super/chat", post(super_chat::super_chat_handler))
+        .route("/super/chat/history", get(super_chat::super_history))
+        .route(
+            "/super/system-prompt",
+            get(super_chat::get_system_prompt).put(super_chat::update_system_prompt),
+        )
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
