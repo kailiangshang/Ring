@@ -13,6 +13,8 @@ const SUPER_RING_ID: &str = "super";
 
 const DEFAULT_SUPER_SYSTEM_PROMPT: &str = "你是 Super Ring，用户的全局 AI 助手和跨 Ring 协调者。\n\n你的职责：\n1. Ring 管理引导 — 帮助用户创建、配置 Ring\n2. 跨 Ring 分析 — 按需读取所有 Ring 的内容，进行汇总、对比、推荐\n3. 使用引导 — 回答关于 Ring 产品功能的问题\n\n请用简洁、专业的方式回答。";
 
+const DEFAULT_PREFERENCES: &str = "## 语言\n- default: zh-CN\n\n## LLM\n- default_provider: openai\n\n## 输出格式\n- style: concise\n\n## 默认模式\n- mode: normal";
+
 pub fn get_system_prompt(hub_dir: &Path) -> String {
     let prompt_file = hub_dir.join("system_prompt.md");
     match std::fs::read_to_string(&prompt_file) {
@@ -35,6 +37,32 @@ pub fn update_system_prompt(hub_dir: &Path, prompt: &str) -> Result<()> {
         let _ = std::fs::remove_file(&prompt_file);
     } else {
         std::fs::write(&prompt_file, prompt)?;
+    }
+    Ok(())
+}
+
+pub fn get_user_preferences(hub_dir: &Path) -> String {
+    let prefs_file = hub_dir.join("user_preferences.md");
+    match std::fs::read_to_string(&prefs_file) {
+        Ok(content) if !content.trim().is_empty() => content,
+        _ => DEFAULT_PREFERENCES.to_string(),
+    }
+}
+
+pub fn get_user_preferences_info(hub_dir: &Path) -> (String, bool) {
+    let prefs_file = hub_dir.join("user_preferences.md");
+    match std::fs::read_to_string(&prefs_file) {
+        Ok(ref content) if !content.trim().is_empty() => (content.clone(), true),
+        _ => (DEFAULT_PREFERENCES.to_string(), false),
+    }
+}
+
+pub fn update_user_preferences(hub_dir: &Path, content: &str) -> Result<()> {
+    let prefs_file = hub_dir.join("user_preferences.md");
+    if content.trim().is_empty() {
+        let _ = std::fs::remove_file(&prefs_file);
+    } else {
+        std::fs::write(&prefs_file, content)?;
     }
     Ok(())
 }
