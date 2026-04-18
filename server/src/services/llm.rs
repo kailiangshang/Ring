@@ -3,7 +3,7 @@ use async_openai::types::{
     ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
-    ChatCompletionRequestUserMessageContent, CreateChatCompletionRequest,
+    ChatCompletionRequestUserMessageContent, CreateChatCompletionRequest, ChatCompletionTool,
 };
 use async_openai::Client;
 use futures_util::StreamExt;
@@ -29,6 +29,11 @@ pub enum SseEvent {
         full_content: String,
     },
     Error(String),
+}
+
+pub enum ChatCompleteWithToolsResult {
+    Message { content: String },
+    ToolCalls { tool_calls: Vec<async_openai::types::ChatCompletionMessageToolCall> },
 }
 
 impl LlmClient {
@@ -185,5 +190,78 @@ impl LlmClient {
             .and_then(|c| c.message.content.clone())
             .unwrap_or_default();
         Ok(content)
+    }
+
+    pub async fn chat_complete_with_tools(
+        self,
+        system_prompt: String,
+        history: Vec<(String, String)>,
+        user_message: String,
+        tools: Vec<ChatCompletionTool>,
+    ) -> crate::error::Result<ChatCompleteWithToolsResult> {
+        let mut messages = vec![ChatCompletionRequestMessage::System(
+            ChatCompletionRequestSystemMessage {
+                content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+                name: None,
+            },
+        )];
+
+        for (role, content) in history {
+            match role.as_str() {
+                "user" => {
+                    messages.push(ChatCompletionRequestMessage::User(
+                        ChatCompletionRequestUserMessage {
+                            content: ChatCompletionRequestUserMessageContent::Text(content),
+                            name: None,
+                        },
+                    ));
+                }
+                _ => {
+                    messages.push(ChatCompletionRequestMessage::Assistant(
+                        #[allow(deprecated)]
+                        ChatCompletionRequestAssistantMessage {
+                            content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                                content,
+                            )),
+                            name: None,
+                            tool_calls: None,
+                            refusal: None,
+                            audio: None,
+                            function_call: None,
+                        },
+                    ));
+                }
+            }
+        }
+
+        messages.push(ChatCompletionRequestMessage::User(
+            ChatCompletionRequestUserMessage {
+                content: ChatCompletionRequestUserMessageContent::Text(user_message),
+                name: None,
+            },
+        ));
+
+        let request = CreateChatCompletionRequest {
+            messages,
+            model: self.model,
+            tools: Some(tools),
+            tool_choice: Some(async_openai::types::ChatCompletionToolChoiceOption::Auto),
+            ..Default::default()
+        };
+
+        let response = self.client.chat().create(request).await?;
+        let choice = response.choices.first().ok_or_else(|| {
+            crate::error::RingError::Internal("no choices in response".into())
+        })?;
+
+        if let Some(tool_calls) = &choice.message.tool_calls {
+            Ok(ChatCompleteWithToolsResult::ToolCalls {
+                tool_calls: tool_calls.clone(),
+            })
+        } else {
+            Ok(ChatCompleteWithToolsResult::Message {
+                content: choice.message.content.clone().unwrap_or_default(),
+            })
+        }
     }
 }
