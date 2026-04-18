@@ -180,13 +180,12 @@ pub async fn build_ring_summary(pool: &sqlx::SqlitePool, user_id: &str) -> Strin
     let mut summary = String::from("## 用户的所有 Ring\n\n");
 
     for (ring_id, ring_name) in &rings {
-        let member_count: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM members WHERE ring_id = ?1",
-        )
-        .bind(ring_id)
-        .fetch_one(pool)
-        .await
-        .unwrap_or(0);
+        let member_count: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM members WHERE ring_id = ?1")
+                .bind(ring_id)
+                .fetch_one(pool)
+                .await
+                .unwrap_or(0);
 
         let archive_titles: Vec<String> = sqlx::query_scalar(
             "SELECT title FROM archive_records
@@ -282,10 +281,7 @@ async fn execute_query_ring_detail(
                             nodes.len()
                         ));
                         for node in nodes.iter().take(50) {
-                            let label = node
-                                .get("label")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("");
+                            let label = node.get("label").and_then(|v| v.as_str()).unwrap_or("");
                             let desc = node
                                 .get("description")
                                 .and_then(|v| v.as_str())
@@ -311,24 +307,20 @@ async fn execute_query_ring_detail(
         let mut entries: Vec<std::fs::DirEntry> = std::fs::read_dir(&archives_dir)
             .map(|rd| rd.filter_map(|e| e.ok()).collect())
             .unwrap_or_default();
-        entries.sort_by_key(|e| {
-            std::cmp::Reverse(e.metadata().ok().and_then(|m| m.modified().ok()))
-        });
+        entries
+            .sort_by_key(|e| std::cmp::Reverse(e.metadata().ok().and_then(|m| m.modified().ok())));
 
         result.push_str("### 最近归档\n\n");
         for entry in entries.iter().take(3) {
             if let Some(name) = entry.path().file_name().and_then(|n| n.to_str()) {
                 if name.ends_with(".md") {
-                    match std::fs::read_to_string(entry.path()) {
-                        Ok(content) => {
-                            let truncated = if content.len() > 500 {
-                                format!("{}...（截断）", &content[..500])
-                            } else {
-                                content
-                            };
-                            result.push_str(&format!("#### {name}\n{truncated}\n\n"));
-                        }
-                        Err(_) => {}
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        let truncated = if content.len() > 500 {
+                            format!("{}...（截断）", &content[..500])
+                        } else {
+                            content
+                        };
+                        result.push_str(&format!("#### {name}\n{truncated}\n\n"));
                     }
                 }
             }
@@ -343,8 +335,14 @@ async fn execute_query_ring_detail(
 }
 
 pub enum SuperChatResult {
-    DirectMessage { content: String },
-    NeedsStream { system_prompt: String, history: Vec<(String, String)>, user_content: String },
+    DirectMessage {
+        content: String,
+    },
+    NeedsStream {
+        system_prompt: String,
+        history: Vec<(String, String)>,
+        user_content: String,
+    },
 }
 
 pub async fn start_super_chat(

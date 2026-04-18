@@ -23,6 +23,28 @@ async fn setup_app() -> AppState {
     AppState::new(pool, rings_dir, hub_dir)
 }
 
+async fn setup_unique_app() -> AppState {
+    let pool = SqlitePool::connect("sqlite::memory:")
+        .await
+        .expect("failed to create in-memory db");
+
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("failed to run migrations");
+
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let rings_dir = std::path::PathBuf::from(format!("/tmp/ring-test-rings-{id}"));
+    let hub_dir = std::path::PathBuf::from(format!("/tmp/ring-test-hub-{id}"));
+    let _ = std::fs::create_dir_all(&rings_dir);
+    let _ = std::fs::create_dir_all(&hub_dir);
+
+    AppState::new(pool, rings_dir, hub_dir)
+}
+
 fn make_request(method: &str, uri: &str, body: Option<&str>, token: Option<&str>) -> Request<Body> {
     let mut builder = Request::builder()
         .method(method)
@@ -754,6 +776,106 @@ async fn test_super_system_prompt_update() {
         ))
         .await
         .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], false);
+}
+
+#[tokio::test]
+async fn test_super_preferences_default() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/super/preferences",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], false);
+    assert!(json["content"].as_str().unwrap().contains("zh-CN"));
+    assert!(json["content"].as_str().unwrap().contains("openai"));
+}
+
+#[tokio::test]
+async fn test_super_preferences_update() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let update_body = "{\"content\":\"## \u{8bed}\u{8a00}\\n- default: en\\n\\n## LLM\\n- default_provider: ollama\"}";
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/super/preferences",
+            Some(update_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["is_custom"], true);
+    assert!(json["content"].as_str().unwrap().contains("default: en"));
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/super/preferences",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert!(json["content"]
+        .as_str()
+        .unwrap()
+        .contains("default_provider: ollama"));
+}
+
+#[tokio::test]
+async fn test_super_preferences_reset() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+
+    let update_body = "{\"content\":\"## \u{8bed}\u{8a00}\\n- default: en\"}";
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/super/preferences",
+            Some(update_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let reset_body = r#"{"content":""}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/super/preferences",
+            Some(reset_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
     let json = read_body(resp).await;
     assert_eq!(json["is_custom"], false);
 }
