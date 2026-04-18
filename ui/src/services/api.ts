@@ -115,3 +115,11 @@ export async function triggerArchiveSSE(
   }
   onComplete()
 }
+
+export async function getPreferences(): Promise<{ content: string; is_custom: boolean }> {
+  return api.get('/super/preferences')
+}
+
+export async function updatePreferences(content: string): Promise<{ content: string; is_custom: boolean }> {
+  return api.put('/super/preferences', { content })
+}
