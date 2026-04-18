@@ -155,4 +155,39 @@ impl LlmClient {
 
         rx
     }
+
+    pub async fn chat_complete(
+        self,
+        system_prompt: String,
+        user_message: String,
+    ) -> crate::error::Result<String> {
+        let messages = vec![
+            ChatCompletionRequestMessage::System(
+                ChatCompletionRequestSystemMessage {
+                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+                    name: None,
+                },
+            ),
+            ChatCompletionRequestMessage::User(
+                ChatCompletionRequestUserMessage {
+                    content: ChatCompletionRequestUserMessageContent::Text(user_message),
+                    name: None,
+                },
+            ),
+        ];
+
+        let request = CreateChatCompletionRequest {
+            messages,
+            model: self.model,
+            ..Default::default()
+        };
+
+        let response = self.client.chat().create(request).await?;
+        let content = response
+            .choices
+            .first()
+            .and_then(|c| c.message.content.clone())
+            .unwrap_or_default();
+        Ok(content)
+    }
 }
