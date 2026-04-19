@@ -123,3 +123,19 @@ export async function getPreferences(): Promise<{ content: string; is_custom: bo
 export async function updatePreferences(content: string): Promise<{ content: string; is_custom: boolean }> {
   return api.put('/super/preferences', { content })
 }
+
+export async function listSkills(): Promise<{ skills: import('../types/skill').SkillInfo[] }> {
+  return api.get('/skills')
+}
+
+export async function installSkill(name: string, sourceUrl: string): Promise<import('../types/skill').InstallResult> {
+  return api.post('/skills/install', { name, source_url: sourceUrl })
+}
+
+export async function getSkillDetail(name: string): Promise<import('../types/skill').SkillDetail> {
+  return api.get(`/skills/${encodeURIComponent(name)}`)
+}
+
+export async function removeSkill(name: string): Promise<{ ok: boolean; name: string }> {
+  return api.delete(`/skills/${encodeURIComponent(name)}`)
+}

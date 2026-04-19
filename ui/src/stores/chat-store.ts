@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { ChatMessage } from '../types/chat'
 import { parseCommand } from '../services/command-parser'
 import { streamChat } from '../services/sse'
-import { getPreferences, updatePreferences } from '../services/api'
+import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill } from '../services/api'
 import { usePanelStore } from './panel-store'
 import { useSelfStore } from './self-store'
 import { useModeStore } from './mode-store'
@@ -101,6 +101,43 @@ async function handlePrefsSet(key: string, value: string, addMessage: (msg: Chat
       content: `Failed to update preference "${key}".`,
       created_at: new Date().toISOString(),
     })
+  }
+}
+
+async function handleSkillList(addMessage: (msg: ChatMessage) => void) {
+  try {
+    const { skills } = await listSkills()
+    if (skills.length === 0) {
+      addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: 'No skills installed.', created_at: new Date().toISOString() })
+      return
+    }
+    const lines = skills.map(s => {
+      const tag = s.source === 'builtin' ? '[built-in]' : '[user]'
+      return `- **${s.name}** ${tag}: ${s.description}`
+    })
+    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `## Skills\n\n${lines.join('\n')}`, created_at: new Date().toISOString() })
+  } catch {
+    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: 'Failed to load skills.', created_at: new Date().toISOString() })
+  }
+}
+
+async function handleSkillInstall(name: string, url: string, addMessage: (msg: ChatMessage) => void) {
+  try {
+    const result = await installSkill(name, url)
+    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: result.ok ? `Skill "${result.name}" installed: ${result.description}` : 'Install failed', created_at: new Date().toISOString() })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill install failed: ${msg}`, created_at: new Date().toISOString() })
+  }
+}
+
+async function handleSkillRemove(name: string, addMessage: (msg: ChatMessage) => void) {
+  try {
+    await removeSkill(name)
+    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill "${name}" removed.`, created_at: new Date().toISOString() })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Failed to remove skill: ${msg}`, created_at: new Date().toISOString() })
   }
 }
 
@@ -223,6 +260,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
               handlePrefsSet(cmd.key, cmd.value, addMessage)
             } else {
               handlePrefsShow(addMessage)
+            }
+            break
+          }
+          case 'skill': {
+            if (cmd.subcommand === 'install' && cmd.name && cmd.url) {
+              handleSkillInstall(cmd.name, cmd.url, addMessage)
+            } else if (cmd.subcommand === 'remove' && cmd.name) {
+              handleSkillRemove(cmd.name, addMessage)
+            } else {
+              handleSkillList(addMessage)
             }
             break
           }
