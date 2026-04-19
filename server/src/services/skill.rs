@@ -257,3 +257,96 @@ pub fn write_skill_to_dir(skills_dir: &Path, name: &str, content: &str) -> Resul
     std::fs::write(skill_dir.join("SKILL.md"), content)?;
     Ok(())
 }
+
+pub async fn install_skill(
+    skills_dir: &Path,
+    _name: &str,
+    source_url: &str,
+) -> Result<SkillInfo> {
+    let content = download_skill_content(source_url).await?;
+
+    let (name, description) = validate_skill_content(&content)
+        .map_err(|e| RingError::BadRequest(e))?;
+
+    write_skill_to_dir(skills_dir, &name, &content)?;
+
+    let is_builtin = SKILLS.iter().any(|s| s.name == name);
+    Ok(SkillInfo {
+        name,
+        description,
+        source: if is_builtin { "builtin".to_string() } else { "user".to_string() },
+        installed_at: Some(chrono::Utc::now().to_rfc3339()),
+    })
+}
+
+async fn download_skill_content(url: &str) -> Result<String> {
+    if is_single_file_url(url) {
+        download_single_file(url).await
+    } else {
+        download_from_git_repo(url).await
+    }
+}
+
+fn is_single_file_url(url: &str) -> bool {
+    url.to_lowercase().ends_with(".md")
+        || url.contains("raw.githubusercontent.com")
+        || url.contains("/raw/")
+}
+
+async fn download_single_file(url: &str) -> Result<String> {
+    let response = reqwest::get(url).await
+        .map_err(|e| RingError::BadRequest(format!("下载失败: {e}")))?;
+
+    if !response.status().is_success() {
+        return Err(RingError::BadRequest(format!(
+            "下载失败: HTTP {}", response.status()
+        )));
+    }
+
+    let content = response.text().await
+        .map_err(|e| RingError::BadRequest(format!("下载失败: {e}")))?;
+
+    Ok(content)
+}
+
+async fn download_from_git_repo(url: &str) -> Result<String> {
+    let tmp_dir = std::env::temp_dir().join(format!("ring-skill-{}", ulid::Ulid::new()));
+    std::fs::create_dir_all(&tmp_dir)?;
+
+    let result = async {
+        crate::services::git_service::GitService::clone(url, &tmp_dir)?;
+
+        let skill_md = find_skill_md(&tmp_dir)
+            .ok_or_else(|| RingError::BadRequest(
+                "Git 仓库中未找到 SKILL.md 文件".to_string()
+            ))?;
+
+        std::fs::read_to_string(&skill_md)
+            .map_err(|e| RingError::Internal(format!("读取 SKILL.md 失败: {e}")))
+    }.await;
+
+    let _ = std::fs::remove_dir_all(&tmp_dir);
+    result
+}
+
+fn find_skill_md(dir: &Path) -> Option<std::path::PathBuf> {
+    let direct = dir.join("SKILL.md");
+    if direct.exists() {
+        return Some(direct);
+    }
+
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            if let Ok(ft) = entry.file_type() {
+                if ft.is_dir() {
+                    let candidate = entry.path().join("SKILL.md");
+                    if candidate.exists() {
+                        return Some(candidate);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
