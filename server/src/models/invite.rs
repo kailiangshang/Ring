@@ -141,3 +141,97 @@ pub async fn get_member_count(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<
         .await?;
     Ok(count)
 }
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct JoinRequestRow {
+    pub id: String,
+    pub ring_id: String,
+    pub invite_token: String,
+    pub display_name: String,
+    pub message: Option<String>,
+    pub status: String,
+    pub reviewer_id: Option<String>,
+    pub review_note: Option<String>,
+    pub reviewed_at: Option<String>,
+    pub created_at: String,
+}
+
+pub async fn insert_join_request(pool: &sqlx::SqlitePool, row: &JoinRequestRow) -> Result<()> {
+    sqlx::query(
+        "INSERT INTO join_requests (id, ring_id, invite_token, display_name, message, status, reviewer_id, review_note, reviewed_at, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+    )
+    .bind(&row.id)
+    .bind(&row.ring_id)
+    .bind(&row.invite_token)
+    .bind(&row.display_name)
+    .bind(&row.message)
+    .bind(&row.status)
+    .bind(&row.reviewer_id)
+    .bind(&row.review_note)
+    .bind(&row.reviewed_at)
+    .bind(&row.created_at)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn find_join_request(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+) -> Result<Option<JoinRequestRow>> {
+    sqlx::query_as::<_, JoinRequestRow>("SELECT * FROM join_requests WHERE id = ?1")
+        .bind(id)
+        .fetch_optional(pool)
+        .await
+        .map_err(Into::into)
+}
+
+pub async fn list_pending_requests(
+    pool: &sqlx::SqlitePool,
+    ring_id: &str,
+    status_filter: &str,
+) -> Result<Vec<JoinRequestRow>> {
+    let query = if status_filter == "all" {
+        "SELECT * FROM join_requests WHERE ring_id = ?1 ORDER BY created_at DESC".to_string()
+    } else {
+        "SELECT * FROM join_requests WHERE ring_id = ?1 AND status = 'pending' ORDER BY created_at DESC".to_string()
+    };
+    let rows = sqlx::query_as::<_, JoinRequestRow>(&query)
+        .bind(ring_id)
+        .fetch_all(pool)
+        .await?;
+    Ok(rows)
+}
+
+pub async fn update_join_request_status(
+    pool: &sqlx::SqlitePool,
+    id: &str,
+    status: &str,
+    reviewer_id: &str,
+    review_note: Option<&str>,
+) -> Result<bool> {
+    let result = sqlx::query(
+        "UPDATE join_requests SET status = ?1, reviewer_id = ?2, review_note = ?3, reviewed_at = datetime('now') WHERE id = ?4 AND status = 'pending'",
+    )
+    .bind(status)
+    .bind(reviewer_id)
+    .bind(review_note)
+    .bind(id)
+    .execute(pool)
+    .await?;
+
+    if result.rows_affected() == 0 {
+        let exists: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM join_requests WHERE id = ?1)")
+                .bind(id)
+                .fetch_one(pool)
+                .await?;
+
+        if !exists {
+            return Err(RingError::NotFound("join request not found".into()));
+        }
+        return Err(RingError::Conflict("request is not pending".into()));
+    }
+    Ok(true)
+}

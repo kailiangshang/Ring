@@ -126,3 +126,98 @@ pub async fn local_join_handler(
     let result = invite::local_join(&state, &user.token_id, &req).await?;
     Ok(Json(result))
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ApplyBody {
+    pub invite_token: String,
+    pub display_name: String,
+    pub message: Option<String>,
+}
+
+pub async fn apply_join(
+    State(state): State<AppState>,
+    Json(body): Json<ApplyBody>,
+) -> Result<Json<serde_json::Value>> {
+    let req = invite::ApplyRequest {
+        invite_token: body.invite_token,
+        display_name: body.display_name,
+        message: body.message,
+    };
+    let result = invite::submit_apply(&state, &req).await?;
+    Ok(Json(json!({
+        "request_id": result.request_id,
+        "status": result.status,
+        "ring_name": result.ring_name,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ApplyStatusQuery {
+    pub id: String,
+}
+
+pub async fn apply_status(
+    State(state): State<AppState>,
+    Query(query): Query<ApplyStatusQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let result = invite::check_apply_status(&state, &query.id).await?;
+    Ok(Json(json!({
+        "request_id": result.request_id,
+        "status": result.status,
+        "ring_name": result.ring_name,
+        "ring_id": result.ring_id,
+        "role": result.role,
+        "review_note": result.review_note,
+        "token_id": result.token_id,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ListRequestsQuery {
+    #[serde(default)]
+    pub status: Option<String>,
+}
+
+pub async fn list_join_requests_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Query(query): Query<ListRequestsQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let status_filter = query.status.as_deref().unwrap_or("pending");
+    let requests =
+        invite::list_join_requests(&state, &ring_id, &user.token_id, status_filter).await?;
+    Ok(Json(json!({ "requests": requests })))
+}
+
+pub async fn approve_request(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, request_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let result =
+        invite::approve_join_request(&state, &ring_id, &user.token_id, &request_id).await?;
+    Ok(Json(result))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RejectBody {
+    pub note: Option<String>,
+}
+
+pub async fn reject_request(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, request_id)): Path<(String, String)>,
+    Json(body): Json<RejectBody>,
+) -> Result<Json<serde_json::Value>> {
+    let result = invite::reject_join_request(
+        &state,
+        &ring_id,
+        &user.token_id,
+        &request_id,
+        body.note.as_deref(),
+    )
+    .await?;
+    Ok(Json(result))
+}

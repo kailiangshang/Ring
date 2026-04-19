@@ -170,6 +170,20 @@ pub fn build_router(state: AppState) -> Router {
         .route("/join/info", get(invite::join_info))
         .route("/join", post(invite::join_ring))
         .route("/join/local", post(invite::local_join_handler))
+        .route("/join/apply", post(invite::apply_join))
+        .route("/join/apply/status", get(invite::apply_status))
+        .route(
+            "/rings/{ring_id}/join-requests",
+            get(invite::list_join_requests_handler),
+        )
+        .route(
+            "/rings/{ring_id}/join-requests/{request_id}/approve",
+            post(invite::approve_request),
+        )
+        .route(
+            "/rings/{ring_id}/join-requests/{request_id}/reject",
+            post(invite::reject_request),
+        )
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

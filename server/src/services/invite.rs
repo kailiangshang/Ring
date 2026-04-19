@@ -326,3 +326,220 @@ pub async fn local_join(
 
     Ok(join_result)
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ApplyRequest {
+    pub invite_token: String,
+    pub display_name: String,
+    pub message: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ApplyResponse {
+    pub request_id: String,
+    pub status: String,
+    pub ring_name: String,
+}
+
+pub async fn submit_apply(state: &AppState, input: &ApplyRequest) -> Result<ApplyResponse> {
+    if input.display_name.trim().is_empty() {
+        return Err(RingError::BadRequest("display_name is required".into()));
+    }
+
+    let row = invite::find_token_by_value(&state.db, &input.invite_token)
+        .await?
+        .ok_or_else(|| RingError::NotFound("invite token not found".into()))?;
+
+    if row.r#type != "audit" {
+        return Err(RingError::BadRequest(
+            "this token is not an audit invite".into(),
+        ));
+    }
+
+    if row.revoked_at.is_some() {
+        return Err(RingError::Gone("token has been revoked".into()));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    if row.expires_at < now {
+        return Err(RingError::Gone("token has expired".into()));
+    }
+
+    let request_id = format!("req-{}", Ulid::new());
+    let ring_name: String = sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
+        .bind(&row.ring_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let req_row = invite::JoinRequestRow {
+        id: request_id.clone(),
+        ring_id: row.ring_id.clone(),
+        invite_token: input.invite_token.clone(),
+        display_name: input.display_name.clone(),
+        message: input.message.clone(),
+        status: "pending".to_string(),
+        reviewer_id: None,
+        review_note: None,
+        reviewed_at: None,
+        created_at: now,
+    };
+
+    invite::insert_join_request(&state.db, &req_row).await?;
+
+    Ok(ApplyResponse {
+        request_id,
+        status: "pending".to_string(),
+        ring_name,
+    })
+}
+
+#[derive(Debug, Serialize)]
+pub struct ApplyStatusResponse {
+    pub request_id: String,
+    pub status: String,
+    pub ring_name: Option<String>,
+    pub ring_id: Option<String>,
+    pub role: Option<String>,
+    pub review_note: Option<String>,
+    pub token_id: Option<String>,
+}
+
+pub async fn check_apply_status(state: &AppState, request_id: &str) -> Result<ApplyStatusResponse> {
+    let req = invite::find_join_request(&state.db, request_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound("join request not found".into()))?;
+
+    let ring_name: String = sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
+        .bind(&req.ring_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let (ring_id, role, token_id) = if req.status == "approved" {
+        let token_row = invite::find_token_by_value(&state.db, &req.invite_token)
+            .await?
+            .map(|t| t.role.clone())
+            .unwrap_or_default();
+        let user_id: Option<String> = sqlx::query_scalar(
+            "SELECT user_id FROM members WHERE ring_id = ?1 AND user_id IN (SELECT token_id FROM users WHERE display_name = ?2) LIMIT 1",
+        )
+        .bind(&req.ring_id)
+        .bind(&req.display_name)
+        .fetch_optional(&state.db)
+        .await?;
+        (Some(req.ring_id.clone()), Some(token_row), user_id)
+    } else {
+        (None, None, None)
+    };
+
+    Ok(ApplyStatusResponse {
+        request_id: req.id,
+        status: req.status,
+        ring_name: Some(ring_name),
+        ring_id,
+        role,
+        review_note: req.review_note,
+        token_id,
+    })
+}
+
+pub async fn list_join_requests(
+    state: &AppState,
+    ring_id: &str,
+    user_id: &str,
+    status_filter: &str,
+) -> Result<Vec<invite::JoinRequestRow>> {
+    check_admin(&state.db, ring_id, user_id).await?;
+    invite::list_pending_requests(&state.db, ring_id, status_filter).await
+}
+
+pub async fn approve_join_request(
+    state: &AppState,
+    ring_id: &str,
+    user_id: &str,
+    request_id: &str,
+) -> Result<serde_json::Value> {
+    check_admin(&state.db, ring_id, user_id).await?;
+
+    let req = invite::find_join_request(&state.db, request_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound("join request not found".into()))?;
+
+    if req.ring_id != ring_id {
+        return Err(RingError::NotFound("join request not found".into()));
+    }
+
+    if req.status != "pending" {
+        return Err(RingError::Conflict("request is not pending".into()));
+    }
+
+    let token_row = invite::find_token_by_value(&state.db, &req.invite_token)
+        .await?
+        .ok_or_else(|| RingError::Gone("invite token no longer exists".into()))?;
+
+    if token_row.revoked_at.is_some() {
+        return Err(RingError::Gone("token has been revoked".into()));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    if token_row.expires_at < now {
+        return Err(RingError::Gone("token has expired".into()));
+    }
+
+    if token_row.max_uses > 0 && token_row.use_count >= token_row.max_uses {
+        return Err(RingError::Forbidden("token has reached max uses".into()));
+    }
+
+    if let Some(max) = token_row.max_members {
+        let count = invite::get_member_count(&state.db, &token_row.ring_id).await?;
+        if count >= max {
+            return Err(RingError::Forbidden("ring has reached max members".into()));
+        }
+    }
+
+    let new_token_id = format!("user-{}", Ulid::new());
+
+    crate::models::user::create_joiner_user(&state.db, &new_token_id, &req.display_name).await?;
+
+    crate::models::member::add_member(&state.db, ring_id, &new_token_id, &token_row.role).await?;
+
+    invite::increment_use_count(&state.db, &req.invite_token).await?;
+
+    invite::update_join_request_status(&state.db, request_id, "approved", user_id, None).await?;
+
+    let ring_name: String = sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
+        .bind(ring_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_default();
+
+    Ok(serde_json::json!({
+        "ok": true,
+        "token_id": new_token_id,
+        "ring_name": ring_name,
+        "role": token_row.role,
+    }))
+}
+
+pub async fn reject_join_request(
+    state: &AppState,
+    ring_id: &str,
+    user_id: &str,
+    request_id: &str,
+    note: Option<&str>,
+) -> Result<serde_json::Value> {
+    check_admin(&state.db, ring_id, user_id).await?;
+
+    let req = invite::find_join_request(&state.db, request_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound("join request not found".into()))?;
+
+    if req.ring_id != ring_id {
+        return Err(RingError::NotFound("join request not found".into()));
+    }
+
+    invite::update_join_request_status(&state.db, request_id, "rejected", user_id, note).await?;
+
+    Ok(serde_json::json!({ "ok": true }))
+}

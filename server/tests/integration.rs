@@ -1358,3 +1358,333 @@ async fn test_join_ring_max_uses_exhausted() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
+
+#[tokio::test]
+async fn test_audit_apply_success() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(
+        r#"{{"invite_token":"{invite_token}","display_name":"Bob","message":"I want to join"}}"#
+    );
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert!(json["request_id"].as_str().unwrap().starts_with("req-"));
+    assert_eq!(json["status"], "pending");
+}
+
+#[tokio::test]
+async fn test_audit_apply_wrong_type() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(r#"{{"invite_token":"{invite_token}","display_name":"Bob"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_audit_apply_status() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(r#"{{"invite_token":"{invite_token}","display_name":"Bob"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let request_id = json["request_id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/join/apply/status?id={request_id}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["status"], "pending");
+}
+
+#[tokio::test]
+async fn test_audit_approve_flow() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(r#"{{"invite_token":"{invite_token}","display_name":"Alice"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let request_id = json["request_id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/join-requests"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["requests"].as_array().unwrap().len(), 1);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/join-requests/{request_id}/approve"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["ok"], true);
+    assert!(json["token_id"].as_str().unwrap().starts_with("user-"));
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/join/apply/status?id={request_id}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["status"], "approved");
+}
+
+#[tokio::test]
+async fn test_audit_reject_flow() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(r#"{{"invite_token":"{invite_token}","display_name":"Eve"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let request_id = json["request_id"].as_str().unwrap();
+
+    let reject_body = r#"{"note":"Team is full"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/join-requests/{request_id}/reject"),
+            Some(reject_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["ok"], true);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/join/apply/status?id={request_id}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["status"], "rejected");
+    assert_eq!(json["review_note"], "Team is full");
+}
+
+#[tokio::test]
+async fn test_audit_approve_forbidden_for_member() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+    let bob_token = create_second_user(&pool).await;
+
+    let add_body = &format!(r#"{{"user_id":"{bob_token}"}}"#);
+    let _ = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let apply_body = &format!(r#"{{"invite_token":"{invite_token}","display_name":"Charlie"}}"#);
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/join/apply",
+            Some(apply_body),
+            None,
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let request_id = json["request_id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/join-requests/{request_id}/approve"),
+            None,
+            Some(&bob_token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
