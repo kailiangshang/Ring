@@ -182,6 +182,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     const parsed = parseCommand(input)
 
+    const isUICommand = parsed && parsed.every(
+      (cmd) => cmd.type === 'action' || cmd.type === 'prefs' || cmd.type === 'skill' || cmd.type === 'help'
+    )
+
     if (parsed) {
       for (const cmd of parsed) {
         switch (cmd.type) {
@@ -286,6 +290,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
             break
         }
       }
+    }
+
+    if (isUICommand) {
+      set({ input: '' })
+      return
     }
 
     addMessage({
