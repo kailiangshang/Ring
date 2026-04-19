@@ -13,7 +13,8 @@ use crate::models::user;
 use crate::services::{llm::SseEvent, super_chat};
 use crate::state::AppState;
 
-type BoxedSseStream = Pin<Box<dyn tokio_stream::Stream<Item = std::result::Result<Event, Infallible>> + Send>>;
+type BoxedSseStream =
+    Pin<Box<dyn tokio_stream::Stream<Item = std::result::Result<Event, Infallible>> + Send>>;
 
 #[derive(Debug, Deserialize)]
 pub struct ChatRequest {

@@ -1,6 +1,7 @@
 pub mod archive;
 pub mod config;
 pub mod graph;
+pub mod invite;
 pub mod member;
 pub mod message;
 pub mod ring;

@@ -285,11 +285,9 @@ fn execute_update_user_preferences(hub_dir: &Path, content: &str) -> Result<Stri
     Ok("偏好设置已更新。".to_string())
 }
 
-async fn execute_manage_skills(
-    hub_dir: &Path,
-    args: ManageSkillsArgs,
-) -> Result<String> {
-    let skills_dir = hub_dir.parent()
+async fn execute_manage_skills(hub_dir: &Path, args: ManageSkillsArgs) -> Result<String> {
+    let skills_dir = hub_dir
+        .parent()
         .map(|p| p.join("skills"))
         .unwrap_or_else(|| std::path::PathBuf::from("~/.ring/skills"));
 
@@ -301,8 +299,15 @@ async fn execute_manage_skills(
             }
             let mut result = String::from("## 已安装的 Skill\n\n");
             for s in &skills {
-                let source_label = if s.source == "builtin" { "内置" } else { "用户" };
-                result.push_str(&format!("### {} [{}]\n{}\n\n", s.name, source_label, s.description));
+                let source_label = if s.source == "builtin" {
+                    "内置"
+                } else {
+                    "用户"
+                };
+                result.push_str(&format!(
+                    "### {} [{}]\n{}\n\n",
+                    s.name, source_label, s.description
+                ));
             }
             Ok(result)
         }
@@ -313,7 +318,10 @@ async fn execute_manage_skills(
                 return Ok("安装 Skill 需要 name 和 source_url 参数。".to_string());
             }
             match crate::services::skill::install_skill(&skills_dir, &name, &url).await {
-                Ok(info) => Ok(format!("Skill '{}' 安装成功：{}", info.name, info.description)),
+                Ok(info) => Ok(format!(
+                    "Skill '{}' 安装成功：{}",
+                    info.name, info.description
+                )),
                 Err(e) => Ok(format!("Skill 安装失败：{e}")),
             }
         }
@@ -327,7 +335,10 @@ async fn execute_manage_skills(
                 Err(e) => Ok(format!("卸载失败：{e}")),
             }
         }
-        _ => Ok(format!("未知操作 '{}'。支持: list, install, remove", args.action)),
+        _ => Ok(format!(
+            "未知操作 '{}'。支持: list, install, remove",
+            args.action
+        )),
     }
 }
 

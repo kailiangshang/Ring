@@ -12,6 +12,7 @@ mod config;
 mod graph;
 mod group_docs;
 mod health;
+mod invite;
 mod members;
 mod mode;
 mod rings;
@@ -157,6 +158,14 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/skills/{name}",
             get(skills::get_skill_detail).delete(skills::remove_skill),
+        )
+        .route(
+            "/rings/{ring_id}/invite-tokens",
+            post(invite::create_invite_token).get(invite::list_invite_tokens),
+        )
+        .route(
+            "/rings/{ring_id}/invite-tokens/{token}",
+            delete(invite::revoke_invite_token),
         )
         .with_state(state);
 

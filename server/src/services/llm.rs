@@ -3,7 +3,7 @@ use async_openai::types::{
     ChatCompletionRequestAssistantMessage, ChatCompletionRequestAssistantMessageContent,
     ChatCompletionRequestMessage, ChatCompletionRequestSystemMessage,
     ChatCompletionRequestSystemMessageContent, ChatCompletionRequestUserMessage,
-    ChatCompletionRequestUserMessageContent, CreateChatCompletionRequest, ChatCompletionTool,
+    ChatCompletionRequestUserMessageContent, ChatCompletionTool, CreateChatCompletionRequest,
 };
 use async_openai::Client;
 use futures_util::StreamExt;
@@ -32,8 +32,12 @@ pub enum SseEvent {
 }
 
 pub enum ChatCompleteWithToolsResult {
-    Message { content: String },
-    ToolCalls { tool_calls: Vec<async_openai::types::ChatCompletionMessageToolCall> },
+    Message {
+        content: String,
+    },
+    ToolCalls {
+        tool_calls: Vec<async_openai::types::ChatCompletionMessageToolCall>,
+    },
 }
 
 impl LlmClient {
@@ -250,9 +254,10 @@ impl LlmClient {
         };
 
         let response = self.client.chat().create(request).await?;
-        let choice = response.choices.first().ok_or_else(|| {
-            crate::error::RingError::Internal("no choices in response".into())
-        })?;
+        let choice = response
+            .choices
+            .first()
+            .ok_or_else(|| crate::error::RingError::Internal("no choices in response".into()))?;
 
         if let Some(tool_calls) = &choice.message.tool_calls {
             Ok(ChatCompleteWithToolsResult::ToolCalls {

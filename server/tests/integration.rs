@@ -984,3 +984,134 @@ async fn test_super_preferences_reset() {
     let json = read_body(resp).await;
     assert_eq!(json["is_custom"], false);
 }
+
+#[tokio::test]
+async fn test_create_invite_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","role":"member","max_uses":0,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["type"], "open");
+    assert_eq!(json["role"], "member");
+    assert_eq!(json["max_uses"], 0);
+    assert!(json["token"].as_str().unwrap().len() > 10);
+}
+
+#[tokio::test]
+async fn test_list_invite_tokens() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open"}"#;
+    let _ = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["tokens"].as_array().unwrap().len(), 1);
+}
+
+#[tokio::test]
+async fn test_revoke_invite_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "DELETE",
+            &format!("/api/rings/{ring_id}/invite-tokens/{invite_token}"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["ok"], true);
+}
+
+#[tokio::test]
+async fn test_invite_token_forbidden_for_member() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+    let bob_token = create_second_user(&pool).await;
+
+    let add_body = &format!(r#"{{"user_id":"{bob_token}"}}"#);
+    let _ = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+
+    let body = r#"{"type":"open"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&bob_token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
