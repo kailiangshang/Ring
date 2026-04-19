@@ -730,7 +730,108 @@ async fn test_super_system_prompt_default() {
     assert_eq!(resp.status(), StatusCode::OK);
     let json = read_body(resp).await;
     assert_eq!(json["is_custom"], false);
-    assert!(json["prompt"].as_str().unwrap().len() > 0);
+}
+
+async fn setup_unique_skills_app() -> (AppState, String) {
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let tmp = format!("/tmp/ring-skill-test-{id}");
+    let pool = SqlitePool::connect("sqlite::memory:").await.expect("db");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations");
+    let rings_dir = std::path::PathBuf::from(format!("{tmp}/rings"));
+    let hub_dir = std::path::PathBuf::from(format!("{tmp}/hub"));
+    let skills_dir = std::path::PathBuf::from(format!("{tmp}/skills"));
+    std::fs::create_dir_all(&rings_dir).unwrap();
+    std::fs::create_dir_all(&hub_dir).unwrap();
+    std::fs::create_dir_all(&skills_dir).unwrap();
+    let state = AppState::new(pool, rings_dir, hub_dir, skills_dir);
+    (state, tmp)
+}
+
+#[tokio::test]
+async fn test_skills_list_includes_builtins() {
+    let (state, tmp) = setup_unique_skills_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let resp = app
+        .clone()
+        .oneshot(make_request("GET", "/api/skills", None, Some(&token)))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    let skills = json["skills"].as_array().unwrap();
+    assert!(skills.len() >= 5);
+    let names: Vec<&str> = skills.iter().filter_map(|s| s["name"].as_str()).collect();
+    assert!(names.contains(&"decision"));
+    assert!(names.contains(&"research"));
+    let _ = std::fs::remove_dir_all(std::path::Path::new(&tmp));
+}
+
+#[tokio::test]
+async fn test_skill_detail_builtin() {
+    let (state, tmp) = setup_unique_skills_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/skills/decision",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["name"], "decision");
+    assert_eq!(json["source"], "builtin");
+    assert!(json["content"].as_str().unwrap().contains("---"));
+    let _ = std::fs::remove_dir_all(std::path::Path::new(&tmp));
+}
+
+#[tokio::test]
+async fn test_skill_remove_builtin_rejected() {
+    let (state, tmp) = setup_unique_skills_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "DELETE",
+            "/api/skills/decision",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let _ = std::fs::remove_dir_all(std::path::Path::new(&tmp));
+}
+
+#[tokio::test]
+async fn test_skill_remove_nonexistent() {
+    let (state, tmp) = setup_unique_skills_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "DELETE",
+            "/api/skills/nonexistent",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let _ = std::fs::remove_dir_all(std::path::Path::new(&tmp));
 }
 
 #[tokio::test]

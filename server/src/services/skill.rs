@@ -98,25 +98,32 @@ pub fn list_skills(skills_dir: &Path) -> Vec<SkillInfo> {
                         let skill_md = entry.path().join("SKILL.md");
                         if let Ok(content) = std::fs::read_to_string(&skill_md) {
                             if let Some(frontmatter) = parse_frontmatter(&content) {
-                                let name = frontmatter.get("name")
+                                let name = frontmatter
+                                    .get("name")
                                     .and_then(|v| v.as_str())
                                     .unwrap_or("")
                                     .to_string();
                                 if !name.is_empty() {
                                     seen_names.insert(name.clone());
                                     let is_builtin = SKILLS.iter().any(|s| s.name == name);
-                                    let modified = entry.metadata().ok()
-                                        .and_then(|m| m.modified().ok())
-                                        .map(|t| {
-                                            let dt: chrono::DateTime<chrono::Utc> = t.into();
-                                            dt.to_rfc3339()
-                                        });
+                                    let modified =
+                                        entry.metadata().ok().and_then(|m| m.modified().ok()).map(
+                                            |t| {
+                                                let dt: chrono::DateTime<chrono::Utc> = t.into();
+                                                dt.to_rfc3339()
+                                            },
+                                        );
                                     skills.push(SkillInfo {
-                                        description: frontmatter.get("description")
+                                        description: frontmatter
+                                            .get("description")
                                             .and_then(|v| v.as_str())
                                             .unwrap_or("")
                                             .to_string(),
-                                        source: if is_builtin { "builtin".to_string() } else { "user".to_string() },
+                                        source: if is_builtin {
+                                            "builtin".to_string()
+                                        } else {
+                                            "user".to_string()
+                                        },
                                         installed_at: if is_builtin { None } else { modified },
                                         name,
                                     });
@@ -149,16 +156,29 @@ pub fn get_skill_resolved(name: &str, skills_dir: &Path) -> Option<ResolvedSkill
     if let Ok(content) = std::fs::read_to_string(&skill_path) {
         let frontmatter = parse_frontmatter(&content)?;
         let is_builtin = SKILLS.iter().any(|s| s.name == name);
-        let modified = std::fs::metadata(&skill_path).ok()
+        let modified = std::fs::metadata(&skill_path)
+            .ok()
             .and_then(|m| m.modified().ok())
             .map(|t| {
                 let dt: chrono::DateTime<chrono::Utc> = t.into();
                 dt.to_rfc3339()
             });
         return Some(ResolvedSkill {
-            name: frontmatter.get("name").and_then(|v| v.as_str()).unwrap_or(name).to_string(),
-            description: frontmatter.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            source: if is_builtin { "builtin".to_string() } else { "user".to_string() },
+            name: frontmatter
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or(name)
+                .to_string(),
+            description: frontmatter
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            source: if is_builtin {
+                "builtin".to_string()
+            } else {
+                "user".to_string()
+            },
             content,
             installed_at: if is_builtin { None } else { modified },
         });
@@ -183,7 +203,9 @@ pub fn remove_skill(skills_dir: &Path, name: &str) -> Result<()> {
         if skill_path.exists() {
             std::fs::remove_dir_all(&skill_path)?;
         }
-        return Err(RingError::BadRequest("Cannot remove built-in skill".to_string()));
+        return Err(RingError::BadRequest(
+            "Cannot remove built-in skill".to_string(),
+        ));
     }
 
     let skill_path = skills_dir.join(name);
@@ -232,13 +254,15 @@ fn parse_frontmatter(content: &str) -> Option<serde_json::Map<String, serde_json
 }
 
 pub fn validate_skill_content(content: &str) -> std::result::Result<(String, String), String> {
-    let frontmatter = parse_frontmatter(content)
-        .ok_or("Invalid SKILL.md: missing YAML frontmatter")?;
-    let name = frontmatter.get("name")
+    let frontmatter =
+        parse_frontmatter(content).ok_or("Invalid SKILL.md: missing YAML frontmatter")?;
+    let name = frontmatter
+        .get("name")
         .and_then(|v| v.as_str())
         .ok_or("Invalid SKILL.md: missing required field 'name'")?
         .to_string();
-    let description = frontmatter.get("description")
+    let description = frontmatter
+        .get("description")
         .and_then(|v| v.as_str())
         .ok_or("Invalid SKILL.md: missing required field 'description'")?
         .to_string();
@@ -258,15 +282,11 @@ pub fn write_skill_to_dir(skills_dir: &Path, name: &str, content: &str) -> Resul
     Ok(())
 }
 
-pub async fn install_skill(
-    skills_dir: &Path,
-    _name: &str,
-    source_url: &str,
-) -> Result<SkillInfo> {
+pub async fn install_skill(skills_dir: &Path, _name: &str, source_url: &str) -> Result<SkillInfo> {
     let content = download_skill_content(source_url).await?;
 
-    let (name, description) = validate_skill_content(&content)
-        .map_err(|e| RingError::BadRequest(e))?;
+    let (name, description) =
+        validate_skill_content(&content).map_err(RingError::BadRequest)?;
 
     write_skill_to_dir(skills_dir, &name, &content)?;
 
@@ -274,7 +294,11 @@ pub async fn install_skill(
     Ok(SkillInfo {
         name,
         description,
-        source: if is_builtin { "builtin".to_string() } else { "user".to_string() },
+        source: if is_builtin {
+            "builtin".to_string()
+        } else {
+            "user".to_string()
+        },
         installed_at: Some(chrono::Utc::now().to_rfc3339()),
     })
 }
@@ -294,16 +318,20 @@ fn is_single_file_url(url: &str) -> bool {
 }
 
 async fn download_single_file(url: &str) -> Result<String> {
-    let response = reqwest::get(url).await
+    let response = reqwest::get(url)
+        .await
         .map_err(|e| RingError::BadRequest(format!("下载失败: {e}")))?;
 
     if !response.status().is_success() {
         return Err(RingError::BadRequest(format!(
-            "下载失败: HTTP {}", response.status()
+            "下载失败: HTTP {}",
+            response.status()
         )));
     }
 
-    let content = response.text().await
+    let content = response
+        .text()
+        .await
         .map_err(|e| RingError::BadRequest(format!("下载失败: {e}")))?;
 
     Ok(content)
@@ -317,13 +345,12 @@ async fn download_from_git_repo(url: &str) -> Result<String> {
         crate::services::git_service::GitService::clone(url, &tmp_dir)?;
 
         let skill_md = find_skill_md(&tmp_dir)
-            .ok_or_else(|| RingError::BadRequest(
-                "Git 仓库中未找到 SKILL.md 文件".to_string()
-            ))?;
+            .ok_or_else(|| RingError::BadRequest("Git 仓库中未找到 SKILL.md 文件".to_string()))?;
 
         std::fs::read_to_string(&skill_md)
             .map_err(|e| RingError::Internal(format!("读取 SKILL.md 失败: {e}")))
-    }.await;
+    }
+    .await;
 
     let _ = std::fs::remove_dir_all(&tmp_dir);
     result
