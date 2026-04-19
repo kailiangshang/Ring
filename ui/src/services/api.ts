@@ -183,3 +183,7 @@ export async function applyJoin(invite_token: string, display_name: string, mess
 export async function checkApplyStatus(request_id: string): Promise<{ request_id: string; status: string; ring_name: string | null; ring_id: string | null; role: string | null; review_note: string | null; token_id: string | null }> {
   return api.get(`/join/apply/status?id=${encodeURIComponent(request_id)}`)
 }
+
+export async function testLLMConfig(input: { provider: string; model: string; api_key?: string; base_url?: string }): Promise<{ ok: boolean; message: string }> {
+  return api.post('/config/llm/test', input)
+}
