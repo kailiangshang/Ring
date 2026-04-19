@@ -17,6 +17,7 @@ mod mode;
 mod rings;
 mod session;
 mod setup;
+mod skills;
 mod super_chat;
 mod ws;
 
@@ -150,6 +151,12 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/super/preferences",
             get(super_chat::get_preferences).put(super_chat::update_preferences),
+        )
+        .route("/skills", get(skills::list_skills))
+        .route("/skills/install", post(skills::install_skill_handler))
+        .route(
+            "/skills/{name}",
+            get(skills::get_skill_detail).delete(skills::remove_skill),
         )
         .with_state(state);
 
