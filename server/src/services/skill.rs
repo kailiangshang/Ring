@@ -285,8 +285,7 @@ pub fn write_skill_to_dir(skills_dir: &Path, name: &str, content: &str) -> Resul
 pub async fn install_skill(skills_dir: &Path, _name: &str, source_url: &str) -> Result<SkillInfo> {
     let content = download_skill_content(source_url).await?;
 
-    let (name, description) =
-        validate_skill_content(&content).map_err(RingError::BadRequest)?;
+    let (name, description) = validate_skill_content(&content).map_err(RingError::BadRequest)?;
 
     write_skill_to_dir(skills_dir, &name, &content)?;
 
