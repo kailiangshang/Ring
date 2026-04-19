@@ -17,10 +17,12 @@ async fn setup_app() -> AppState {
 
     let rings_dir = std::path::PathBuf::from("/tmp/ring-test-rings");
     let hub_dir = std::path::PathBuf::from("/tmp/ring-test-hub");
+    let skills_dir = std::path::PathBuf::from("/tmp/ring-test-skills");
     let _ = std::fs::create_dir_all(&rings_dir);
     let _ = std::fs::create_dir_all(&hub_dir);
+    let _ = std::fs::create_dir_all(&skills_dir);
 
-    AppState::new(pool, rings_dir, hub_dir)
+    AppState::new(pool, rings_dir, hub_dir, skills_dir)
 }
 
 async fn setup_unique_app() -> AppState {
@@ -39,10 +41,12 @@ async fn setup_unique_app() -> AppState {
         .as_nanos();
     let rings_dir = std::path::PathBuf::from(format!("/tmp/ring-test-rings-{id}"));
     let hub_dir = std::path::PathBuf::from(format!("/tmp/ring-test-hub-{id}"));
+    let skills_dir = std::path::PathBuf::from(format!("/tmp/ring-test-skills-{id}"));
     let _ = std::fs::create_dir_all(&rings_dir);
     let _ = std::fs::create_dir_all(&hub_dir);
+    let _ = std::fs::create_dir_all(&skills_dir);
 
-    AppState::new(pool, rings_dir, hub_dir)
+    AppState::new(pool, rings_dir, hub_dir, skills_dir)
 }
 
 fn make_request(method: &str, uri: &str, body: Option<&str>, token: Option<&str>) -> Request<Body> {

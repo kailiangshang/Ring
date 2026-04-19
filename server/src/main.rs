@@ -29,7 +29,10 @@ async fn main() {
     let hub_dir = std::path::PathBuf::from(format!("{data_dir}/hub"));
     std::fs::create_dir_all(&hub_dir).expect("failed to create hub dir");
 
-    let state = AppState::new(pool, rings_dir, hub_dir);
+    let skills_dir = std::path::PathBuf::from(format!("{data_dir}/skills"));
+    std::fs::create_dir_all(&skills_dir).expect("failed to create skills dir");
+
+    let state = AppState::new(pool, rings_dir, hub_dir, skills_dir);
     let app = build_router(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:7420")
