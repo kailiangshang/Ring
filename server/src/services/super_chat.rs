@@ -1,12 +1,24 @@
+use std::collections::HashMap;
 use std::path::Path;
 
-use async_openai::types::{ChatCompletionTool, ChatCompletionToolType, FunctionObject};
+use async_openai::config::OpenAIConfig;
+use async_openai::types::{
+    ChatCompletionMessageToolCall, ChatCompletionRequestAssistantMessage,
+    ChatCompletionRequestAssistantMessageContent, ChatCompletionRequestMessage,
+    ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageContent,
+    ChatCompletionRequestToolMessage, ChatCompletionRequestToolMessageContent,
+    ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageContent, ChatCompletionTool,
+    ChatCompletionToolChoiceOption, ChatCompletionToolType, CreateChatCompletionRequest,
+    FunctionCall, FunctionObject,
+};
+use async_openai::Client;
+use futures_util::StreamExt;
 use serde::Deserialize;
 
 use crate::error::{Result, RingError};
 use crate::models::message::{self, MessageRow};
 use crate::services::chat;
-use crate::services::llm::{ChatCompleteWithToolsResult, LlmClient};
+use crate::services::llm::SseEvent;
 use crate::state::AppState;
 
 const SUPER_RING_ID: &str = "super";
@@ -434,22 +446,28 @@ async fn execute_query_ring_detail(
     }
 }
 
-pub enum SuperChatResult {
-    DirectMessage {
-        content: String,
-    },
-    NeedsStream {
-        system_prompt: String,
-        history: Vec<(String, String)>,
-        user_content: String,
-    },
+pub fn stream_super_chat(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    content: String,
+) -> tokio::sync::mpsc::Receiver<SseEvent> {
+    let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+    tokio::spawn(async move {
+        if let Err(e) = stream_super_chat_inner(state, user, content, &tx).await {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+        }
+    });
+
+    rx
 }
 
-pub async fn start_super_chat(
-    state: &AppState,
-    user: &crate::models::user::UserRow,
-    content: &str,
-) -> Result<SuperChatResult> {
+async fn stream_super_chat_inner(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    content: String,
+    tx: &tokio::sync::mpsc::Sender<SseEvent>,
+) -> Result<()> {
     let user_msg_id = ulid::Ulid::new().to_string();
     message::insert_message(
         &state.db,
@@ -459,7 +477,7 @@ pub async fn start_super_chat(
             user_id: &user.token_id,
             role: "user",
             sender_name: &user.display_name,
-            content,
+            content: &content,
             node_refs: &[],
             tag_refs: &[],
             token_usage: None,
@@ -475,53 +493,257 @@ pub async fn start_super_chat(
     let history =
         chat::load_history_context(&state.db, Some(SUPER_RING_ID), &user.token_id, 20).await?;
 
-    let llm = LlmClient::from_user(user)?;
-    let tools = get_super_tools();
+    let api_key = user
+        .llm_api_key
+        .as_deref()
+        .ok_or_else(|| RingError::Internal("LLM API key not configured".into()))?;
+    let mut config = OpenAIConfig::new().with_api_key(api_key);
+    if let Some(base_url) = &user.llm_base_url {
+        config = config.with_api_base(base_url);
+    }
+    let client = Client::with_config(config);
+    let model = user.llm_model.clone();
 
-    let result = llm
-        .chat_complete_with_tools(
-            system_prompt.clone(),
-            history.clone(),
-            content.to_string(),
-            tools,
-        )
-        .await?;
+    let message_id = ulid::Ulid::new().to_string();
+    let _ = tx
+        .send(SseEvent::Start {
+            message_id: message_id.clone(),
+            role: "super_ring".to_string(),
+        })
+        .await;
 
-    match result {
-        ChatCompleteWithToolsResult::Message { content: msg } => {
-            Ok(SuperChatResult::DirectMessage { content: msg })
+    let mut messages = build_messages(&system_prompt, &history, &content);
+
+    let request = CreateChatCompletionRequest {
+        messages: messages.clone(),
+        model: model.clone(),
+        stream: Some(true),
+        tools: Some(get_super_tools()),
+        tool_choice: Some(ChatCompletionToolChoiceOption::Auto),
+        ..Default::default()
+    };
+
+    let stream_result = client.chat().create_stream(request).await;
+    let mut stream = match stream_result {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+            return Ok(());
         }
-        ChatCompleteWithToolsResult::ToolCalls { tool_calls } => {
-            let mut tool_results = Vec::new();
-            for tc in &tool_calls {
-                let args = &tc.function.arguments;
-                let tool_result = execute_tool(
-                    &state.db,
-                    &state.rings_dir,
-                    &state.hub_dir,
-                    &user.token_id,
-                    &tc.function.name,
-                    args,
-                )
-                .await
-                .unwrap_or_else(|e| format!("Tool error: {e}"));
+    };
 
-                tool_results.push((tc.function.name.clone(), tool_result));
+    let mut full_content = String::new();
+    let mut has_tool_calls = false;
+    let mut tool_call_accum: HashMap<u32, (String, String, String)> = HashMap::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(chunk) => {
+                if let Some(choice) = chunk.choices.first() {
+                    if let Some(delta) = &choice.delta.content {
+                        full_content.push_str(delta);
+                        let _ = tx
+                            .send(SseEvent::Delta {
+                                content: delta.clone(),
+                            })
+                            .await;
+                    }
+                    if let Some(tool_chunks) = &choice.delta.tool_calls {
+                        has_tool_calls = true;
+                        for tc in tool_chunks {
+                            let entry = tool_call_accum.entry(tc.index).or_default();
+                            if let Some(id) = &tc.id {
+                                entry.0 = id.clone();
+                            }
+                            if let Some(func) = &tc.function {
+                                if let Some(name) = &func.name {
+                                    entry.1 = name.clone();
+                                }
+                                if let Some(args) = &func.arguments {
+                                    entry.2.push_str(args);
+                                }
+                            }
+                        }
+                    }
+                }
             }
-
-            let mut user_content = content.to_string();
-            user_content.push_str("\n\n[Tool Results]\n");
-            for (name, result_text) in &tool_results {
-                user_content.push_str(&format!("**{name}**:\n{result_text}\n\n"));
+            Err(e) => {
+                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                break;
             }
-
-            Ok(SuperChatResult::NeedsStream {
-                system_prompt,
-                history,
-                user_content,
-            })
         }
     }
+
+    if has_tool_calls {
+        let mut sorted_indices: Vec<u32> = tool_call_accum.keys().copied().collect();
+        sorted_indices.sort();
+
+        let mut completed_tool_calls: Vec<ChatCompletionMessageToolCall> = Vec::new();
+        let mut tool_results_msgs: Vec<ChatCompletionRequestMessage> = Vec::new();
+
+        for idx in &sorted_indices {
+            let (id, name, arguments) = &tool_call_accum[idx];
+            let tc = ChatCompletionMessageToolCall {
+                id: id.clone(),
+                r#type: ChatCompletionToolType::Function,
+                function: FunctionCall {
+                    name: name.clone(),
+                    arguments: arguments.clone(),
+                },
+            };
+
+            let tool_result = execute_tool(
+                &state.db,
+                &state.rings_dir,
+                &state.hub_dir,
+                &user.token_id,
+                name,
+                arguments,
+            )
+            .await
+            .unwrap_or_else(|e| format!("Tool error: {e}"));
+
+            tool_results_msgs.push(ChatCompletionRequestMessage::Tool(
+                ChatCompletionRequestToolMessage {
+                    content: ChatCompletionRequestToolMessageContent::Text(tool_result),
+                    tool_call_id: id.clone(),
+                },
+            ));
+
+            completed_tool_calls.push(tc);
+        }
+
+        messages.push(ChatCompletionRequestMessage::Assistant(
+            #[allow(deprecated)]
+            ChatCompletionRequestAssistantMessage {
+                content: None,
+                name: None,
+                tool_calls: Some(completed_tool_calls),
+                refusal: None,
+                audio: None,
+                function_call: None,
+            },
+        ));
+
+        for msg in tool_results_msgs {
+            messages.push(msg);
+        }
+
+        let second_request = CreateChatCompletionRequest {
+            messages,
+            model,
+            stream: Some(true),
+            ..Default::default()
+        };
+
+        let second_stream = match client.chat().create_stream(second_request).await {
+            Ok(s) => s,
+            Err(e) => {
+                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                return Ok(());
+            }
+        };
+
+        let mut second_stream = second_stream;
+        full_content.clear();
+
+        while let Some(chunk_result) = second_stream.next().await {
+            match chunk_result {
+                Ok(chunk) => {
+                    if let Some(choice) = chunk.choices.first() {
+                        if let Some(delta) = &choice.delta.content {
+                            full_content.push_str(delta);
+                            let _ = tx
+                                .send(SseEvent::Delta {
+                                    content: delta.clone(),
+                                })
+                                .await;
+                        }
+                    }
+                }
+                Err(e) => {
+                    let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                    break;
+                }
+            }
+        }
+    }
+
+    let _ = tx
+        .send(SseEvent::End {
+            message_id: message_id.clone(),
+            full_content: full_content.clone(),
+        })
+        .await;
+
+    let ai_msg_id = message_id;
+    let _ = message::insert_message(
+        &state.db,
+        &message::NewMessage {
+            id: &ai_msg_id,
+            ring_id: Some(SUPER_RING_ID),
+            user_id: &user.token_id,
+            role: "super_ring",
+            sender_name: "SUPER RING",
+            content: &full_content,
+            node_refs: &[],
+            tag_refs: &[],
+            token_usage: None,
+        },
+    )
+    .await;
+
+    Ok(())
+}
+
+fn build_messages(
+    system_prompt: &str,
+    history: &[(String, String)],
+    user_content: &str,
+) -> Vec<ChatCompletionRequestMessage> {
+    let mut messages = vec![ChatCompletionRequestMessage::System(
+        ChatCompletionRequestSystemMessage {
+            content: ChatCompletionRequestSystemMessageContent::Text(system_prompt.to_string()),
+            name: None,
+        },
+    )];
+
+    for (role, content) in history {
+        match role.as_str() {
+            "user" => {
+                messages.push(ChatCompletionRequestMessage::User(
+                    ChatCompletionRequestUserMessage {
+                        content: ChatCompletionRequestUserMessageContent::Text(content.clone()),
+                        name: None,
+                    },
+                ));
+            }
+            _ => {
+                messages.push(ChatCompletionRequestMessage::Assistant(
+                    #[allow(deprecated)]
+                    ChatCompletionRequestAssistantMessage {
+                        content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                            content.clone(),
+                        )),
+                        name: None,
+                        tool_calls: None,
+                        refusal: None,
+                        audio: None,
+                        function_call: None,
+                    },
+                ));
+            }
+        }
+    }
+
+    messages.push(ChatCompletionRequestMessage::User(
+        ChatCompletionRequestUserMessage {
+            content: ChatCompletionRequestUserMessageContent::Text(user_content.to_string()),
+            name: None,
+        },
+    ));
+
+    messages
 }
 
 pub async fn get_super_history(

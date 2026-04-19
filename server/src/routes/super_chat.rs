@@ -66,101 +66,34 @@ pub async fn super_chat_handler(
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<KeepAliveStream<BoxedSseStream>>> {
     let user_row = user::get_user(&state.db, &user.token_id).await?;
+    let mut rx = super_chat::stream_super_chat(state, user_row, body.content);
 
-    let result = super_chat::start_super_chat(&state, &user_row, &body.content).await?;
-
-    match result {
-        super_chat::SuperChatResult::DirectMessage { content } => {
-            let msg_id = ulid::Ulid::new().to_string();
-
-            let _ = message::insert_message(
-                &state.db,
-                &message::NewMessage {
-                    id: &msg_id,
-                    ring_id: Some("super"),
-                    user_id: &user.token_id,
-                    role: "super_ring",
-                    sender_name: "SUPER RING",
-                    content: &content,
-                    node_refs: &[],
-                    tag_refs: &[],
-                    token_usage: None,
-                },
-            )
-            .await;
-
-            let s: BoxedSseStream = Box::pin(stream! {
-                let data = serde_json::json!({"message_id": msg_id, "role": "super_ring"});
-                yield Ok(Event::default().event("message_start").data(data.to_string()));
-                let data = serde_json::json!({ "content": content });
-                yield Ok(Event::default().event("delta").data(data.to_string()));
-                let data = serde_json::json!({
-                    "message_id": msg_id,
-                    "usage": { "prompt_tokens": 0, "completion_tokens": 0 }
-                });
-                yield Ok(Event::default().event("message_end").data(data.to_string()));
-            });
-            Ok(Sse::new(s).keep_alive(KeepAlive::default()))
-        }
-        super_chat::SuperChatResult::NeedsStream {
-            system_prompt,
-            history,
-            user_content,
-        } => {
-            let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
-            let mut rx = llm.chat_stream(
-                system_prompt,
-                history,
-                user_content,
-                "super_ring".to_string(),
-            );
-
-            let pool = state.db.clone();
-            let user_id = user.token_id.clone();
-
-            let s: BoxedSseStream = Box::pin(stream! {
-                while let Some(event) = rx.recv().await {
-                    match event {
-                        SseEvent::Start { message_id, role } => {
-                            let data = serde_json::json!({"message_id": message_id, "role": role});
-                            yield Ok(Event::default().event("message_start").data(data.to_string()));
-                        }
-                        SseEvent::Delta { content } => {
-                            let data = serde_json::json!({ "content": content });
-                            yield Ok(Event::default().event("delta").data(data.to_string()));
-                        }
-                        SseEvent::End { message_id, full_content } => {
-                            let data = serde_json::json!({
-                                "message_id": message_id,
-                                "usage": { "prompt_tokens": 0, "completion_tokens": 0 }
-                            });
-                            yield Ok(Event::default().event("message_end").data(data.to_string()));
-
-                            let _ = message::insert_message(
-                                &pool,
-                                &message::NewMessage {
-                                    id: &message_id,
-                                    ring_id: Some("super"),
-                                    user_id: &user_id,
-                                    role: "super_ring",
-                                    sender_name: "SUPER RING",
-                                    content: &full_content,
-                                    node_refs: &[],
-                                    tag_refs: &[],
-                                    token_usage: None,
-                                },
-                            ).await;
-                        }
-                        SseEvent::Error(msg) => {
-                            let data = serde_json::json!({ "error": msg });
-                            yield Ok(Event::default().event("error").data(data.to_string()));
-                        }
-                    }
+    let s: BoxedSseStream = Box::pin(stream! {
+        while let Some(event) = rx.recv().await {
+            match event {
+                SseEvent::Start { message_id, role } => {
+                    let data = serde_json::json!({"message_id": message_id, "role": role});
+                    yield Ok(Event::default().event("message_start").data(data.to_string()));
                 }
-            });
-            Ok(Sse::new(s).keep_alive(KeepAlive::default()))
+                SseEvent::Delta { content } => {
+                    let data = serde_json::json!({ "content": content });
+                    yield Ok(Event::default().event("delta").data(data.to_string()));
+                }
+                SseEvent::End { message_id, full_content: _ } => {
+                    let data = serde_json::json!({
+                        "message_id": message_id,
+                        "usage": { "prompt_tokens": 0, "completion_tokens": 0 }
+                    });
+                    yield Ok(Event::default().event("message_end").data(data.to_string()));
+                }
+                SseEvent::Error(msg) => {
+                    let data = serde_json::json!({ "error": msg });
+                    yield Ok(Event::default().event("error").data(data.to_string()));
+                }
+            }
         }
-    }
+    });
+    Ok(Sse::new(s).keep_alive(KeepAlive::default()))
 }
 
 pub async fn super_history(
