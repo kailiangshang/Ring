@@ -5,15 +5,47 @@ export type ParsedCommand =
   | { type: 'meta'; key: string; value: string }
   | { type: 'prefs'; subcommand: 'show' | 'set'; key?: string; value?: string }
   | { type: 'skill'; subcommand: 'list' | 'install' | 'remove'; name?: string; url?: string }
+  | { type: 'help' }
+
+const SLASH_MAP: Record<string, string> = {
+  graph: '!',
+  archive: '!',
+  config: '!',
+  session: '!',
+  new: '!',
+  save: '!',
+  node: '!',
+  auto: '!',
+  prefs: '%',
+  skill: '%',
+  mode: '%',
+  help: '!',
+  self: '@',
+}
+
+function convertSlash(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed.startsWith('/')) return input
+  const tokens = trimmed.split(/\s+/)
+  const cmd = tokens[0].slice(1).toLowerCase()
+  const prefix = SLASH_MAP[cmd]
+  if (!prefix) return input
+  return `${prefix}${tokens.slice(1).join(' ')}`
+}
 
 export function parseCommand(input: string): ParsedCommand[] | null {
-  const trimmed = input.trim()
+  const converted = convertSlash(input.trim())
+  const trimmed = converted.trim()
   if (!trimmed) return null
 
   const commands: ParsedCommand[] = []
   const tokens = trimmed.split(/\s+/)
   let hasCommand = false
   let i = 0
+
+  if (input.trim().startsWith('/help')) {
+    return [{ type: 'help' }]
+  }
 
   while (i < tokens.length) {
     const token = tokens[i]

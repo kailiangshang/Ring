@@ -9,6 +9,19 @@ interface CommandDef {
 }
 
 const COMMANDS: CommandDef[] = [
+  { trigger: '/', cmd: 'help', desc: 'Show all commands', context: ['super', 'ring', 'session'] },
+  { trigger: '/', cmd: 'graph', desc: 'Open graph panel', context: ['ring'] },
+  { trigger: '/', cmd: 'archive', desc: 'Open archive panel', context: ['ring'] },
+  { trigger: '/', cmd: 'config', desc: 'Open config panel', context: ['ring'] },
+  { trigger: '/', cmd: 'session', desc: 'Open session panel', context: ['ring'] },
+  { trigger: '/', cmd: 'new', desc: 'Create new ring', context: ['ring'] },
+  { trigger: '/', cmd: 'save', desc: 'Archive conversation', context: ['ring', 'session'] },
+  { trigger: '/', cmd: 'node', desc: 'Add graph node', context: ['ring'] },
+  { trigger: '/', cmd: 'auto', desc: 'Toggle auto mode', context: ['ring'] },
+  { trigger: '/', cmd: 'prefs', desc: 'Show/set preferences', context: ['super', 'ring'] },
+  { trigger: '/', cmd: 'skill', desc: 'Manage skills', context: ['super', 'ring'] },
+  { trigger: '/', cmd: 'mode', desc: 'Set interaction mode', context: ['ring'] },
+  { trigger: '/', cmd: 'self', desc: 'Talk to Self', context: ['super', 'ring', 'session'] },
   { trigger: '!', cmd: 'graph', desc: 'Open graph panel', context: ['ring'] },
   { trigger: '!', cmd: 'archive', desc: 'Open archive panel', context: ['ring'] },
   { trigger: '!', cmd: 'config', desc: 'Open config panel', context: ['ring'] },
@@ -41,7 +54,7 @@ export const useAutocompleteStore = create<AutocompleteState>((set, get) => ({
 
   update: (input: string) => {
     const trimmed = input.trimStart()
-    const trigger = trimmed.startsWith('!') ? '!' : trimmed.startsWith('%') ? '%' : trimmed.startsWith('@') ? '@' : null
+    const trigger = trimmed.startsWith('/') ? '/' : trimmed.startsWith('!') ? '!' : trimmed.startsWith('%') ? '%' : trimmed.startsWith('@') ? '@' : null
     if (!trigger) {
       set({ visible: false, matches: [], selectedIndex: 0 })
       return

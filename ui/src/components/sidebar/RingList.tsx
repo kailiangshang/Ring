@@ -7,7 +7,6 @@ import { useAppStore } from '../../stores/app-store'
 export function RingList() {
   const rings = useRingStore((s) => s.rings)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
-  const fetchRings = useRingStore((s) => s.fetchRings)
   const createRing = useRingStore((s) => s.createRing)
   const setActiveRing = useAppStore((s) => s.setActiveRing)
   const selectRing = useRingStore((s) => s.selectRing)

@@ -275,6 +275,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
           }
           case 'reference':
             break
+          case 'help':
+            addMessage({
+              id: `sys-help-${Date.now()}`,
+              role: 'system',
+              sender_name: 'SYSTEM',
+              content: `## Commands\n\n| Prefix | Command | Description |\n|--------|---------|-------------|\n| \`/\` or \`!\` | /graph | Open graph panel |\n| \`/\` or \`!\` | /archive | Open archive panel |\n| \`/\` or \`!\` | /config | Open config panel |\n| \`/\` or \`!\` | /session | Open session panel |\n| \`/\` or \`!\` | /new <name> | Create new ring |\n| \`/\` or \`!\` | /save | Archive conversation |\n| \`/\` or \`!\` | /node <name> | Add graph node |\n| \`/\` or \`!\` | /auto | Toggle auto mode |\n| \`/\` or \`%\` | /prefs | Show/set preferences |\n| \`/\` or \`%\` | /skill | Manage skills |\n| \`/\` or \`%\` | /mode | Set interaction mode |\n| \`/\` or \`@\` | /self | Talk to Self |\n| \`/\` | /help | Show this help |\n| \`#\` | #nodename | Reference graph node |`,
+              created_at: new Date().toISOString(),
+            })
+            break
         }
       }
     }
