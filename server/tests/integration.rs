@@ -1994,3 +1994,32 @@ async fn test_llm_test_endpoint_missing_key() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn test_recover_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request("GET", "/api/setup/recover", None, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["token_id"], token);
+}
+
+#[tokio::test]
+async fn test_recover_token_before_setup() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request("GET", "/api/setup/recover", None, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from './stores/app-store'
 import { useAuthStore } from './stores/auth-store'
 import { AppLayout } from './components/layout/AppLayout'
@@ -16,11 +16,27 @@ function getJoinParams(): { token?: string; creator_ip?: string } | undefined {
 export default function App() {
   const { is_setup, loading, init } = useAppStore()
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
+  const setAuth = useAuthStore((s) => s.setAuth)
+  const [recovering, setRecovering] = useState(false)
 
   useEffect(() => {
     loadFromStorage()
     init()
   }, [init, loadFromStorage])
+
+  useEffect(() => {
+    if (!loading && is_setup && !localStorage.getItem('ring_token') && !recovering) {
+      setRecovering(true)
+      fetch('/api/setup/recover')
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.token_id) {
+            setAuth(data.token_id, '', null)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [loading, is_setup, setAuth, recovering])
 
   if (loading) {
     return (

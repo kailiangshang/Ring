@@ -33,6 +33,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/health", get(health::health_check))
         .route("/ws", get(ws::ws_handler))
         .route("/setup/status", get(setup::get_status))
+        .route("/setup/recover", get(setup::recover_token))
         .route("/setup", post(setup::submit_setup).put(setup::update_setup))
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
         .route("/rings/{ring_id}", get(rings::get_ring))
