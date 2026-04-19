@@ -5,6 +5,14 @@ import { AppLayout } from './components/layout/AppLayout'
 import { SetupWizard } from './components/setup/SetupWizard'
 import './index.css'
 
+function getJoinParams(): { token?: string; creator_ip?: string } | undefined {
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
+  const creator_ip = params.get('creator_ip')
+  if (token) return { token, creator_ip: creator_ip || undefined }
+  return undefined
+}
+
 export default function App() {
   const { is_setup, loading, init } = useAppStore()
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
@@ -22,8 +30,10 @@ export default function App() {
     )
   }
 
+  const join_params = getJoinParams()
+
   if (!is_setup) {
-    return <SetupWizard />
+    return <SetupWizard join_params={join_params} />
   }
 
   return <AppLayout />

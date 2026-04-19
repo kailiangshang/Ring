@@ -139,3 +139,47 @@ export async function getSkillDetail(name: string): Promise<import('../types/ski
 export async function removeSkill(name: string): Promise<{ ok: boolean; name: string }> {
   return api.delete(`/skills/${encodeURIComponent(name)}`)
 }
+
+export async function createInviteToken(ring_id: string, input: import('../types/invite').CreateInviteInput): Promise<import('../types/invite').InviteToken> {
+  return api.post(`/rings/${ring_id}/invite-tokens`, input)
+}
+
+export async function listInviteTokens(ring_id: string): Promise<{ tokens: import('../types/invite').InviteToken[] }> {
+  return api.get(`/rings/${ring_id}/invite-tokens`)
+}
+
+export async function revokeInviteToken(ring_id: string, token: string): Promise<void> {
+  return api.delete(`/rings/${ring_id}/invite-tokens/${token}`)
+}
+
+export async function listJoinRequests(ring_id: string, status = 'pending'): Promise<{ requests: import('../types/invite').JoinRequest[] }> {
+  return api.get(`/rings/${ring_id}/join-requests?status=${status}`)
+}
+
+export async function approveJoinRequest(ring_id: string, request_id: string): Promise<{ ok: boolean; token_id: string; ring_name: string; role: string }> {
+  return api.post(`/rings/${ring_id}/join-requests/${request_id}/approve`, {})
+}
+
+export async function rejectJoinRequest(ring_id: string, request_id: string, note?: string): Promise<{ ok: boolean }> {
+  return api.post(`/rings/${ring_id}/join-requests/${request_id}/reject`, note ? { note } : {})
+}
+
+export async function verifyJoinToken(token: string): Promise<import('../types/invite').JoinInfo> {
+  return api.get(`/join/info?token=${encodeURIComponent(token)}`)
+}
+
+export async function joinRing(invite_token: string, display_name: string): Promise<{ token_id: string; ring_id: string; ring_name: string; role: string; gitlab_repo_url: string | null }> {
+  return api.post('/join', { invite_token, display_name })
+}
+
+export async function localJoin(invite_token: string, creator_ip: string): Promise<{ ok: boolean; ring_id: string; ring_name: string; role: string }> {
+  return api.post('/join/local', { invite_token, creator_ip })
+}
+
+export async function applyJoin(invite_token: string, display_name: string, message?: string): Promise<{ request_id: string; status: string; ring_name: string }> {
+  return api.post('/join/apply', { invite_token, display_name, message })
+}
+
+export async function checkApplyStatus(request_id: string): Promise<{ request_id: string; status: string; ring_name: string | null; ring_id: string | null; role: string | null; review_note: string | null; token_id: string | null }> {
+  return api.get(`/join/apply/status?id=${encodeURIComponent(request_id)}`)
+}

@@ -7,6 +7,7 @@ import { StepIdentity } from './StepIdentity'
 import { StepLLM } from './StepLLM'
 import { StepGitLab } from './StepGitLab'
 import { StepDone } from './StepDone'
+import { StepJoin } from './StepJoin'
 
 export interface SetupData {
   display_name: string
@@ -19,8 +20,14 @@ export interface SetupData {
   gitlab_token: string
 }
 
-export function SetupWizard() {
+interface JoinParams {
+  token?: string
+  creator_ip?: string
+}
+
+export function SetupWizard({ join_params }: { join_params?: JoinParams }) {
   const [step, setStep] = useState(0)
+  const [mode, setMode] = useState<'setup' | 'join'>(join_params?.token ? 'join' : 'setup')
   const [data, setData] = useState<SetupData>({
     display_name: '',
     avatar: null,
@@ -61,24 +68,24 @@ export function SetupWizard() {
     }
   }
 
+  if (mode === 'join') {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
+        <StepJoin initial_token={join_params?.token} initial_creator_ip={join_params?.creator_ip} />
+      </div>
+    )
+  }
+
   const steps = [
-    <StepWelcome onNext={goNext} />,
-    <StepIdentity data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={goNext} onBack={goBack} />,
-    <StepLLM data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={goNext} onBack={goBack} />,
-    <StepGitLab data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={handleSubmit} onBack={goBack} error={error} />,
-    <StepDone token={token} onEnter={() => setSetup(true)} />,
+    <StepWelcome key="welcome" onNext={goNext} onJoin={() => setMode('join')} />,
+    <StepIdentity key="identity" data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={goNext} onBack={goBack} />,
+    <StepLLM key="llm" data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={goNext} onBack={goBack} />,
+    <StepGitLab key="gitlab" data={data} onChange={(d) => setData((prev) => ({ ...prev, ...d }))} onNext={handleSubmit} onBack={goBack} error={error} />,
+    <StepDone key="done" token={token} onEnter={() => setSetup(true)} />,
   ]
 
   return (
-    <div
-      style={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-base)',
-      }}
-    >
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
       {steps[step]}
     </div>
   )

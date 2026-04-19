@@ -5,6 +5,7 @@ import { PanelStack } from './PanelStack'
 import { ChatArea } from '../chat/ChatArea'
 import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
+import { CreateInviteModal } from '../invite/CreateInviteModal'
 import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
@@ -84,6 +85,7 @@ export function AppLayout() {
       </div>
       <SelfFloat />
       <SelfTrigger />
+      <CreateInviteModal />
     </div>
   )
 }
