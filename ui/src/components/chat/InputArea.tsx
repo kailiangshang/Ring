@@ -1,12 +1,59 @@
 import { useChatStore } from '../../stores/chat-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
+import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
 
 export function InputArea() {
   const { input, setInput, send, sending, stopStreaming } = useChatStore()
+  const ac = useAutocompleteStore()
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (ac.visible) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        ac.moveDown()
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        ac.moveUp()
+        return
+      }
+      if (e.key === 'Enter') {
+        const selected = ac.getSelected()
+        if (selected) {
+          e.preventDefault()
+          setInput(selected)
+          ac.hide()
+          return
+        }
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        ac.hide()
+        return
+      }
+    }
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      send()
+    }
+  }
+
+  const handleChange = (val: string) => {
+    setInput(val)
+    ac.update(val)
+  }
+
+  const handleSelect = (val: string) => {
+    setInput(val)
+    ac.hide()
+  }
 
   return (
-    <div>
+    <div style={{ position: 'relative' }}>
+      <CommandAutocomplete onSelect={handleSelect} />
       <div
         style={{
           display: 'flex',
@@ -20,13 +67,8 @@ export function InputArea() {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault()
-              send()
-            }
-          }}
+          onChange={(e) => handleChange(e.target.value)}
+          onKeyDown={handleKeyDown}
           disabled={sending}
           placeholder="message / command..."
           style={{
