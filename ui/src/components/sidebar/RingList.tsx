@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useState } from 'react'
 import { useRingStore } from '../../stores/ring-store'
 import { RingListItem } from './RingListItem'
 import { SessionIndicator } from './SessionIndicator'
@@ -8,19 +8,17 @@ export function RingList() {
   const rings = useRingStore((s) => s.rings)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const fetchRings = useRingStore((s) => s.fetchRings)
+  const createRing = useRingStore((s) => s.createRing)
   const setActiveRing = useAppStore((s) => s.setActiveRing)
   const selectRing = useRingStore((s) => s.selectRing)
+  const [creating, setCreating] = useState(false)
+  const [newName, setNewName] = useState('')
 
-  useEffect(() => {
-    fetchRings()
-  }, [fetchRings])
-
-  if (rings.length === 0) {
-    return (
-      <div style={{ padding: '12px', color: 'var(--text-dim)', fontSize: 11 }}>
-        No rings yet. Use !new to create one.
-      </div>
-    )
+  const handleCreate = () => {
+    if (!newName.trim()) return
+    createRing(newName.trim(), `You are a ${newName.trim()} assistant`)
+    setNewName('')
+    setCreating(false)
   }
 
   return (
@@ -35,6 +33,82 @@ export function RingList() {
           )}
         </div>
       ))}
+
+      {creating ? (
+        <div style={{ padding: '8px 12px' }}>
+          <input
+            autoFocus
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate()
+              if (e.key === 'Escape') setCreating(false)
+            }}
+            placeholder="Ring name..."
+            style={{
+              width: '100%',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--accent-cyan)',
+              borderRadius: 3,
+              padding: '5px 8px',
+              color: 'var(--text-primary)',
+              fontSize: 11,
+              fontFamily: 'inherit',
+              outline: 'none',
+              marginBottom: 4,
+            }}
+          />
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button
+              onClick={handleCreate}
+              style={{
+                flex: 1,
+                background: 'var(--accent-cyan)',
+                color: 'var(--bg-base)',
+                border: 'none',
+                borderRadius: 3,
+                padding: '4px 0',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              CREATE
+            </button>
+            <button
+              onClick={() => setCreating(false)}
+              style={{
+                flex: 1,
+                background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '4px 0',
+                fontSize: 10,
+                cursor: 'pointer',
+              }}
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          onClick={() => setCreating(true)}
+          style={{
+            margin: '4px 12px',
+            padding: '6px 0',
+            border: '1px dashed var(--border)',
+            borderRadius: 3,
+            textAlign: 'center',
+            color: 'var(--text-dim)',
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          + new ring
+        </div>
+      )}
     </div>
   )
 }
