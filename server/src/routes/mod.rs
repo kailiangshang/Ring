@@ -52,6 +52,7 @@ pub fn build_router(state: AppState) -> Router {
             "/config/llm",
             get(config::get_llm_config).put(config::update_llm_config),
         )
+        .route("/config/llm/test", post(config::test_llm_config))
         .route(
             "/rings/{ring_id}/mode",
             get(mode::get_mode).put(mode::update_mode),

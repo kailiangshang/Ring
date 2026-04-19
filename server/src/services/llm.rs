@@ -270,3 +270,59 @@ impl LlmClient {
         }
     }
 }
+
+pub async fn test_connection(
+    provider: &str,
+    model: &str,
+    api_key: Option<&str>,
+    base_url: Option<&str>,
+) -> crate::error::Result<(bool, String)> {
+    let key = if provider == "ollama" {
+        api_key.unwrap_or("ollama").to_string()
+    } else {
+        api_key
+            .ok_or_else(|| crate::error::RingError::BadRequest("API key required".into()))?
+            .to_string()
+    };
+
+    let mut config = OpenAIConfig::new().with_api_key(&key);
+    if let Some(url) = base_url {
+        if !url.is_empty() {
+            config = config.with_api_base(url);
+        }
+    }
+    if provider == "ollama" && base_url.is_none_or(|u| u.is_empty()) {
+        config = config.with_api_base("http://localhost:11434/v1");
+    }
+
+    let client = Client::with_config(config);
+    let messages = vec![
+        ChatCompletionRequestMessage::System(ChatCompletionRequestSystemMessage {
+            content: ChatCompletionRequestSystemMessageContent::Text(
+                "Respond with only the word OK.".into(),
+            ),
+            name: None,
+        }),
+        ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessage {
+            content: ChatCompletionRequestUserMessageContent::Text("test".into()),
+            name: None,
+        }),
+    ];
+
+    let request = CreateChatCompletionRequest {
+        messages,
+        model: model.to_string(),
+        ..Default::default()
+    };
+
+    match tokio::time::timeout(
+        std::time::Duration::from_secs(15),
+        client.chat().create(request),
+    )
+    .await
+    {
+        Ok(Ok(_)) => Ok((true, "Connection successful".into())),
+        Ok(Err(e)) => Ok((false, format!("{e}"))),
+        Err(_) => Ok((false, "Connection timed out after 15s".into())),
+    }
+}

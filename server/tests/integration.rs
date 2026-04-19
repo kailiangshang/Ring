@@ -1974,3 +1974,23 @@ async fn test_join_page_creator_ip_in_continue_link() {
     let html = read_body_string(resp).await;
     assert!(html.contains("creator_ip=192.168.1.100"));
 }
+
+#[tokio::test]
+async fn test_llm_test_endpoint_missing_key() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+
+    let body = r#"{"provider":"openai","model":"gpt-4o","api_key":null,"base_url":null}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/config/llm/test",
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}

@@ -23,3 +23,18 @@ pub async fn update_llm_config(
     let cfg = config::update_llm_config(&state, &user.token_id, body).await?;
     Ok(Json(cfg))
 }
+
+pub async fn test_llm_config(
+    user: AuthUser,
+    Json(body): Json<crate::models::config::TestLLMRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let _ = &user;
+    let (ok, message) = crate::services::llm::test_connection(
+        &body.provider,
+        &body.model,
+        body.api_key.as_deref(),
+        body.base_url.as_deref(),
+    )
+    .await?;
+    Ok(Json(serde_json::json!({ "ok": ok, "message": message })))
+}
