@@ -77,6 +77,13 @@ struct UpdatePreferencesArgs {
     content: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct ManageSkillsArgs {
+    action: String,
+    name: Option<String>,
+    source_url: Option<String>,
+}
+
 pub fn get_super_tools() -> Vec<ChatCompletionTool> {
     vec![
         ChatCompletionTool {
@@ -159,6 +166,37 @@ pub fn get_super_tools() -> Vec<ChatCompletionTool> {
                 strict: None,
             },
         },
+        ChatCompletionTool {
+            r#type: ChatCompletionToolType::Function,
+            function: FunctionObject {
+                name: "manage_skills".to_string(),
+                description: Some(
+                    "管理 Skill 插件。支持三个操作：list（列出所有 Skill）、install（从 URL 安装 Skill）、remove（卸载 Skill）。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["list", "install", "remove"],
+                                "description": "操作类型"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Skill 名称（install/remove 时必填）"
+                            },
+                            "source_url": {
+                                "type": "string",
+                                "description": "远程 Skill URL（install 时必填）"
+                            }
+                        },
+                        "required": ["action"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
     ]
 }
 
@@ -229,6 +267,11 @@ pub async fn execute_tool(
                 .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
             execute_update_user_preferences(hub_dir, &args.content)
         }
+        "manage_skills" => {
+            let args: ManageSkillsArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            execute_manage_skills(hub_dir, args).await
+        }
         _ => Err(RingError::BadRequest(format!("unknown tool: {tool_name}"))),
     }
 }
@@ -240,6 +283,52 @@ fn execute_query_user_preferences(hub_dir: &Path) -> Result<String> {
 fn execute_update_user_preferences(hub_dir: &Path, content: &str) -> Result<String> {
     update_user_preferences(hub_dir, content)?;
     Ok("偏好设置已更新。".to_string())
+}
+
+async fn execute_manage_skills(
+    hub_dir: &Path,
+    args: ManageSkillsArgs,
+) -> Result<String> {
+    let skills_dir = hub_dir.parent()
+        .map(|p| p.join("skills"))
+        .unwrap_or_else(|| std::path::PathBuf::from("~/.ring/skills"));
+
+    match args.action.as_str() {
+        "list" => {
+            let skills = crate::services::skill::list_skills(&skills_dir);
+            if skills.is_empty() {
+                return Ok("目前没有安装任何 Skill。".to_string());
+            }
+            let mut result = String::from("## 已安装的 Skill\n\n");
+            for s in &skills {
+                let source_label = if s.source == "builtin" { "内置" } else { "用户" };
+                result.push_str(&format!("### {} [{}]\n{}\n\n", s.name, source_label, s.description));
+            }
+            Ok(result)
+        }
+        "install" => {
+            let name = args.name.unwrap_or_default();
+            let url = args.source_url.unwrap_or_default();
+            if name.is_empty() || url.is_empty() {
+                return Ok("安装 Skill 需要 name 和 source_url 参数。".to_string());
+            }
+            match crate::services::skill::install_skill(&skills_dir, &name, &url).await {
+                Ok(info) => Ok(format!("Skill '{}' 安装成功：{}", info.name, info.description)),
+                Err(e) => Ok(format!("Skill 安装失败：{e}")),
+            }
+        }
+        "remove" => {
+            let name = args.name.unwrap_or_default();
+            if name.is_empty() {
+                return Ok("卸载 Skill 需要 name 参数。".to_string());
+            }
+            match crate::services::skill::remove_skill(&skills_dir, &name) {
+                Ok(()) => Ok(format!("Skill '{name}' 已卸载。")),
+                Err(e) => Ok(format!("卸载失败：{e}")),
+            }
+        }
+        _ => Ok(format!("未知操作 '{}'。支持: list, install, remove", args.action)),
+    }
 }
 
 async fn execute_query_rings(pool: &sqlx::SqlitePool, user_id: &str) -> Result<String> {
