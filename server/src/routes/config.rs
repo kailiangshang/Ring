@@ -25,10 +25,8 @@ pub async fn update_llm_config(
 }
 
 pub async fn test_llm_config(
-    user: AuthUser,
     Json(body): Json<crate::models::config::TestLLMRequest>,
 ) -> Result<Json<serde_json::Value>> {
-    let _ = &user;
     let (ok, message) = crate::services::llm::test_connection(
         &body.provider,
         &body.model,
