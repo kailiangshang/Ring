@@ -13,6 +13,7 @@ mod graph;
 mod group_docs;
 mod health;
 mod invite;
+mod join_page;
 mod members;
 mod mode;
 mod rings;
@@ -184,12 +185,14 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/join-requests/{request_id}/reject",
             post(invite::reject_request),
         )
-        .with_state(state);
+        .with_state(state.clone());
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
 
     Router::new()
         .nest("/api", api)
+        .route("/ring/join", get(join_page::join_page_handler))
+        .with_state(state)
         .fallback_service(ServeDir::new(&static_dir).append_index_html_on_directories(true))
         .layer(cors)
         .layer(TraceLayer::new_for_http())

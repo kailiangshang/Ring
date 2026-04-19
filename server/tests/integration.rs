@@ -1688,3 +1688,289 @@ async fn test_audit_approve_forbidden_for_member() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
+
+fn make_request_with_ua(
+    method: &str,
+    uri: &str,
+    body: Option<&str>,
+    token: Option<&str>,
+    user_agent: &str,
+) -> Request<Body> {
+    let mut builder = Request::builder()
+        .method(method)
+        .uri(uri)
+        .header("Content-Type", "application/json")
+        .header("User-Agent", user_agent);
+    if let Some(t) = token {
+        builder = builder.header("X-Ring-Token", t);
+    }
+    let body = match body {
+        Some(b) => Body::from(b.to_string()),
+        None => Body::empty(),
+    };
+    builder.body(body).unwrap()
+}
+
+async fn read_body_string(resp: axum::response::Response) -> String {
+    let bytes = axum::body::to_bytes(resp.into_body(), 10000).await.unwrap();
+    String::from_utf8(bytes.to_vec()).unwrap()
+}
+
+#[tokio::test]
+async fn test_join_page_valid_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/ring/join?token={invite_token}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Test Ring"));
+    assert!(html.contains("Continue to Join"));
+    assert!(html.contains("localhost:7420"));
+    assert!(html.contains("ring-server-windows-amd64.zip"));
+    assert!(html.contains("ring-server-macos-arm64.tar.gz"));
+}
+
+#[tokio::test]
+async fn test_join_page_missing_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request("GET", "/ring/join", None, None))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Missing Invite Token"));
+}
+
+#[tokio::test]
+async fn test_join_page_expired_token() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let past = "2020-01-01T00:00:00+00:00";
+    sqlx::query("UPDATE invite_tokens SET expires_at = ?1 WHERE token = ?2")
+        .bind(past)
+        .bind(&invite_token)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/ring/join?token={invite_token}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Expired") || html.contains("expired"));
+}
+
+#[tokio::test]
+async fn test_join_page_os_detection_windows() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let req = make_request_with_ua(
+        "GET",
+        &format!("/ring/join?token={invite_token}"),
+        None,
+        None,
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    );
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Recommended"));
+    assert!(html.contains("Windows"));
+}
+
+#[tokio::test]
+async fn test_join_page_os_detection_macos() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let req = make_request_with_ua(
+        "GET",
+        &format!("/ring/join?token={invite_token}"),
+        None,
+        None,
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
+    );
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Recommended"));
+    assert!(html.contains("macOS"));
+}
+
+#[tokio::test]
+async fn test_join_page_audit_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"audit","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/ring/join?token={invite_token}"),
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Test Ring"));
+    assert!(html.contains("audit"));
+}
+
+#[tokio::test]
+async fn test_join_page_nonexistent_token() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/ring/join?token=nonexistent123",
+            None,
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let html = read_body_string(resp).await;
+    assert!(html.contains("Invalid") || html.contains("error") || html.contains("Error"));
+}
+
+#[tokio::test]
+async fn test_join_page_creator_ip_in_continue_link() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"type":"open","max_uses":10,"expires_in_hours":48}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/invite-tokens"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    let invite_token = json["token"].as_str().unwrap();
+
+    let mut req = make_request(
+        "GET",
+        &format!("/ring/join?token={invite_token}"),
+        None,
+        None,
+    );
+    req.headers_mut()
+        .insert("host", "192.168.1.100:7420".parse().unwrap());
+    let resp = app.clone().oneshot(req).await.unwrap();
+    let html = read_body_string(resp).await;
+    assert!(html.contains("creator_ip=192.168.1.100"));
+}
