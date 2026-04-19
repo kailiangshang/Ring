@@ -98,12 +98,13 @@ export function RingList() {
           style={{
             margin: '4px 12px',
             padding: '6px 0',
-            border: '1px dashed var(--border)',
+            border: '1px solid var(--accent-cyan)',
             borderRadius: 3,
             textAlign: 'center',
-            color: 'var(--text-dim)',
+            color: 'var(--accent-cyan)',
             fontSize: 10,
             cursor: 'pointer',
+            fontWeight: 700,
           }}
         >
           + new ring
