@@ -125,3 +125,15 @@ pub async fn add_member(
         Err(e) => Err(e.into()),
     }
 }
+
+pub async fn is_member(pool: &sqlx::SqlitePool, ring_id: &str, user_id: &str) -> bool {
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM members WHERE ring_id = ?1 AND user_id = ?2)",
+    )
+    .bind(ring_id)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+    exists
+}

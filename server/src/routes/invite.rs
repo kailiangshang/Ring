@@ -62,3 +62,67 @@ pub async fn revoke_invite_token(
     let revoked_at = invite::revoke_token(&state, &ring_id, &user.token_id, &token).await?;
     Ok(Json(json!({ "ok": true, "revoked_at": revoked_at })))
 }
+
+#[derive(Debug, Deserialize)]
+pub struct JoinInfoQuery {
+    pub token: String,
+}
+
+pub async fn join_info(
+    State(state): State<AppState>,
+    Query(query): Query<JoinInfoQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let info = invite::verify_join_token(&state, &query.token).await?;
+    Ok(Json(json!({
+        "valid": info.valid,
+        "reason": info.reason,
+        "ring_id": info.ring_id,
+        "ring_name": info.ring_name,
+        "member_count": info.member_count,
+        "role": info.role,
+        "token_type": info.token_type,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JoinBody {
+    pub invite_token: String,
+    pub display_name: String,
+}
+
+pub async fn join_ring(
+    State(state): State<AppState>,
+    Json(body): Json<JoinBody>,
+) -> Result<Json<serde_json::Value>> {
+    let req = invite::JoinRequest {
+        invite_token: body.invite_token,
+        display_name: body.display_name,
+    };
+    let result = invite::execute_join(&state, &req).await?;
+    Ok(Json(json!({
+        "token_id": result.token_id,
+        "ring_id": result.ring_id,
+        "ring_name": result.ring_name,
+        "role": result.role,
+        "gitlab_repo_url": result.gitlab_repo_url,
+    })))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LocalJoinBody {
+    pub invite_token: String,
+    pub creator_ip: String,
+}
+
+pub async fn local_join_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<LocalJoinBody>,
+) -> Result<Json<serde_json::Value>> {
+    let req = invite::LocalJoinRequest {
+        invite_token: body.invite_token,
+        creator_ip: body.creator_ip,
+    };
+    let result = invite::local_join(&state, &user.token_id, &req).await?;
+    Ok(Json(result))
+}

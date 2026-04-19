@@ -167,6 +167,9 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/invite-tokens/{token}",
             delete(invite::revoke_invite_token),
         )
+        .route("/join/info", get(invite::join_info))
+        .route("/join", post(invite::join_ring))
+        .route("/join/local", post(invite::local_join_handler))
         .with_state(state);
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

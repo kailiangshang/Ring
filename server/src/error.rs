@@ -19,6 +19,12 @@ pub enum RingError {
     #[error("Conflict: {0}")]
     Conflict(String),
 
+    #[error("Gone: {0}")]
+    Gone(String),
+
+    #[error("Bad gateway")]
+    BadGateway,
+
     #[error("Internal error: {0}")]
     Internal(String),
 
@@ -81,6 +87,8 @@ impl IntoResponse for RingError {
             RingError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             RingError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
             RingError::Conflict(msg) => (StatusCode::CONFLICT, msg.clone()),
+            RingError::Gone(msg) => (StatusCode::GONE, msg.clone()),
+            RingError::BadGateway => (StatusCode::BAD_GATEWAY, "bad gateway".into()),
             RingError::Internal(msg) => {
                 tracing::error!("Internal error: {msg}");
                 (

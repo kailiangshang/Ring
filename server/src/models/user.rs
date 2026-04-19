@@ -84,6 +84,23 @@ pub async fn create_user(
         .map_err(Into::into)
 }
 
+pub async fn create_joiner_user(
+    pool: &sqlx::SqlitePool,
+    token_id: &str,
+    display_name: &str,
+) -> Result<UserRow> {
+    sqlx::query_as::<_, UserRow>(
+        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token)
+         VALUES (?1, ?2, NULL, 0, 'openai', NULL, 'gpt-4o', NULL, '', '')
+         RETURNING *",
+    )
+    .bind(token_id)
+    .bind(display_name)
+    .fetch_one(pool)
+    .await
+    .map_err(Into::into)
+}
+
 pub async fn get_user(pool: &sqlx::SqlitePool, token_id: &str) -> Result<UserRow> {
     sqlx::query_as::<_, UserRow>("SELECT * FROM users WHERE token_id = ?1")
         .bind(token_id)

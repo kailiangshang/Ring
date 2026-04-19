@@ -1,6 +1,8 @@
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
+use ulid::Ulid;
 
 use crate::error::{Result, RingError};
 use crate::models::invite::{self, CreateInviteToken, InviteTokenRow};
@@ -88,4 +90,239 @@ pub async fn revoke_token(
     check_admin(&state.db, ring_id, user_id).await?;
     invite::revoke_token(&state.db, ring_id, token).await?;
     Ok(Utc::now().to_rfc3339())
+}
+
+#[derive(Debug, Serialize)]
+pub struct JoinInfoResponse {
+    pub valid: bool,
+    pub reason: Option<String>,
+    pub ring_id: Option<String>,
+    pub ring_name: Option<String>,
+    pub member_count: Option<i64>,
+    pub role: Option<String>,
+    pub token_type: Option<String>,
+}
+
+pub async fn verify_join_token(state: &AppState, token_str: &str) -> Result<JoinInfoResponse> {
+    let row = invite::find_token_by_value(&state.db, token_str)
+        .await?
+        .ok_or_else(|| RingError::NotFound("invite token not found".into()))?;
+
+    if row.revoked_at.is_some() {
+        return Ok(JoinInfoResponse {
+            valid: false,
+            reason: Some("token revoked".into()),
+            ring_id: None,
+            ring_name: None,
+            member_count: None,
+            role: None,
+            token_type: None,
+        });
+    }
+
+    let now = Utc::now().to_rfc3339();
+    if row.expires_at < now {
+        return Ok(JoinInfoResponse {
+            valid: false,
+            reason: Some("token expired".into()),
+            ring_id: None,
+            ring_name: None,
+            member_count: None,
+            role: None,
+            token_type: None,
+        });
+    }
+
+    let ring: Option<(String,)> = sqlx::query_as("SELECT name FROM rings WHERE id = ?1")
+        .bind(&row.ring_id)
+        .fetch_optional(&state.db)
+        .await?;
+
+    let ring_name = ring.map(|r| r.0).unwrap_or_default();
+    let member_count = invite::get_member_count(&state.db, &row.ring_id)
+        .await
+        .unwrap_or(0);
+
+    Ok(JoinInfoResponse {
+        valid: true,
+        reason: None,
+        ring_id: Some(row.ring_id.clone()),
+        ring_name: Some(ring_name),
+        member_count: Some(member_count),
+        role: Some(row.role.clone()),
+        token_type: Some(row.r#type.clone()),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JoinRequest {
+    pub invite_token: String,
+    pub display_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JoinResponse {
+    pub token_id: String,
+    pub ring_id: String,
+    pub ring_name: String,
+    pub role: String,
+    pub gitlab_repo_url: Option<String>,
+}
+
+pub async fn execute_join(state: &AppState, input: &JoinRequest) -> Result<JoinResponse> {
+    if input.display_name.trim().is_empty() {
+        return Err(RingError::BadRequest("display_name is required".into()));
+    }
+
+    let row = invite::find_token_by_value(&state.db, &input.invite_token)
+        .await?
+        .ok_or_else(|| RingError::NotFound("invite token not found".into()))?;
+
+    if row.r#type != "open" {
+        return Err(RingError::BadRequest(
+            "this token is not an open invite".into(),
+        ));
+    }
+
+    if row.revoked_at.is_some() {
+        return Err(RingError::Gone("token has been revoked".into()));
+    }
+
+    let now = Utc::now().to_rfc3339();
+    if row.expires_at < now {
+        return Err(RingError::Gone("token has expired".into()));
+    }
+
+    if row.max_uses > 0 && row.use_count >= row.max_uses {
+        return Err(RingError::Forbidden("token has reached max uses".into()));
+    }
+
+    if let Some(max) = row.max_members {
+        let count = invite::get_member_count(&state.db, &row.ring_id).await?;
+        if count >= max {
+            return Err(RingError::Forbidden("ring has reached max members".into()));
+        }
+    }
+
+    let token_id = format!("user-{}", Ulid::new());
+
+    if crate::models::member::is_member(&state.db, &row.ring_id, &token_id).await {
+        return Err(RingError::Conflict("already a member".into()));
+    }
+
+    crate::models::user::create_joiner_user(&state.db, &token_id, &input.display_name).await?;
+
+    crate::models::member::add_member(&state.db, &row.ring_id, &token_id, &row.role).await?;
+
+    invite::increment_use_count(&state.db, &input.invite_token).await?;
+
+    let ring_name: String = sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
+        .bind(&row.ring_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let gitlab_repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(&row.ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
+
+    Ok(JoinResponse {
+        token_id,
+        ring_id: row.ring_id,
+        ring_name,
+        role: row.role,
+        gitlab_repo_url,
+    })
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LocalJoinRequest {
+    pub invite_token: String,
+    pub creator_ip: String,
+}
+
+pub async fn local_join(
+    state: &AppState,
+    user_id: &str,
+    input: &LocalJoinRequest,
+) -> Result<serde_json::Value> {
+    let base_url = format!("http://{}:7420/api", input.creator_ip);
+
+    let info_url = format!("{}/join/info?token={}", base_url, input.invite_token);
+    let info_resp = reqwest::get(&info_url)
+        .await
+        .map_err(|e| RingError::Internal(format!("failed to contact creator: {e}")))?;
+
+    if !info_resp.status().is_success() {
+        return Err(RingError::BadGateway);
+    }
+
+    let info: serde_json::Value = info_resp
+        .json()
+        .await
+        .map_err(|e| RingError::Internal(format!("failed to parse creator response: {e}")))?;
+
+    if !info["valid"].as_bool().unwrap_or(false) {
+        let reason = info["reason"].as_str().unwrap_or("unknown");
+        return Err(RingError::BadRequest(format!("invite invalid: {reason}")));
+    }
+
+    let user = crate::models::user::get_user(&state.db, user_id).await?;
+
+    let join_url = format!("{}/join", base_url);
+    let join_body = serde_json::json!({
+        "invite_token": input.invite_token,
+        "display_name": user.display_name,
+    });
+    let join_resp = reqwest::Client::new()
+        .post(&join_url)
+        .json(&join_body)
+        .send()
+        .await
+        .map_err(|e| RingError::Internal(format!("failed to join via creator: {e}")))?;
+
+    if !join_resp.status().is_success() {
+        let status = join_resp.status();
+        let body: serde_json::Value = join_resp.json().await.unwrap_or(serde_json::json!({}));
+        let msg = body["error"]["message"].as_str().unwrap_or("unknown error");
+        return Err(RingError::Internal(format!(
+            "creator join failed ({status}): {msg}"
+        )));
+    }
+
+    let join_result: serde_json::Value = join_resp
+        .json()
+        .await
+        .map_err(|e| RingError::Internal(format!("failed to parse join result: {e}")))?;
+
+    if let Some(repo_url) = join_result["gitlab_repo_url"].as_str() {
+        if !repo_url.is_empty() {
+            let rings_dir = state.rings_dir.clone();
+            let ring_id = join_result["ring_id"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string();
+            let repo_url = repo_url.to_string();
+            tokio::spawn(async move {
+                let repo_path = rings_dir.join(&ring_id);
+                if !repo_path.join(".git").exists() {
+                    if let Err(e) =
+                        crate::services::git_service::GitService::clone(&repo_url, &repo_path)
+                    {
+                        tracing::warn!("git clone failed for ring {ring_id}: {e}");
+                        return;
+                    }
+                    let _ = std::fs::create_dir_all(repo_path.join("archives"));
+                    let _ = std::fs::create_dir_all(repo_path.join("graphs"));
+                    let _ = std::fs::create_dir_all(repo_path.join(".group"));
+                    tracing::info!("git clone completed: ring={ring_id}");
+                }
+            });
+        }
+    }
+
+    Ok(join_result)
 }

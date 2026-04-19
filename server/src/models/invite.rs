@@ -114,3 +114,30 @@ pub async fn revoke_token(pool: &sqlx::SqlitePool, ring_id: &str, token: &str) -
     }
     Ok(true)
 }
+
+pub async fn find_token_by_value(
+    pool: &sqlx::SqlitePool,
+    token: &str,
+) -> Result<Option<InviteTokenRow>> {
+    sqlx::query_as::<_, InviteTokenRow>("SELECT * FROM invite_tokens WHERE token = ?1")
+        .bind(token)
+        .fetch_optional(pool)
+        .await
+        .map_err(Into::into)
+}
+
+pub async fn increment_use_count(pool: &sqlx::SqlitePool, token: &str) -> Result<()> {
+    sqlx::query("UPDATE invite_tokens SET use_count = use_count + 1 WHERE token = ?1")
+        .bind(token)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn get_member_count(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<i64> {
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM members WHERE ring_id = ?1")
+        .bind(ring_id)
+        .fetch_one(pool)
+        .await?;
+    Ok(count)
+}
