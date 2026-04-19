@@ -26,6 +26,12 @@ pub struct TestLLMRequest {
     pub base_url: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct TestGitLabRequest {
+    pub url: String,
+    pub token: String,
+}
+
 pub async fn get_llm_config(pool: &sqlx::SqlitePool, user_id: &str) -> Result<LLMConfigResponse> {
     let row = sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>(
         "SELECT llm_provider, llm_model, llm_api_key, llm_base_url FROM users WHERE token_id = ?1",

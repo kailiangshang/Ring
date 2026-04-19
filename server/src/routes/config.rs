@@ -36,3 +36,34 @@ pub async fn test_llm_config(
     .await?;
     Ok(Json(serde_json::json!({ "ok": ok, "message": message })))
 }
+
+pub async fn test_gitlab_config(
+    Json(body): Json<crate::models::config::TestGitLabRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let client = reqwest::Client::new();
+    let url = format!("{}/api/v4/user", body.url.trim_end_matches('/'));
+    let res = client
+        .get(&url)
+        .header("PRIVATE-TOKEN", &body.token)
+        .timeout(std::time::Duration::from_secs(10))
+        .send()
+        .await;
+
+    match res {
+        Ok(resp) => {
+            if resp.status().is_success() {
+                Ok(Json(
+                    serde_json::json!({ "ok": true, "message": "GitLab connection successful" }),
+                ))
+            } else {
+                let status = resp.status().as_u16();
+                Ok(Json(
+                    serde_json::json!({ "ok": false, "message": format!("GitLab returned status {}", status) }),
+                ))
+            }
+        }
+        Err(e) => Ok(Json(
+            serde_json::json!({ "ok": false, "message": format!("{}", e) }),
+        )),
+    }
+}

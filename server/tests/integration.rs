@@ -2023,3 +2023,24 @@ async fn test_recover_token_before_setup() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn test_gitlab_test_endpoint_invalid_url() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let body = r#"{"url":"http://not-a-real-gitlab.local","token":"fake"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/config/gitlab/test",
+            Some(body),
+            None,
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["ok"], false);
+}
