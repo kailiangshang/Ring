@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react'
 import { useModeStore } from '../../stores/mode-store'
 import { useRingStore } from '../../stores/ring-store'
+import { useAppStore } from '../../stores/app-store'
 import { ModeSelector } from './ModeSelector'
 
 export function ModeIndicator() {
+  const context = useAppStore((s) => s.current_context)
   const interaction_mode = useModeStore((s) => s.interaction_mode)
   const syncing = useModeStore((s) => s.syncing)
   const fetchFromServer = useModeStore((s) => s.fetchFromServer)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const [showSelector, setShowSelector] = useState(false)
 
+  const label = context === 'super' ? 'super' : context === 'session' ? 'session' : 'ring'
+
   useEffect(() => {
-    if (active_ring_id) {
+    if (active_ring_id && context !== 'super') {
       fetchFromServer(active_ring_id)
     }
-  }, [active_ring_id, fetchFromServer])
+  }, [active_ring_id, fetchFromServer, context])
 
   return (
     <div style={{ position: 'relative' }}>
@@ -35,8 +39,8 @@ export function ModeIndicator() {
           gap: 4,
         }}
       >
-        [ring
-        {interaction_mode === 'auto' && (
+        [{label}
+        {interaction_mode === 'auto' && context !== 'super' && (
           <span style={{ color: 'var(--accent-amber)' }}>·auto</span>
         )}
         ]

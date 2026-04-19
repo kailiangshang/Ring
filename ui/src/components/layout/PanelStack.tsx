@@ -5,12 +5,16 @@ import { GraphPanel } from '../panels/GraphPanel'
 import { ArchivePanel } from '../panels/ArchivePanel'
 import { ConfigPanel } from '../panels/ConfigPanel'
 import { SessionPanel } from '../panels/SessionPanel'
+import { SuperSkillsPanel } from '../panels/SuperSkillsPanel'
+import { SuperSettingsPanel } from '../panels/SuperSettingsPanel'
 
 const PANEL_CONTENT: Record<string, () => ReactElement> = {
   graph: GraphPanel,
   archive: ArchivePanel,
   config: ConfigPanel,
   session: SessionPanel,
+  super_skills: SuperSkillsPanel,
+  super_settings: SuperSettingsPanel,
 }
 
 const PANEL_TITLES: Record<string, string> = {
@@ -18,6 +22,8 @@ const PANEL_TITLES: Record<string, string> = {
   archive: 'Archive',
   config: 'Config',
   session: 'Session',
+  super_skills: 'Skills',
+  super_settings: 'Settings',
 }
 
 export function PanelStack() {

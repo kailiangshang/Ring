@@ -9,39 +9,49 @@ import { CreateInviteModal } from '../invite/CreateInviteModal'
 import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
-
+import { usePanelStore } from '../../stores/panel-store'
+import { TabItem } from '../header/TabItem'
 
 function SuperRingHeader() {
+  const panels = usePanelStore((s) => s.panels)
+  const toggle = usePanelStore((s) => s.toggle)
+  const closeAll = usePanelStore((s) => s.closeAll)
+
   return (
-    <div
-      style={{
-        height: 38,
-        background: 'var(--bg-panel)',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        padding: '0 12px',
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 700,
-          color: 'var(--accent-ice)',
-          letterSpacing: '0.05em',
-        }}
-      >
+    <div style={{
+      height: 38,
+      background: 'var(--bg-panel)',
+      borderBottom: '1px solid var(--border)',
+      display: 'flex',
+      alignItems: 'center',
+      padding: '0 12px',
+    }}>
+      <span style={{
+        fontSize: 13,
+        fontWeight: 700,
+        color: 'var(--accent-ice)',
+        marginRight: 16,
+        letterSpacing: '0.05em',
+      }}>
         Super Ring
       </span>
-      <span
-        style={{
-          marginLeft: 12,
-          fontSize: 11,
-          color: 'var(--text-dim)',
+      <TabItem
+        label="Chat"
+        active={panels.length === 0 || panels.every(p => p.type !== 'super_skills' && p.type !== 'super_settings')}
+        onClick={() => {
+          closeAll()
         }}
-      >
-        Global Assistant
-      </span>
+      />
+      <TabItem
+        label="Skills"
+        active={panels.some((p) => p.type === 'super_skills')}
+        onClick={() => toggle('super_skills')}
+      />
+      <TabItem
+        label="Settings"
+        active={panels.some((p) => p.type === 'super_settings')}
+        onClick={() => toggle('super_settings')}
+      />
     </div>
   )
 }
@@ -71,6 +81,7 @@ export function AppLayout() {
             <SuperRingHeader />
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
               <ChatArea />
+              <PanelStack />
             </div>
           </>
         ) : (
