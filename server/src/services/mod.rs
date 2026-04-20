@@ -9,6 +9,7 @@ pub mod llm;
 pub mod member;
 pub mod mode;
 pub mod ring;
+pub mod self_data;
 pub mod session;
 pub mod setup;
 pub mod skill;

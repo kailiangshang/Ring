@@ -2044,3 +2044,54 @@ async fn test_gitlab_test_endpoint_invalid_url() {
     let json = read_body(resp).await;
     assert_eq!(json["ok"], false);
 }
+
+#[tokio::test]
+async fn test_self_identity_crud() {
+    let _ = std::fs::remove_dir_all(std::path::PathBuf::from(
+        std::env::var("HOME").unwrap_or_else(|_| ".".into()) + "/.ring/self",
+    ));
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/self/identity",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["exists"], false);
+
+    let body = r#"{"content":"I am a personal AI assistant"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            "/api/self/identity",
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            "/api/self/identity",
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    let json = read_body(resp).await;
+    assert_eq!(json["exists"], true);
+    assert_eq!(json["content"], "I am a personal AI assistant");
+}

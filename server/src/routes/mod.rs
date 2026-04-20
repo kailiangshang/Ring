@@ -17,6 +17,7 @@ mod join_page;
 mod members;
 mod mode;
 mod rings;
+mod self_data;
 mod session;
 mod setup;
 mod skills;
@@ -67,6 +68,15 @@ pub fn build_router(state: AppState) -> Router {
         .route("/rings/{ring_id}/chat/history", get(chat::ring_history))
         .route("/self/chat", post(chat::self_chat))
         .route("/self/chat/history", get(chat::self_history))
+        .route(
+            "/self/identity",
+            get(self_data::get_identity).put(self_data::update_identity),
+        )
+        .route(
+            "/self/style",
+            get(self_data::get_style).put(self_data::update_style),
+        )
+        .route("/self/metrics", get(self_data::get_metrics))
         .route(
             "/rings/{ring_id}/graph",
             get(graph::get_graph).post(graph::create_node_handler),
