@@ -3,6 +3,7 @@ import type { ChatMessage } from '../types/chat'
 import { parseCommand } from '../services/command-parser'
 import { streamChat } from '../services/sse'
 import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill } from '../services/api'
+import { useSelfChatStore } from './self-chat-store'
 import { usePanelStore } from './panel-store'
 import { useSelfStore } from './self-store'
 import { useModeStore } from './mode-store'
@@ -183,7 +184,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const parsed = parseCommand(input)
 
     const isUICommand = parsed && parsed.every(
-      (cmd) => cmd.type === 'action' || cmd.type === 'prefs' || cmd.type === 'skill' || cmd.type === 'help'
+      (cmd) => cmd.type === 'action' || cmd.type === 'prefs' || cmd.type === 'skill' || cmd.type === 'help' || (cmd.type === 'address' && cmd.target === 'self')
     )
 
     if (parsed) {
@@ -251,7 +252,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
             break
           }
           case 'address': {
-            if (cmd.target === 'self') useSelfStore.getState().setOpen(true)
+            if (cmd.target === 'self') {
+              useSelfStore.getState().setOpen(true)
+              useSelfStore.getState().setTab('chat')
+              if (cmd.rest.trim()) {
+                useSelfChatStore.getState().setInput(cmd.rest)
+                setTimeout(() => useSelfChatStore.getState().send(), 0)
+              }
+            }
             break
           }
           case 'meta': {
