@@ -35,10 +35,21 @@ const navButtonStyle: React.CSSProperties = {
 
 export function StepGitLab({ data, onChange, onNext, onBack, error }: StepProps) {
   return (
-    <div style={{ padding: '20px', maxWidth: 400, margin: '0 auto' }}>
-      <h2 style={{ fontSize: 16, color: 'var(--accent-ice)', marginBottom: 16 }}>
+    <div style={{ padding: '20px', maxWidth: 420, margin: '0 auto' }}>
+      <h2 style={{ fontSize: 16, color: 'var(--accent-ice)', marginBottom: 4 }}>
         Step 3: GitLab Config
+        <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>(Optional)</span>
       </h2>
+
+      <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
+        GitLab 用于归档对话记录、创建合并请求（MR）和团队协作。配置后你可以：
+        <ul style={{ margin: '4px 0', paddingLeft: 16 }}>
+          <li>将 AI 对话自动归档为 Markdown 文件</li>
+          <li>通过 Git 管理知识图谱的变更</li>
+          <li>团队成员提交归档审核（MR）</li>
+        </ul>
+        不配置 GitLab 仍可正常使用 Ring，但归档功能将不可用。
+      </div>
 
       <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>GitLab URL</label>
       <input
@@ -48,7 +59,12 @@ export function StepGitLab({ data, onChange, onNext, onBack, error }: StepProps)
         style={inputStyle}
       />
 
-      <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>Personal Access Token</label>
+      <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+        Personal Access Token
+        <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+          {' '}— 在 GitLab 设置 → Access Tokens 中创建，需勾选 <strong>api</strong> 权限
+        </span>
+      </label>
       <input
         type="password"
         value={data.gitlab_token}
@@ -67,14 +83,23 @@ export function StepGitLab({ data, onChange, onNext, onBack, error }: StepProps)
         <button onClick={onBack} style={navButtonStyle}>Back</button>
         <button
           onClick={onNext}
-          disabled={!data.gitlab_url.trim() || !data.gitlab_token.trim()}
           style={{
             ...navButtonStyle,
-            opacity: !data.gitlab_url.trim() || !data.gitlab_token.trim() ? 0.4 : 1,
+            background: 'var(--accent-cyan)',
+            color: 'var(--bg-base)',
             marginLeft: 'auto',
           }}
         >
           Done
+        </button>
+        <button
+          onClick={onNext}
+          style={{
+            ...navButtonStyle,
+            opacity: 0.7,
+          }}
+        >
+          Skip
         </button>
       </div>
     </div>

@@ -14,8 +14,8 @@ pub struct SetupRequest {
     pub llm_api_key: Option<String>,
     pub llm_model: Option<String>,
     pub llm_base_url: Option<String>,
-    pub gitlab_url: String,
-    pub gitlab_token: String,
+    pub gitlab_url: Option<String>,
+    pub gitlab_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -88,8 +88,8 @@ pub async fn update_setup(
         llm_api_key: input.llm_api_key,
         llm_model: input.llm_model,
         llm_base_url: input.llm_base_url,
-        gitlab_url: Some(input.gitlab_url),
-        gitlab_token: Some(input.gitlab_token),
+        gitlab_url: input.gitlab_url,
+        gitlab_token: input.gitlab_token,
     };
     let user = user::update_user(&state.db, token_id, &update_input).await?;
     Ok(SetupResponse {

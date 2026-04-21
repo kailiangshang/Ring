@@ -26,8 +26,8 @@ pub struct CreateUser {
     pub llm_api_key: Option<String>,
     pub llm_model: Option<String>,
     pub llm_base_url: Option<String>,
-    pub gitlab_url: String,
-    pub gitlab_token: String,
+    pub gitlab_url: Option<String>,
+    pub gitlab_token: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -91,7 +91,7 @@ pub async fn create_joiner_user(
 ) -> Result<UserRow> {
     sqlx::query_as::<_, UserRow>(
         "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token)
-         VALUES (?1, ?2, NULL, 0, 'openai', NULL, 'gpt-4o', NULL, '', '')
+         VALUES (?1, ?2, NULL, 0, 'openai', NULL, 'gpt-4o', NULL, NULL, NULL)
          RETURNING *",
     )
     .bind(token_id)

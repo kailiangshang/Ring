@@ -56,8 +56,8 @@ export function SetupWizard({ join_params }: { join_params?: JoinParams }) {
         llm_api_key: data.llm_provider !== 'ollama' ? data.llm_api_key : null,
         llm_model: data.llm_model || undefined,
         llm_base_url: data.llm_base_url || undefined,
-        gitlab_url: data.gitlab_url,
-        gitlab_token: data.gitlab_token,
+        gitlab_url: data.gitlab_url.trim() || null,
+        gitlab_token: data.gitlab_token.trim() || null,
       })
       setToken(res.token_id)
       setAuth(res.token_id, res.display_name, res.avatar)

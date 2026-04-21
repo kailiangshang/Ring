@@ -192,7 +192,7 @@ Ring Hub（用户入口）
 
 | # | 功能 | 说明 |
 |---|------|------|
-| 13 | **GitLab 配置标注 Optional** | StepGitLab 标注可选、加 Skip 按钮 |
+| 13 | **GitLab 配置标注 Optional** | ~~StepGitLab 标注可选、加 Skip 按钮、说明文字~~ ✅ |
 | 14 | **Setup Done 命令速查** | StepDone 展示可用命令列表 |
 
 ## 测试
