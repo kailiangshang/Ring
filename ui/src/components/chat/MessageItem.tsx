@@ -97,6 +97,19 @@ export function MessageItem({ message }: MessageItemProps) {
           }} />
         )}
       </div>
+      {message.token_usage && message.role !== 'user' && (
+        <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
+          {message.token_usage.prompt_tokens !== undefined && (
+            <span>prompt: {message.token_usage.prompt_tokens}</span>
+          )}
+          {message.token_usage.completion_tokens !== undefined && (
+            <span>completion: {message.token_usage.completion_tokens}</span>
+          )}
+          {message.token_usage.total_tokens !== undefined && (
+            <span>total: {message.token_usage.total_tokens}</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

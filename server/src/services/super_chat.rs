@@ -533,6 +533,7 @@ async fn stream_super_chat_inner(
     };
 
     let mut full_content = String::new();
+    let mut token_usage: Option<String> = None;
     let mut has_tool_calls = false;
     let mut tool_call_accum: HashMap<u32, (String, String, String)> = HashMap::new();
 
@@ -646,6 +647,7 @@ async fn stream_super_chat_inner(
 
         let mut second_stream = second_stream;
         full_content.clear();
+        token_usage = None;
 
         while let Some(chunk_result) = second_stream.next().await {
             match chunk_result {
@@ -660,6 +662,9 @@ async fn stream_super_chat_inner(
                                 .await;
                         }
                     }
+                    if let Some(usage) = &chunk.usage {
+                        token_usage = Some(serde_json::to_string(usage).unwrap_or_default());
+                    }
                 }
                 Err(e) => {
                     let _ = tx.send(SseEvent::Error(e.to_string())).await;
@@ -673,6 +678,7 @@ async fn stream_super_chat_inner(
         .send(SseEvent::End {
             message_id: message_id.clone(),
             full_content: full_content.clone(),
+            token_usage,
         })
         .await;
 

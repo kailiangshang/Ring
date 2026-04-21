@@ -90,10 +90,11 @@ pub async fn ring_chat(
                     let data = serde_json::json!({ "content": content });
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
-                SseEvent::End { message_id, full_content } => {
+                SseEvent::End { message_id, full_content, token_usage } => {
+                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
                     let data = serde_json::json!({
                         "message_id": message_id,
-                        "usage": { "prompt_tokens": 0, "completion_tokens": 0 }
+                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
 
@@ -108,7 +109,7 @@ pub async fn ring_chat(
                             content: &full_content,
                             node_refs: &[],
                             tag_refs: &[],
-                            token_usage: None,
+                            token_usage: token_usage.as_deref(),
                         },
                     ).await;
                 }
@@ -187,10 +188,11 @@ pub async fn self_chat(
                     let data = serde_json::json!({ "content": content });
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
-                SseEvent::End { message_id, full_content } => {
+                SseEvent::End { message_id, full_content, token_usage } => {
+                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
                     let data = serde_json::json!({
                         "message_id": message_id,
-                        "usage": { "prompt_tokens": 0, "completion_tokens": 0 }
+                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
 
@@ -205,7 +207,7 @@ pub async fn self_chat(
                             content: &full_content,
                             node_refs: &[],
                             tag_refs: &[],
-                            token_usage: None,
+                            token_usage: token_usage.as_deref(),
                         },
                     ).await;
                 }

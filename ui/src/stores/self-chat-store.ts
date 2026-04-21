@@ -57,7 +57,15 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
           ),
         })
       },
-      onEnd: () => {
+      onEnd: (data) => {
+        const { streaming_message_id, messages } = get()
+        if (streaming_message_id && data.usage) {
+          set({
+            messages: messages.map((m) =>
+              m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
+            ),
+          })
+        }
         set({ sending: false, streaming_message_id: null })
       },
       onError: (data) => {

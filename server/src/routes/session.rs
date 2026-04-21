@@ -197,7 +197,7 @@ pub async fn summarize_session(
                     let data = serde_json::json!({ "content": content });
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
-                SseEvent::End { message_id, full_content: fc } => {
+                SseEvent::End { message_id, full_content: fc, token_usage: _ } => {
                     full_content = fc;
                     let data = serde_json::json!({
                         "message_id": message_id,

@@ -27,6 +27,7 @@ pub enum SseEvent {
     End {
         message_id: String,
         full_content: String,
+        token_usage: Option<String>,
     },
     Error(String),
 }
@@ -129,6 +130,7 @@ impl LlmClient {
             match self.client.chat().create_stream(request).await {
                 Ok(mut stream) => {
                     let mut full_content = String::new();
+                    let mut token_usage: Option<String> = None;
                     while let Some(result) = stream.next().await {
                         match result {
                             Ok(chunk) => {
@@ -142,6 +144,9 @@ impl LlmClient {
                                             .await;
                                     }
                                 }
+                                if let Some(usage) = &chunk.usage {
+                                    token_usage = Some(serde_json::to_string(usage).unwrap_or_default());
+                                }
                             }
                             Err(e) => {
                                 let _ = tx.send(SseEvent::Error(e.to_string())).await;
@@ -153,6 +158,7 @@ impl LlmClient {
                         .send(SseEvent::End {
                             message_id: message_id.clone(),
                             full_content,
+                            token_usage,
                         })
                         .await;
                 }

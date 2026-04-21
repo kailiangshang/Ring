@@ -7,5 +7,6 @@ export interface ChatMessage {
   content: string
   node_refs?: string[]
   tag_refs?: string[]
+  token_usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number }
   created_at: string
 }
