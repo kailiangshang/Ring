@@ -1,6 +1,7 @@
 use crate::error::{Result, RingError};
 use crate::models::message::{self, MessageRow};
 use crate::services::llm::{LlmClient, SseEvent};
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const COMPACT_THRESHOLD: usize = 30;
@@ -172,11 +173,18 @@ pub async fn start_chat_stream(
         load_history_context(&state.db, params.ring_id, &user.token_id, 20).await?
     };
 
+    let filters = user
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_content = apply_filters(params.content, &filters);
+
     let llm = LlmClient::from_user(user)?;
     let rx = llm.chat_stream(
         system_prompt,
         history,
-        params.content.to_string(),
+        filtered_content,
         params.ai_role.to_string(),
     );
     Ok(rx)
