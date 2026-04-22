@@ -10,6 +10,7 @@ mod archive;
 mod blueprint;
 mod chat;
 mod config;
+mod export;
 mod graph;
 mod group_docs;
 mod health;
@@ -214,6 +215,24 @@ pub fn build_router(state: AppState) -> Router {
             "/notifications/{notification_id}",
             delete(notification::delete_notification),
         )
+        .route(
+            "/rings/{ring_id}/export/chat",
+            get(export::export_ring_chat),
+        )
+        .route(
+            "/rings/{ring_id}/export/graph",
+            get(export::export_ring_graph),
+        )
+        .route(
+            "/rings/{ring_id}/export/backup",
+            get(export::export_ring_backup),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/export",
+            get(export::export_session_messages),
+        )
+        .route("/self/export/chat", get(export::export_self_chat))
+        .route("/super/export/chat", get(export::export_super_chat))
         .with_state(state.clone());
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

@@ -187,3 +187,64 @@ export async function checkApplyStatus(request_id: string): Promise<{ request_id
 export async function testLLMConfig(input: { provider: string; model: string; api_key?: string; base_url?: string }): Promise<{ ok: boolean; message: string }> {
   return api.post('/config/llm/test', input)
 }
+
+function downloadFromResponse(res: Response, defaultFilename: string) {
+  const disposition = res.headers.get('content-disposition')
+  let filename = defaultFilename
+  if (disposition) {
+    const match = disposition.match(/filename="([^"]+)"/)
+    if (match) filename = match[1]
+  }
+  res.blob().then((blob) => {
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.URL.revokeObjectURL(url)
+  })
+}
+
+async function exportFile(path: string, defaultFilename: string) {
+  const token = await getToken()
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'X-Ring-Token': token || '',
+    },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? 'unknown',
+      body?.error?.message ?? res.statusText,
+    )
+  }
+  downloadFromResponse(res, defaultFilename)
+}
+
+export async function exportRingChat(ringId: string) {
+  return exportFile(`/rings/${ringId}/export/chat`, `ring_${ringId}_chat.md`)
+}
+
+export async function exportSelfChat() {
+  return exportFile('/self/export/chat', 'self_chat.md')
+}
+
+export async function exportSuperChat() {
+  return exportFile('/super/export/chat', 'super_chat.md')
+}
+
+export async function exportRingGraph(ringId: string) {
+  return exportFile(`/rings/${ringId}/export/graph`, `ring_${ringId}_graph.json`)
+}
+
+export async function exportRingBackup(ringId: string) {
+  return exportFile(`/rings/${ringId}/export/backup`, `ring_${ringId}_backup.json`)
+}
+
+export async function exportSessionMessages(ringId: string, sessionId: string) {
+  return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`)
+}

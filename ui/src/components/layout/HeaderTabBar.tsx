@@ -3,6 +3,7 @@ import { useRingStore } from '../../stores/ring-store'
 import { TabItem } from '../header/TabItem'
 import { HeaderActions } from '../header/HeaderActions'
 import { NotificationBell } from '../NotificationBell'
+import { ExportButton } from '../chat/ExportButton'
 
 const TABS: { type: PanelType; label: string }[] = [
   { type: 'graph', label: 'Graph' },
@@ -60,6 +61,7 @@ export function HeaderTabBar() {
       ))}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ExportButton />
         <NotificationBell />
         <HeaderActions />
       </div>

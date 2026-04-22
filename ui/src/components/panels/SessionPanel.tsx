@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSessionStore } from '../../stores/session-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
+import { exportSessionMessages } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill } from '../../types/session'
 const SKILLS: { value: SessionSkill; label: string }[] = [
@@ -604,6 +605,20 @@ function SessionChat() {
               {session.archive_enabled ? 'Archive: ON' : 'Archive: OFF'}
             </button>
           )}
+          <button
+            onClick={() => active_ring_id && exportSessionMessages(active_ring_id, session.id)}
+            style={{
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              padding: '3px 8px',
+              fontSize: 10,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            Export
+          </button>
           <button
             onClick={clearActive}
             style={{

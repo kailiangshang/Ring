@@ -7,6 +7,7 @@ import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { CreateInviteModal } from '../invite/CreateInviteModal'
 import { NotificationBell } from '../NotificationBell'
+import { ExportButton } from '../chat/ExportButton'
 import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
@@ -53,7 +54,8 @@ function SuperRingHeader() {
         active={panels.some((p) => p.type === 'super_settings')}
         onClick={() => toggle('super_settings')}
       />
-      <div style={{ marginLeft: 'auto' }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ExportButton />
         <NotificationBell />
       </div>
     </div>

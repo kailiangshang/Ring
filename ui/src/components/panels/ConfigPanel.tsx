@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Member } from '../../types/ring'
 import type { LLMConfig, LLMProvider } from '../../types/config'
-import { api, testLLMConfig } from '../../services/api'
+import { api, testLLMConfig, exportRingBackup } from '../../services/api'
 import { useRingStore } from '../../stores/ring-store'
 import { useInviteStore } from '../../stores/invite-store'
 
@@ -305,6 +305,22 @@ export function ConfigPanel() {
           ))}
         </>
       )}
+
+      <div style={{ marginTop: 24, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <p style={{ marginBottom: 8, color: 'var(--text-secondary)', fontWeight: 700 }}>
+          Export
+        </p>
+        <button
+          onClick={() => active_ring_id && exportRingBackup(active_ring_id)}
+          style={{
+            ...smallBtn,
+            width: '100%',
+            marginBottom: 4,
+          }}
+        >
+          Full Ring Backup (JSON)
+        </button>
+      </div>
     </div>
   )
 }

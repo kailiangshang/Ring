@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useGraphStore } from '../../stores/graph-store'
 import { useRingStore } from '../../stores/ring-store'
+import { exportRingGraph } from '../../services/api'
 import { GraphCanvas } from './GraphCanvas'
 
 export function GraphPanel() {
@@ -103,6 +104,20 @@ export function GraphPanel() {
             }}
           >
             +Node
+          </button>
+          <button
+            onClick={() => active_ring_id && exportRingGraph(active_ring_id)}
+            style={{
+              background: 'var(--bg-hover)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '4px 10px',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            Export
           </button>
         </div>
 
