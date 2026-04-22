@@ -17,7 +17,9 @@ interface GraphCanvasProps {
   nodes: GraphNode[]
   edges: GraphEdge[]
   selectedNodeId: string | null
+  collapsedNodes: Set<string>
   onSelectNode: (id: string | null) => void
+  onToggleCollapse: (id: string) => void
 }
 
 const NODE_COLORS: Record<string, string> = {
@@ -26,9 +28,35 @@ const NODE_COLORS: Record<string, string> = {
   leaf: '#f59e0b',
 }
 
-export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: GraphCanvasProps) {
+export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSelectNode, onToggleCollapse }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Filter nodes based on collapsed state
+  const getVisibleNodes = useCallback(() => {
+    const visibleIds = new Set<string>()
+    
+    // Start with all nodes, then hide children of collapsed nodes
+    nodes.forEach((n) => visibleIds.add(n.id))
+    
+    collapsedNodes.forEach((collapsedId) => {
+      // Find all children (targets of edges from this node)
+      const children = edges
+        .filter((e) => e.source_id === collapsedId)
+        .map((e) => e.target_id)
+      
+      // Remove children from visible set
+      children.forEach((childId) => visibleIds.delete(childId))
+    })
+    
+    return nodes.filter((n) => visibleIds.has(n.id))
+  }, [nodes, edges, collapsedNodes])
+
+  const getVisibleEdges = useCallback((visibleNodeIds: Set<string>) => {
+    return edges.filter(
+      (e) => visibleNodeIds.has(e.source_id) && visibleNodeIds.has(e.target_id)
+    )
+  }, [edges])
 
   const render = useCallback(() => {
     if (!svgRef.current || !containerRef.current) return
@@ -39,13 +67,17 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: Grap
     const width = containerRef.current.clientWidth || 400
     const height = containerRef.current.clientHeight || 300
 
-    const simNodes: SimNode[] = nodes.map((n) => ({
+    const visibleNodes = getVisibleNodes()
+    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id))
+    const visibleEdges = getVisibleEdges(visibleNodeIds)
+
+    const simNodes: SimNode[] = visibleNodes.map((n) => ({
       id: n.id,
       label: n.label,
       node_type: n.node_type,
     }))
 
-    const simEdges: SimEdge[] = edges.map((e) => ({
+    const simEdges: SimEdge[] = visibleEdges.map((e) => ({
       source: e.source_id,
       target: e.target_id,
       id: e.id,
@@ -88,11 +120,15 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: Grap
       .attr('text-anchor', 'middle')
       .text((d) => d.relation)
 
-    const node = g
+    const nodeGroup = g
       .append('g')
-      .selectAll<SVGCircleElement, SimNode>('circle')
+      .selectAll('g')
       .data(simNodes)
-      .join('circle')
+      .join('g')
+
+    // Main node circle
+    nodeGroup
+      .append('circle')
       .attr('r', 12)
       .attr('fill', (d) => NODE_COLORS[d.node_type] ?? '#0891B2')
       .attr('stroke', (d) => (d.id === selectedNodeId ? '#67E8F9' : 'none'))
@@ -120,6 +156,40 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: Grap
           }),
       )
 
+    // Collapse/expand button
+    const hasChildren = (nodeId: string) => {
+      return edges.some((e) => e.source_id === nodeId)
+    }
+
+    nodeGroup
+      .filter((d) => hasChildren(d.id))
+      .append('circle')
+      .attr('r', 6)
+      .attr('cx', 14)
+      .attr('cy', -14)
+      .attr('fill', 'var(--bg-panel)')
+      .attr('stroke', 'var(--border)')
+      .attr('stroke-width', 1)
+      .attr('cursor', 'pointer')
+      .on('click', (event, d) => {
+        event.stopPropagation()
+        onToggleCollapse(d.id)
+      })
+
+    nodeGroup
+      .filter((d) => hasChildren(d.id))
+      .append('text')
+      .attr('x', 14)
+      .attr('y', -14)
+      .attr('dy', '0.35em')
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'var(--text-primary)')
+      .attr('font-size', 10)
+      .attr('font-weight', 700)
+      .attr('cursor', 'pointer')
+      .attr('pointer-events', 'none')
+      .text((d) => collapsedNodes.has(d.id) ? '+' : '-')
+
     const label = g
       .append('g')
       .selectAll('text')
@@ -144,7 +214,7 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: Grap
         .attr('x', (d) => (((d.source as SimNode).x ?? 0) + ((d.target as SimNode).x ?? 0)) / 2)
         .attr('y', (d) => (((d.source as SimNode).y ?? 0) + ((d.target as SimNode).y ?? 0)) / 2)
 
-      node.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0)
+      nodeGroup.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
 
       label.attr('x', (d) => d.x ?? 0).attr('y', (d) => d.y ?? 0)
     })
@@ -152,7 +222,7 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, onSelectNode }: Grap
     return () => {
       simulation.stop()
     }
-  }, [nodes, edges, selectedNodeId, onSelectNode])
+  }, [nodes, edges, selectedNodeId, collapsedNodes, onSelectNode, onToggleCollapse, getVisibleNodes, getVisibleEdges])
 
   useEffect(() => {
     const cleanup = render()

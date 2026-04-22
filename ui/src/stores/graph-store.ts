@@ -8,12 +8,15 @@ interface GraphState {
   graph_id: string | null
   loading: boolean
   selected_node_id: string | null
+  collapsed_nodes: Set<string>
   fetchGraph: (ringId: string) => Promise<void>
   createNode: (ringId: string, label: string, nodeType?: string) => Promise<void>
   deleteNode: (ringId: string, nodeId: string) => Promise<void>
   createEdge: (ringId: string, sourceId: string, targetId: string, relation?: string) => Promise<void>
   deleteEdge: (ringId: string, edgeId: string) => Promise<void>
   selectNode: (nodeId: string | null) => void
+  toggleCollapse: (nodeId: string) => void
+  isCollapsed: (nodeId: string) => boolean
 }
 
 interface GraphResponse {
@@ -73,12 +76,13 @@ function toGraphEdge(r: EdgeResponse): GraphEdge {
   }
 }
 
-export const useGraphStore = create<GraphState>((set) => ({
+export const useGraphStore = create<GraphState>((set, get) => ({
   nodes: [],
   edges: [],
   graph_id: null,
   loading: false,
   selected_node_id: null,
+  collapsed_nodes: new Set<string>(),
 
   fetchGraph: async (ringId: string) => {
     set({ loading: true })
@@ -105,11 +109,16 @@ export const useGraphStore = create<GraphState>((set) => ({
 
   deleteNode: async (ringId, nodeId) => {
     await api.delete(`/rings/${ringId}/graph/nodes/${nodeId}`)
-    set((s) => ({
-      nodes: s.nodes.filter((n) => n.id !== nodeId),
-      edges: s.edges.filter((e) => e.source_id !== nodeId && e.target_id !== nodeId),
-      selected_node_id: s.selected_node_id === nodeId ? null : s.selected_node_id,
-    }))
+    set((s) => {
+      const newCollapsed = new Set(s.collapsed_nodes)
+      newCollapsed.delete(nodeId)
+      return {
+        nodes: s.nodes.filter((n) => n.id !== nodeId),
+        edges: s.edges.filter((e) => e.source_id !== nodeId && e.target_id !== nodeId),
+        selected_node_id: s.selected_node_id === nodeId ? null : s.selected_node_id,
+        collapsed_nodes: newCollapsed,
+      }
+    })
   },
 
   createEdge: async (ringId, sourceId, targetId, relation) => {
@@ -127,4 +136,19 @@ export const useGraphStore = create<GraphState>((set) => ({
   },
 
   selectNode: (nodeId) => set({ selected_node_id: nodeId }),
+
+  toggleCollapse: (nodeId: string) => {
+    const { collapsed_nodes } = get()
+    const newCollapsed = new Set(collapsed_nodes)
+    if (newCollapsed.has(nodeId)) {
+      newCollapsed.delete(nodeId)
+    } else {
+      newCollapsed.add(nodeId)
+    }
+    set({ collapsed_nodes: newCollapsed })
+  },
+
+  isCollapsed: (nodeId: string) => {
+    return get().collapsed_nodes.has(nodeId)
+  },
 }))

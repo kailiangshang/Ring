@@ -15,6 +15,8 @@ export function GraphPanel() {
   const selectNode = useGraphStore((s) => s.selectNode)
 
   const [newNodeLabel, setNewLabel] = useState('')
+  const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
+  const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -89,7 +91,9 @@ export function GraphPanel() {
           nodes={nodes}
           edges={edges}
           selectedNodeId={selected_node_id}
+          collapsedNodes={collapsed_nodes}
           onSelectNode={selectNode}
+          onToggleCollapse={toggleCollapse}
         />
       </div>
 
