@@ -32,8 +32,9 @@ pub async fn create_node_handler(
     tokio::spawn(async move {
         if let Ok(user_row) = state_c.get_user_decrypted(&user.token_id).await {
             let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
-                &state_c, &ring_id_c, &user_row
-            ).await;
+                &state_c, &ring_id_c, &user_row,
+            )
+            .await;
         }
     });
 
@@ -69,8 +70,9 @@ pub async fn delete_node(
     tokio::spawn(async move {
         if let Ok(user_row) = state_c.get_user_decrypted(&user_id).await {
             let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
-                &state_c, &ring_id_c, &user_row
-            ).await;
+                &state_c, &ring_id_c, &user_row,
+            )
+            .await;
         }
     });
 

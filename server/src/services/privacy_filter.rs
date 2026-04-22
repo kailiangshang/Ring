@@ -42,13 +42,13 @@ pub fn apply_filters(text: &str, filters: &PrivacyFilters) -> String {
     let mut result = text.to_string();
 
     if filters.phone {
-        let re = Regex::new(r"(?<![0-9a-zA-Z])(?:\+?86[-\s]?)?1[3-9]\d{9}(?![0-9a-zA-Z])").unwrap();
-        result = re.replace_all(&result, "[PHONE]").to_string();
+        let re = Regex::new(r"(?:^|\s)(?:\+?86[-\s]?)?1[3-9]\d{9}(?:\s|$)").unwrap();
+        result = re.replace_all(&result, " [PHONE] ").to_string();
     }
 
     if filters.id_card {
-        let re = Regex::new(r"(?<![0-9a-zA-Z])\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?![0-9a-zA-Z])").unwrap();
-        result = re.replace_all(&result, "[ID_CARD]").to_string();
+        let re = Regex::new(r"(?:^|\s)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx](?:\s|$)").unwrap();
+        result = re.replace_all(&result, " [ID_CARD] ").to_string();
     }
 
     if filters.email {
@@ -57,8 +57,10 @@ pub fn apply_filters(text: &str, filters: &PrivacyFilters) -> String {
     }
 
     if filters.bank_card {
-        let re = Regex::new(r"(?<![0-9a-zA-Z])\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?:[-\s]?\d{3})?(?![0-9a-zA-Z])").unwrap();
-        result = re.replace_all(&result, "[BANK_CARD]").to_string();
+        let re =
+            Regex::new(r"(?:^|\s)\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}(?:[-\s]?\d{3})?(?:\s|$)")
+                .unwrap();
+        result = re.replace_all(&result, " [BANK_CARD] ").to_string();
     }
 
     result

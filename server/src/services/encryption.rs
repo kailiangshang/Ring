@@ -32,8 +32,9 @@ impl CredentialEncryption {
 }
 
 fn generate_key() -> String {
+    use base64::Engine;
     use rand::Rng;
     let mut rng = rand::rng();
     let bytes: Vec<u8> = (0..32).map(|_| rng.random::<u8>()).collect();
-    base64::encode(&bytes)
+    base64::engine::general_purpose::STANDARD.encode(&bytes)
 }

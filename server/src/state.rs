@@ -29,7 +29,10 @@ impl AppState {
         }
     }
 
-    pub async fn get_user_decrypted(&self, token_id: &str) -> crate::error::Result<crate::models::user::UserRow> {
+    pub async fn get_user_decrypted(
+        &self,
+        token_id: &str,
+    ) -> crate::error::Result<crate::models::user::UserRow> {
         let mut user = crate::models::user::get_user(&self.db, token_id).await?;
 
         if let Some(ref encrypted) = user.llm_api_key {

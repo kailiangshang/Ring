@@ -50,7 +50,13 @@ pub async fn ring_chat(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<ChatRequest>,
-) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
+) -> Result<
+    Sse<
+        axum::response::sse::KeepAliveStream<
+            BoxStream<'static, std::result::Result<Event, Infallible>>,
+        >,
+    >,
+> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
@@ -64,8 +70,13 @@ pub async fn ring_chat(
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
     if let Ok(Some(result)) = crate::services::graph_chat_command::try_handle_graph_command(
-        &state, &ring_id, &user_row, &body.content,
-    ).await {
+        &state,
+        &ring_id,
+        &user_row,
+        &body.content,
+    )
+    .await
+    {
         let result_clone = result.clone();
         let s = stream! {
             let message_id = ulid::Ulid::new().to_string();
@@ -101,7 +112,8 @@ pub async fn ring_chat(
     let user_row_c = user_row.clone();
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
-    let _ = crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
+    let _ =
+        crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
     let s = stream! {
         while let Some(event) = rx.recv().await {

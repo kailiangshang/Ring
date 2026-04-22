@@ -178,9 +178,18 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
-        .route("/rings/{ring_id}/blueprint", get(blueprint::get_blueprint_handler))
-        .route("/rings/{ring_id}/blueprint/from-template", post(blueprint::preview_template))
-        .route("/rings/{ring_id}/blueprint/confirm", post(blueprint::confirm_blueprint_handler))
+        .route(
+            "/rings/{ring_id}/blueprint",
+            get(blueprint::get_blueprint_handler),
+        )
+        .route(
+            "/rings/{ring_id}/blueprint/from-template",
+            post(blueprint::preview_template),
+        )
+        .route(
+            "/rings/{ring_id}/blueprint/confirm",
+            post(blueprint::confirm_blueprint_handler),
+        )
         .route("/super/chat", post(super_chat::super_chat_handler))
         .route("/super/chat/history", get(super_chat::super_history))
         .route(
@@ -223,12 +232,18 @@ pub fn build_router(state: AppState) -> Router {
             post(invite::reject_request),
         )
         .route("/notifications", get(notification::list_notifications))
-        .route("/notifications/unread-count", get(notification::get_unread_count))
+        .route(
+            "/notifications/unread-count",
+            get(notification::get_unread_count),
+        )
         .route(
             "/notifications/{notification_id}/read",
             post(notification::mark_as_read),
         )
-        .route("/notifications/read-all", post(notification::mark_all_as_read))
+        .route(
+            "/notifications/read-all",
+            post(notification::mark_all_as_read),
+        )
         .route(
             "/notifications/{notification_id}",
             delete(notification::delete_notification),

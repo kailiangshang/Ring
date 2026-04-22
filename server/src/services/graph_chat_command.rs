@@ -57,10 +57,7 @@ pub async fn try_handle_graph_command(
 
     let llm = LlmClient::from_user(user)?;
     let response = llm
-        .chat_complete(
-            "你是一个图谱命令解析器。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个图谱命令解析器。".into(), prompt)
         .await?;
 
     let cmd: GraphCommand = match serde_json::from_str(&response) {

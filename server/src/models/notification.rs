@@ -76,13 +76,11 @@ pub async fn mark_as_read(
     notification_id: &str,
     user_id: &str,
 ) -> Result<()> {
-    let result = sqlx::query(
-        "UPDATE notifications SET is_read = 1 WHERE id = ?1 AND user_id = ?2",
-    )
-    .bind(notification_id)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+    let result = sqlx::query("UPDATE notifications SET is_read = 1 WHERE id = ?1 AND user_id = ?2")
+        .bind(notification_id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
 
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("notification not found".into()));
@@ -90,10 +88,7 @@ pub async fn mark_as_read(
     Ok(())
 }
 
-pub async fn mark_all_as_read(
-    pool: &sqlx::SqlitePool,
-    user_id: &str,
-) -> Result<()> {
+pub async fn mark_all_as_read(pool: &sqlx::SqlitePool, user_id: &str) -> Result<()> {
     sqlx::query("UPDATE notifications SET is_read = 1 WHERE user_id = ?1")
         .bind(user_id)
         .execute(pool)
@@ -101,14 +96,12 @@ pub async fn mark_all_as_read(
     Ok(())
 }
 
-pub async fn get_unread_count(
-    pool: &sqlx::SqlitePool,
-    user_id: &str,
-) -> Result<i64> {
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = ?1 AND is_read = 0")
-        .bind(user_id)
-        .fetch_one(pool)
-        .await?;
+pub async fn get_unread_count(pool: &sqlx::SqlitePool, user_id: &str) -> Result<i64> {
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM notifications WHERE user_id = ?1 AND is_read = 0")
+            .bind(user_id)
+            .fetch_one(pool)
+            .await?;
     Ok(count)
 }
 

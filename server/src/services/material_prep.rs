@@ -53,16 +53,11 @@ pub async fn generate_materials(
 
     let llm = LlmClient::from_user(user)?;
     let response = llm
-        .chat_complete(
-            "你是一个会议材料准备助手。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个会议材料准备助手。".into(), prompt)
         .await?;
 
-    let materials: Vec<serde_json::Value> =
-        serde_json::from_str(&response).unwrap_or_else(|_| {
-            parse_materials_from_text(&response, skill, title)
-        });
+    let materials: Vec<serde_json::Value> = serde_json::from_str(&response)
+        .unwrap_or_else(|_| parse_materials_from_text(&response, skill, title));
 
     for material in materials.iter().take(5) {
         let item_type = material
@@ -79,21 +74,18 @@ pub async fn generate_materials(
             .unwrap_or("");
 
         let id = ulid::Ulid::new().to_string();
-        let _ = session::create_material(
-            &state.db,
-            &id,
-            session_id,
-            item_type,
-            title,
-            content,
-        )
-        .await;
+        let _ =
+            session::create_material(&state.db, &id, session_id, item_type, title, content).await;
     }
 
     Ok(())
 }
 
-fn parse_materials_from_text(_text: &str, skill: &str, session_title: &str) -> Vec<serde_json::Value> {
+fn parse_materials_from_text(
+    _text: &str,
+    skill: &str,
+    session_title: &str,
+) -> Vec<serde_json::Value> {
     let mut materials = Vec::new();
 
     let skill_defaults: Vec<(&str, &str, &str)> = match skill {
