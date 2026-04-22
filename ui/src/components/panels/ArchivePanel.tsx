@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useArchiveStore } from '../../stores/archive-store'
 import { useRingStore } from '../../stores/ring-store'
+import { getArchiveDiff } from '../../services/api'
 import type { ArchiveRecord } from '../../types/archive'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,6 +34,8 @@ export function ArchivePanel() {
   const initRepo = useArchiveStore((s) => s.initRepo)
 
   const [selected, setSelected] = useState<ArchiveRecord | null>(null)
+  const [diffData, setDiffData] = useState<Array<{ old_path: string; new_path: string; diff: string }> | null>(null)
+  const [diffLoading, setDiffLoading] = useState(false)
 
   const ringId = active_ring_id ?? ''
 
@@ -183,6 +186,65 @@ export function ArchivePanel() {
                   <span style={{ color: 'var(--accent-ice)' }}>
                     MR !{selected.merge_request_iid}
                   </span>
+                )}
+                {selected.merge_request_iid && (
+                  <button
+                    onClick={async () => {
+                      if (!active_ring_id) return
+                      setDiffLoading(true)
+                      try {
+                        const res = await getArchiveDiff(active_ring_id, selected.id)
+                        setDiffData(res.diffs)
+                      } catch {
+                        setDiffData([])
+                      }
+                      setDiffLoading(false)
+                    }}
+                    style={{
+                      background: 'var(--bg-hover)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 3,
+                      padding: '3px 8px',
+                      fontSize: 10,
+                      color: 'var(--accent-cyan)',
+                      cursor: 'pointer',
+                      marginTop: 4,
+                    }}
+                  >
+                    {diffLoading ? 'Loading...' : 'View Diff'}
+                  </button>
+                )}
+                {diffData && diffData.length > 0 && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 8 }}>
+                      Diff
+                    </div>
+                    {diffData.map((d, i) => (
+                      <div key={i} style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                          {d.new_path}
+                        </div>
+                        <pre style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 3,
+                          padding: 6,
+                          fontSize: 9,
+                          overflow: 'auto',
+                          maxHeight: 200,
+                          color: 'var(--text-primary)',
+                          margin: 0,
+                        }}>
+                          {d.diff}
+                        </pre>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {diffData && diffData.length === 0 && (
+                  <div style={{ marginTop: 8, fontSize: 10, color: 'var(--text-dim)' }}>
+                    No diff available
+                  </div>
                 )}
               </div>
             </div>

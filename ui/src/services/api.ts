@@ -248,3 +248,7 @@ export async function exportRingBackup(ringId: string) {
 export async function exportSessionMessages(ringId: string, sessionId: string) {
   return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`)
 }
+
+export async function getArchiveDiff(ringId: string, archiveId: string): Promise<{ diffs: Array<{ old_path: string; new_path: string; diff: string }> }> {
+  return api.get(`/rings/${ringId}/archives/${archiveId}/diff`)
+}

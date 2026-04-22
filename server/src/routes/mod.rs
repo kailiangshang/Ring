@@ -155,6 +155,10 @@ pub fn build_router(state: AppState) -> Router {
             post(archive::review_archive),
         )
         .route(
+            "/rings/{ring_id}/archives/{archive_id}/diff",
+            get(archive::get_archive_diff),
+        )
+        .route(
             "/rings/{ring_id}/archive-queue",
             get(archive::archive_queue),
         )

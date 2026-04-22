@@ -232,6 +232,39 @@ pub async fn review_archive(
     Ok(Json(record))
 }
 
+pub async fn get_archive_diff(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, archive_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+
+    let record = archive::get_record(&state.db, &archive_id).await?;
+    let mr_iid = record.merge_request_iid.ok_or_else(|| {
+        RingError::BadRequest("archive has no merge request".into())
+    })?;
+
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+    let (gitlab_url, gitlab_token) = match (user_row.gitlab_url, user_row.gitlab_token) {
+        (Some(url), Some(token)) => (url, token),
+        _ => return Err(RingError::GitlabNotConfigured),
+    };
+
+    let repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(&ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
+
+    let repo_url = repo_url.ok_or(RingError::GitlabNotConfigured)?;
+
+    let gitlab = GitLabClient::new(&gitlab_url, &gitlab_token);
+    let diffs = gitlab.get_mr_diffs(&repo_url, mr_iid).await?;
+
+    Ok(Json(serde_json::json!({ "diffs": diffs })))
+}
+
 pub async fn archive_queue(
     State(state): State<AppState>,
     user: AuthUser,
