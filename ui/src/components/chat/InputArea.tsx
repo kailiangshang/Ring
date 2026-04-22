@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useChatStore } from '../../stores/chat-store'
+import { useCommandHistoryStore } from '../../stores/command-history-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
@@ -6,6 +8,7 @@ import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete
 export function InputArea() {
   const { input, setInput, send, sending, stopStreaming } = useChatStore()
   const ac = useAutocompleteStore()
+  const [historyIndex, setHistoryIndex] = useState(-1)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (ac.visible) {
@@ -35,8 +38,35 @@ export function InputArea() {
       }
     }
 
+    // Command history navigation
+    if (e.key === 'ArrowUp' && !e.shiftKey) {
+      const history = useCommandHistoryStore.getState().getHistory()
+      if (historyIndex < history.length - 1) {
+        const newIndex = historyIndex + 1
+        setHistoryIndex(newIndex)
+        setInput(history[newIndex])
+      }
+      return
+    }
+
+    if (e.key === 'ArrowDown' && !e.shiftKey) {
+      if (historyIndex > 0) {
+        const newIndex = historyIndex - 1
+        setHistoryIndex(newIndex)
+        setInput(useCommandHistoryStore.getState().getHistory()[newIndex])
+      } else if (historyIndex === 0) {
+        setHistoryIndex(-1)
+        setInput('')
+      }
+      return
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      if (input.trim()) {
+        useCommandHistoryStore.getState().add(input.trim())
+      }
+      setHistoryIndex(-1)
       send()
     }
   }
@@ -44,6 +74,9 @@ export function InputArea() {
   const handleChange = (val: string) => {
     setInput(val)
     ac.update(val)
+    if (historyIndex !== -1) {
+      setHistoryIndex(-1)
+    }
   }
 
   const handleSelect = (val: string) => {
@@ -70,7 +103,7 @@ export function InputArea() {
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={sending}
-          placeholder="message / command..."
+          placeholder="Type / for commands, @ to address..."
           style={{
             flex: 1,
             background: 'var(--bg-input)',
