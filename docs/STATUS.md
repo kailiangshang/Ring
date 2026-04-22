@@ -1,6 +1,6 @@
 # Ring 项目现状
 
-> 最后更新：2026-04-22
+> 最后更新：2026-04-23
 
 ## 技术栈
 
@@ -159,46 +159,39 @@ Ring Hub（用户入口）
 | GET | `/api/join/apply/status` | 查询申请状态 |
 | GET | `/ring/join` | 安装导航页（HTML） |
 
-## 未完成的功能
+## PRD 缺失功能补充（2026-04-23 完成）
 
-### 核心功能
-
-| # | 功能 | PRD 章节 | 说明 |
-|---|------|----------|------|
-| 1 | **Self 完整实现** | 2.6, UI 8 | ~~Memory（行为画像/统计/偏好）、Personality 设置、隐私控制、数据导出/重置、主动建议、@self 转发消息~~ ✅ |
-| 2 | **Blueprint/模板系统** | 6.1.2 | ~~模板选择、AI 引导共建图谱、预览确认、%blueprint 命令~~ ✅ |
-| 3 | **通知系统** | 2.10 | ~~数据模型、PR/成员/Session 变更通知、未读列表 UI~~ ✅ |
-| 4 | **导出中心** | 2.8 | ~~聊天记录(Markdown)、会话记录(Markdown)、图谱(JSON)、全 Ring 备份(JSON)、Self/Super 聊天导出~~ ✅ |
-| 5 | **Context 管理** | 2.9 | ~~Token 用量追踪~~ ✅、~~自动 compact（超过30条自动摘要压缩）~~ ✅、~~ephemeral 模式（临时对话不保存历史）~~ ✅ |
-
-### AI 自动化
+### 复杂功能
 
 | # | 功能 | PRD 章节 | 说明 |
 |---|------|----------|------|
-| 6 | **`.group/` AI 自动维护** | 2.6 | ~~active-context（聊天后）、archive-patterns（归档后）、corrections（拒绝归档时）、knowledge-summary（图谱变更后）自动更新~~ ✅ |
-| 7 | **Session 材料准备** | 2.12 | ~~AI 根据 Skill 自动收集/生成材料（discussion Skill 跳过 material_prep，其他 Skill 自动调用 LLM 生成）~~ ✅ |
-| 8 | **Graph 对话修正** | 6.8 | ~~自然语言图谱操作（创建/更新/删除节点和边），AI 解析并执行~~ ✅ |
+| 15 | **多图谱支持** | 2.3 | 每个 Ring 最多 3 个独立图谱，GraphPanel 带选择器 |
+| 16 | **Super Ring 跨 Ring 能力** | 2.6 | 跨 Ring 问答/分析/汇总，Skill 管理 |
+| 17 | **Auto 模式** | 4.3.3 | AI 自动判断内容价值并归档，无需用户确认 |
+| 18 | **预设工作流工具** | 2.7 | 文件解析/知识提取/深度调研 |
 
-### 增强功能
+### 中等功能
 
 | # | 功能 | PRD 章节 | 说明 |
 |---|------|----------|------|
-| 9 | **PR Review Diff 视图** | 6.4 | ~~后端 diff API、前端 Diff 查看按钮 + 代码对比展示~~ ✅ |
-| 10 | **图谱展开/折叠、标签过滤** | 2.3 | ~~节点树操作、标签筛选~~ ✅、节点内容加载 |
-| 11 | **CLI 命令补全** | CLI doc | ~~`!session new/close`、`!invite`、`!members`、`@ring`/`@super`/`@username`、`%blueprint`~~ → `/` 和 `@` 统一前缀 ✅ |
-| 12 | **API Key / Git 凭证加密** | 3.2 | ~~当前明文存储~~ ✅ |
+| 19 | **归档触发多样化** | 2.4 | 自然语言触发/AI 主动推荐/命令/按钮 |
+| 20 | **Token 阈值管理** | 2.9 | Token 追踪/提醒/自动 compact 开关 |
+| 21 | **.group/ 文档体系** | 2.6 | role.md + conventions.md 手动编辑 |
+| 22 | **Ring 初始化流程** | 6.1.1 | 自动 Git 仓库 + 初始 commit + 目录结构 |
+| 23 | **Session Skill 集成** | 2.6 | 加载 Skill system prompt 驱动行为 |
 
-### Setup 流程待优化
+### 快速功能
 
-| # | 功能 | 说明 |
-|---|------|------|
-| 13 | **GitLab 配置标注 Optional** | ~~StepGitLab 标注可选、加 Skip 按钮、说明文字~~ ✅ |
-| 14 | **Setup Done 命令速查** | ~~StepDone 展示可用命令列表~~ ✅ |
+| # | 功能 | PRD 章节 | 说明 |
+|---|------|----------|------|
+| 24 | **节点数据结构** | 2.3 | markdown_path/ category/ leaf/ metadata |
+| 25 | **隐私过滤** | 3.2 | 手机号/身份证/邮箱/银行卡脱敏 |
+| 26 | **导出中心完善** | 2.8 | 图谱 SVG/AI 结构化报告/全 Ring tar.gz 备份 |
 
 ## 测试
 
 ```bash
-cd server && cargo test          # 55/55 集成测试通过
+cd server && cargo test          # 56/56 集成测试通过
 cd ui && npm test                # 22/23 前端测试通过（1 个 pre-existing failure）
 cd ui && npx tsc --noEmit        # TypeScript 检查通过
 cargo clippy -- -D warnings      # 无警告
