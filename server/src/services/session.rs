@@ -90,6 +90,23 @@ pub async fn create_session(
         .ws_hub
         .register_session(id.clone(), user_id.to_string(), participant_ids);
 
+    if input.skill != "discussion" {
+        let state_c = state.clone();
+        let session_id = id.clone();
+        let ring_id_c = ring_id.to_string();
+        let skill = input.skill.clone();
+        let title = input.title.clone();
+        let description = input.description.clone();
+        let user_id_c = user_id.to_string();
+        tokio::spawn(async move {
+            if let Ok(user_row) = state_c.get_user_decrypted(&user_id_c).await {
+                let _ = crate::services::material_prep::generate_materials(
+                    &state_c, &session_id, &ring_id_c, &skill, &title, &description, &user_row,
+                ).await;
+            }
+        });
+    }
+
     Ok(SessionResponse {
         session: sess,
         participants,

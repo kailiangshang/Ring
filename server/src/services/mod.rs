@@ -6,6 +6,7 @@ pub mod gitlab_service;
 pub mod graph;
 pub mod invite;
 pub mod llm;
+pub mod material_prep;
 pub mod member;
 pub mod mode;
 pub mod ring;
