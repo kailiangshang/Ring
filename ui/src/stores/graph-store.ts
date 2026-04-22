@@ -36,6 +36,8 @@ interface NodeResponse {
   node_type: string
   content: string
   tags: string
+  markdown_path: string | null
+  metadata: string
   created_at: string
   updated_at: string
 }
@@ -56,10 +58,10 @@ function toGraphNode(r: NodeResponse): GraphNode {
     id: r.id,
     label: r.label,
     parent_id: r.parent_id,
-    markdown_path: '',
+    markdown_path: r.markdown_path ?? '',
     node_type: r.node_type as GraphNode['node_type'],
     tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags,
-    metadata: {},
+    metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata,
     created_at: r.created_at,
     updated_at: r.updated_at,
   }

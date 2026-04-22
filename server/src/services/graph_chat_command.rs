@@ -57,10 +57,7 @@ pub async fn try_handle_graph_command(
 
     let llm = LlmClient::from_user(user)?;
     let response = llm
-        .chat_complete(
-            "你是一个图谱命令解析器。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个图谱命令解析器。".into(), prompt)
         .await?;
 
     let cmd: GraphCommand = match serde_json::from_str(&response) {
@@ -76,6 +73,8 @@ pub async fn try_handle_graph_command(
                 node_type: cmd.node_type.unwrap_or_else(|| "topic".into()),
                 tags: cmd.tags.unwrap_or_default(),
                 content: cmd.content.unwrap_or_default(),
+                markdown_path: None,
+                metadata: serde_json::json!({}),
             };
             match graph::create_node(state, ring_id, &input).await {
                 Ok(node) => format!("已创建节点: {} ({})", node.label, node.id),
@@ -91,6 +90,8 @@ pub async fn try_handle_graph_command(
                 label: cmd.label,
                 tags: cmd.tags,
                 content: cmd.content,
+                markdown_path: None,
+                metadata: None,
             };
             match graph::update_node(state, &node_id, &input).await {
                 Ok(node) => format!("已更新节点: {} ({})", node.label, node.id),

@@ -50,7 +50,13 @@ pub async fn ring_chat(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<ChatRequest>,
-) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
+) -> Result<
+    Sse<
+        axum::response::sse::KeepAliveStream<
+            BoxStream<'static, std::result::Result<Event, Infallible>>,
+        >,
+    >,
+> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
@@ -64,8 +70,13 @@ pub async fn ring_chat(
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
     if let Ok(Some(result)) = crate::services::graph_chat_command::try_handle_graph_command(
-        &state, &ring_id, &user_row, &body.content,
-    ).await {
+        &state,
+        &ring_id,
+        &user_row,
+        &body.content,
+    )
+    .await
+    {
         let result_clone = result.clone();
         let s = stream! {
             let message_id = ulid::Ulid::new().to_string();
@@ -76,7 +87,10 @@ pub async fn ring_chat(
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }
 
-    let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
+    let (_token_count, should_compact) = chat::check_token_threshold(&state, &user_row, Some(&ring_id)).await.unwrap_or((0, false));
+    if should_compact {
+        let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
+    }
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -101,7 +115,8 @@ pub async fn ring_chat(
     let user_row_c = user_row.clone();
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
-    let _ = crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
+    let _ =
+        crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -136,6 +151,17 @@ pub async fn ring_chat(
                             token_usage: token_usage.as_deref(),
                         },
                     ).await;
+
+                    if let Some(ref usage_str) = token_usage {
+                        if let Ok(usage) = serde_json::from_str::<serde_json::Value>(usage_str) {
+                            let total: i64 = usage.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0);
+                            if total > 0 {
+                                let _ = crate::models::conversation_token::add_tokens(
+                                    &pool, &user_id, Some(&ring_id_c), total
+                                ).await;
+                            }
+                        }
+                    }
 
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
@@ -193,7 +219,10 @@ pub async fn self_chat(
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
-    let _ = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await;
+    let (_token_count, should_compact) = chat::check_token_threshold(&state, &user_row, None).await.unwrap_or((0, false));
+    if should_compact {
+        let _ = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await;
+    }
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -250,6 +279,17 @@ pub async fn self_chat(
                             token_usage: token_usage.as_deref(),
                         },
                     ).await;
+
+                    if let Some(ref usage_str) = token_usage {
+                        if let Ok(usage) = serde_json::from_str::<serde_json::Value>(usage_str) {
+                            let total: i64 = usage.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0);
+                            if total > 0 {
+                                let _ = crate::models::conversation_token::add_tokens(
+                                    &pool, &user_id, None, total
+                                ).await;
+                            }
+                        }
+                    }
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });

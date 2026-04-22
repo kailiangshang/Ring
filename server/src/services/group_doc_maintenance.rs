@@ -24,14 +24,7 @@ pub async fn update_active_context(
     user_id: &str,
     user: &UserRow,
 ) -> Result<()> {
-    let messages = message::list_messages(
-        &state.db,
-        Some(ring_id),
-        user_id,
-        None,
-        30,
-    )
-    .await?;
+    let messages = message::list_messages(&state.db, Some(ring_id), user_id, None, 30).await?;
 
     if messages.len() < 3 {
         return Ok(());
@@ -48,17 +41,14 @@ pub async fn update_active_context(
 
     let llm = LlmClient::from_user(user)?;
     let content = llm
-        .chat_complete(
-            "你是一个群组的上下文分析助手。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个群组的上下文分析助手。".into(), prompt)
         .await?;
 
     sqlx::query(
         "INSERT INTO group_docs (ring_id, doc_name, content, updated_at)
          VALUES (?1, 'active-context', ?2, datetime('now'))
          ON CONFLICT(ring_id, doc_name) DO UPDATE SET
-         content = ?2, updated_at = datetime('now')"
+         content = ?2, updated_at = datetime('now')",
     )
     .bind(ring_id)
     .bind(content.trim())
@@ -89,7 +79,7 @@ pub async fn update_archive_patterns(
     archive_content: &str,
 ) -> Result<()> {
     let existing: Option<String> = sqlx::query_scalar(
-        "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = 'archive-patterns'"
+        "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = 'archive-patterns'",
     )
     .bind(ring_id)
     .fetch_optional(&state.db)
@@ -97,18 +87,11 @@ pub async fn update_archive_patterns(
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
     let existing = existing.unwrap_or_default();
-    let prompt = format!(
-        "{}\n{}",
-        ARCHIVE_PATTERNS_PROMPT,
-        archive_content
-    );
+    let prompt = format!("{}\n{}", ARCHIVE_PATTERNS_PROMPT, archive_content);
 
     let llm = LlmClient::from_user(user)?;
     let new_patterns = llm
-        .chat_complete(
-            "你是一个归档模式分析助手。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个归档模式分析助手。".into(), prompt)
         .await?;
 
     let merged = if existing.is_empty() {
@@ -121,7 +104,7 @@ pub async fn update_archive_patterns(
         "INSERT INTO group_docs (ring_id, doc_name, content, updated_at)
          VALUES (?1, 'archive-patterns', ?2, datetime('now'))
          ON CONFLICT(ring_id, doc_name) DO UPDATE SET
-         content = ?2, updated_at = datetime('now')"
+         content = ?2, updated_at = datetime('now')",
     )
     .bind(ring_id)
     .bind(merged.trim())
@@ -138,7 +121,7 @@ pub async fn add_correction(
     correction_detail: &str,
 ) -> Result<()> {
     let existing: Option<String> = sqlx::query_scalar(
-        "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = 'corrections'"
+        "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = 'corrections'",
     )
     .bind(ring_id)
     .fetch_optional(&state.db)
@@ -158,7 +141,7 @@ pub async fn add_correction(
         "INSERT INTO group_docs (ring_id, doc_name, content, updated_at)
          VALUES (?1, 'corrections', ?2, datetime('now'))
          ON CONFLICT(ring_id, doc_name) DO UPDATE SET
-         content = ?2, updated_at = datetime('now')"
+         content = ?2, updated_at = datetime('now')",
     )
     .bind(ring_id)
     .bind(merged.trim())
@@ -191,7 +174,7 @@ pub async fn update_knowledge_summary(
     let nodes = sqlx::query_as::<_, crate::models::graph::GraphNodeRow>(
         "SELECT n.* FROM graph_nodes n
          JOIN graphs g ON n.graph_id = g.id
-         WHERE g.ring_id = ?1"
+         WHERE g.ring_id = ?1",
     )
     .bind(ring_id)
     .fetch_all(&state.db)
@@ -201,7 +184,7 @@ pub async fn update_knowledge_summary(
     let edges = sqlx::query_as::<_, crate::models::graph::GraphEdgeRow>(
         "SELECT e.* FROM graph_edges e
          JOIN graphs g ON e.graph_id = g.id
-         WHERE g.ring_id = ?1"
+         WHERE g.ring_id = ?1",
     )
     .bind(ring_id)
     .fetch_all(&state.db)
@@ -221,17 +204,14 @@ pub async fn update_knowledge_summary(
 
     let llm = LlmClient::from_user(user)?;
     let content = llm
-        .chat_complete(
-            "你是一个知识库分析助手。".into(),
-            prompt,
-        )
+        .chat_complete("你是一个知识库分析助手。".into(), prompt)
         .await?;
 
     sqlx::query(
         "INSERT INTO group_docs (ring_id, doc_name, content, updated_at)
          VALUES (?1, 'knowledge-summary', ?2, datetime('now'))
          ON CONFLICT(ring_id, doc_name) DO UPDATE SET
-         content = ?2, updated_at = datetime('now')"
+         content = ?2, updated_at = datetime('now')",
     )
     .bind(ring_id)
     .bind(content.trim())

@@ -43,6 +43,7 @@ export function ConfigPanel() {
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [autoCompact, setAutoCompact] = useState<boolean | null>(null)
 
   const tokens = useInviteStore((s) => s.tokens)
   const join_requests = useInviteStore((s) => s.join_requests)
@@ -70,6 +71,12 @@ export function ConfigPanel() {
   }
 
   useEffect(() => { loadLlm() }, [])
+
+  useEffect(() => {
+    api.get<{ auto_compact: boolean }>('/config/auto_compact')
+      .then((res) => setAutoCompact(res.auto_compact))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!active_ring_id) return
@@ -158,6 +165,35 @@ export function ConfigPanel() {
           <div>API Key: {llmConfig.api_key_set ? '✓' : '✗'}</div>
         </div>
       )}
+
+      <div style={{ marginBottom: 16, padding: '8px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>Auto Compact</span>
+          <button
+            onClick={() => {
+              const next = !autoCompact
+              api.put('/config/auto_compact', { auto_compact: next })
+                .then(() => setAutoCompact(next))
+                .catch(() => {})
+            }}
+            style={{
+              background: autoCompact ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: autoCompact ? 'var(--bg-base)' : 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              padding: '4px 10px',
+              fontSize: 10,
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            {autoCompact === null ? '...' : autoCompact ? 'ON' : 'OFF'}
+          </button>
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+          Automatically compact history when token threshold is reached
+        </div>
+      </div>
 
       {editing && (
         <div style={{ marginBottom: 16 }}>

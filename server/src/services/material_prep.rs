@@ -36,23 +36,20 @@ pub async fn generate_materials(
         .collect::<Vec<_>>()
         .join("\n");
 
+    let system_prompt = crate::services::skill::load_skill_prompt(skill, &state.skills_dir)
+        .or_else(|| crate::services::skill::build_material_system_prompt(skill, title, description))
+        .unwrap_or_else(|| "你是一个会议材料准备助手。".to_string());
+
     let prompt = format!(
         "{}\nSkill: {}\n标题: {}\n描述: {}\n\n群组图谱上下文:\n{}",
         MATERIAL_PREP_PROMPT, skill, title, description, context
     );
 
     let llm = LlmClient::from_user(user)?;
-    let response = llm
-        .chat_complete(
-            "你是一个会议材料准备助手。".into(),
-            prompt,
-        )
-        .await?;
+    let response = llm.chat_complete(system_prompt, prompt).await?;
 
-    let materials: Vec<serde_json::Value> =
-        serde_json::from_str(&response).unwrap_or_else(|_| {
-            parse_materials_from_text(&response, skill, title)
-        });
+    let materials: Vec<serde_json::Value> = serde_json::from_str(&response)
+        .unwrap_or_else(|_| parse_materials_from_text(&response, skill, title));
 
     for material in materials.iter().take(5) {
         let item_type = material
@@ -69,21 +66,18 @@ pub async fn generate_materials(
             .unwrap_or("");
 
         let id = ulid::Ulid::new().to_string();
-        let _ = session::create_material(
-            &state.db,
-            &id,
-            session_id,
-            item_type,
-            title,
-            content,
-        )
-        .await;
+        let _ =
+            session::create_material(&state.db, &id, session_id, item_type, title, content).await;
     }
 
     Ok(())
 }
 
-fn parse_materials_from_text(_text: &str, skill: &str, session_title: &str) -> Vec<serde_json::Value> {
+fn parse_materials_from_text(
+    _text: &str,
+    skill: &str,
+    session_title: &str,
+) -> Vec<serde_json::Value> {
     let mut materials = Vec::new();
 
     let skill_defaults: Vec<(&str, &str, &str)> = match skill {

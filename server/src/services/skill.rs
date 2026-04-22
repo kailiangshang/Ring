@@ -69,6 +69,15 @@ pub fn build_summary_system_prompt(skill_name: &str) -> Option<String> {
     Some(skill.summary_prompt.to_string())
 }
 
+pub fn load_skill_prompt(skill_name: &str, skills_dir: &Path) -> Option<String> {
+    let resolved = get_skill_resolved(skill_name, skills_dir)?;
+    let frontmatter = parse_frontmatter(&resolved.content)?;
+    frontmatter
+        .get("system_prompt")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct SkillInfo {
     pub name: String,
@@ -223,12 +232,18 @@ fn export_builtin_skill(name: &str, skills_dir: &Path) -> std::io::Result<()> {
     };
     let skill_dir = skills_dir.join(name);
     std::fs::create_dir_all(&skill_dir)?;
+    let system_prompt = format!(
+        "{}\n\nAnalyze the topic and provide a structured list of materials that should be prepared for this session. For each material, specify: title, type (document/graph_node/ai_generated), and a brief description of what it should contain.",
+        builtin.material_prompt
+    );
     let content = format!(
-        "---\nname: {}\ndescription: \"{}\"\nversion: \"1.0.0\"\n---\n\n# {} Skill\n\n{}",
+        "---\nname: {}\ndescription: \"{}\"\nversion: \"1.0.0\"\nsystem_prompt: \"{}\"\n---\n\n# {} Skill\n\n{}\n\n## Summary\n\n{}",
         builtin.name,
         builtin.description.replace('"', "\\\""),
+        system_prompt.replace('"', "\\\""),
         capitalize_first(builtin.name),
         builtin.material_prompt,
+        builtin.summary_prompt,
     );
     std::fs::write(skill_dir.join("SKILL.md"), content)?;
     Ok(())

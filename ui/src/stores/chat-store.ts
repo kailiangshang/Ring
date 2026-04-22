@@ -29,6 +29,8 @@ function getCommandHelp(command: string): string {
     members: '### /members\n\nShow member list.\n\n**Usage:** `/members`',
     invite: '### /invite\n\nCreate invitation tokens.\n\n**Usage:**\n- `/invite open` - Open invitation\n- `/invite audit` - Audit invitation',
     help: '### /help\n\nShow help information.\n\n**Usage:**\n- `/help` - Show all commands\n- `/help <command>` - Show specific command help',
+    cross_ring_query: '### /cross-ring-query\n\nQuery across all your Rings.\n\n**Usage:** `/cross-ring-query <your question>`',
+    cross_ring_analysis: '### /cross-ring-analysis\n\nAnalyze multiple Rings.\n\n**Usage:** `/cross-ring-analysis <compare|merge|summary> <ring1,ring2,...> [question]`',
   }
 
   return helpMap[command] || `No help available for command: ${command}`
@@ -307,6 +309,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 handleSkillList(addMessage)
               }
             }
+            else if (cmd.action === 'cross-ring-query') {
+              const question = cmd.args.trim()
+              if (question) {
+                handleCrossRingQuery(question, addMessage, set, get)
+              }
+            }
+            else if (cmd.action === 'cross-ring-analysis') {
+              const parts = cmd.args.trim().split(/\s+/)
+              const analysisType = parts[0] as 'compare' | 'merge' | 'summary'
+              const ringNames = parts[1]?.split(',') || []
+              const question = parts.slice(2).join(' ')
+              if (analysisType && ringNames.length > 0) {
+                handleCrossRingAnalysis(analysisType, ringNames, question, addMessage, set, get)
+              }
+            }
             else if (cmd.action === 'invite') {
               if (cmd.subcommand === 'open') {
                 const rid = useRingStore.getState().active_ring_id
@@ -497,3 +514,165 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ sending: false, streaming_message_id: null, abort_controller: null })
   },
 }))
+
+async function handleCrossRingQuery(
+  query: string,
+  addMessage: (msg: ChatMessage) => void,
+  set: any,
+  get: any
+) {
+  addMessage({
+    id: `msg-${Date.now()}`,
+    role: 'user',
+    sender_name: 'You',
+    content: `/cross-ring-query ${query}`,
+    created_at: new Date().toISOString(),
+  })
+
+  set({ sending: true })
+
+  const controller = streamChat('/api/super/cross-ring-query', { query }, {
+    onStart: (data) => {
+      const aiMsg: ChatMessage = {
+        id: data.message_id,
+        role: 'super_ring',
+        sender_name: 'SUPER RING',
+        content: '',
+        created_at: new Date().toISOString(),
+      }
+      set((s: any) => ({
+        messages: [...s.messages, aiMsg],
+        streaming_message_id: data.message_id,
+      }))
+    },
+    onDelta: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (!streaming_message_id) return
+      set({
+        messages: messages.map((m: ChatMessage) =>
+          m.id === streaming_message_id ? { ...m, content: m.content + data.content } : m,
+        ),
+      })
+    },
+    onEnd: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (streaming_message_id && data.usage) {
+        set({
+          messages: messages.map((m: ChatMessage) =>
+            m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
+          ),
+        })
+      }
+      set({ sending: false, streaming_message_id: null, abort_controller: null })
+    },
+    onError: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (streaming_message_id) {
+        set({
+          messages: messages.map((m: ChatMessage) =>
+            m.id === streaming_message_id
+              ? { ...m, content: m.content + `\n\n⚠ Error: ${data.error}` }
+              : m,
+          ),
+          sending: false,
+          streaming_message_id: null,
+          abort_controller: null,
+        })
+      } else {
+        addMessage({
+          id: `err-${Date.now()}`,
+          role: 'system',
+          sender_name: 'SYSTEM',
+          content: `Error: ${data.error}`,
+          created_at: new Date().toISOString(),
+        })
+        set({ sending: false, abort_controller: null })
+      }
+    },
+  })
+  set({ abort_controller: controller })
+}
+
+async function handleCrossRingAnalysis(
+  analysisType: 'compare' | 'merge' | 'summary',
+  ringNames: string[],
+  question: string,
+  addMessage: (msg: ChatMessage) => void,
+  set: any,
+  get: any
+) {
+  addMessage({
+    id: `msg-${Date.now()}`,
+    role: 'user',
+    sender_name: 'You',
+    content: `/cross-ring-analysis ${analysisType} ${ringNames.join(',')}${question ? ' ' + question : ''}`,
+    created_at: new Date().toISOString(),
+  })
+
+  set({ sending: true })
+
+  const controller = streamChat('/api/super/cross-ring-analysis', { 
+    ring_names: ringNames, 
+    analysis_type: analysisType,
+    question: question || undefined 
+  }, {
+    onStart: (data) => {
+      const aiMsg: ChatMessage = {
+        id: data.message_id,
+        role: 'super_ring',
+        sender_name: 'SUPER RING',
+        content: '',
+        created_at: new Date().toISOString(),
+      }
+      set((s: any) => ({
+        messages: [...s.messages, aiMsg],
+        streaming_message_id: data.message_id,
+      }))
+    },
+    onDelta: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (!streaming_message_id) return
+      set({
+        messages: messages.map((m: ChatMessage) =>
+          m.id === streaming_message_id ? { ...m, content: m.content + data.content } : m,
+        ),
+      })
+    },
+    onEnd: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (streaming_message_id && data.usage) {
+        set({
+          messages: messages.map((m: ChatMessage) =>
+            m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
+          ),
+        })
+      }
+      set({ sending: false, streaming_message_id: null, abort_controller: null })
+    },
+    onError: (data) => {
+      const { streaming_message_id, messages } = get()
+      if (streaming_message_id) {
+        set({
+          messages: messages.map((m: ChatMessage) =>
+            m.id === streaming_message_id
+              ? { ...m, content: m.content + `\n\n⚠ Error: ${data.error}` }
+              : m,
+          ),
+          sending: false,
+          streaming_message_id: null,
+          abort_controller: null,
+        })
+      } else {
+        addMessage({
+          id: `err-${Date.now()}`,
+          role: 'system',
+          sender_name: 'SYSTEM',
+          content: `Error: ${data.error}`,
+          created_at: new Date().toISOString(),
+        })
+        set({ sending: false, abort_controller: null })
+      }
+    },
+  })
+  set({ abort_controller: controller })
+}

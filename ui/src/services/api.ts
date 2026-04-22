@@ -249,6 +249,18 @@ export async function exportSessionMessages(ringId: string, sessionId: string) {
   return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`)
 }
 
+export async function crossRingQuery(query: string): Promise<{ content: string }> {
+  return api.post('/super/cross-ring-query', { query })
+}
+
+export async function crossRingAnalysis(
+  ringNames: string[],
+  analysisType: 'compare' | 'merge' | 'summary',
+  question?: string
+): Promise<{ content: string }> {
+  return api.post('/super/cross-ring-analysis', { ring_names: ringNames, analysis_type: analysisType, question })
+}
+
 export async function getArchiveDiff(ringId: string, archiveId: string): Promise<{ diffs: Array<{ old_path: string; new_path: string; diff: string }> }> {
   return api.get(`/rings/${ringId}/archives/${archiveId}/diff`)
 }
@@ -271,6 +283,19 @@ export async function updateSelfPrivacy(data: { level: string; share_metrics: bo
 
 export async function exportSelfData(): Promise<Record<string, unknown>> {
   return api.get('/self/export')
+}
+
+export async function getAutoCompact(): Promise<{ auto_compact: boolean }> {
+  return api.get('/config/auto_compact')
+}
+
+export async function updateAutoCompact(auto_compact: boolean): Promise<{ auto_compact: boolean }> {
+  return api.put('/config/auto_compact', { auto_compact })
+}
+
+export async function getTokenCount(ring_id?: string): Promise<{ total_tokens: number; threshold: number; warning_threshold: number }> {
+  const path = ring_id ? `/rings/${ring_id}/tokens` : '/self/tokens'
+  return api.get(path)
 }
 
 export async function resetSelfData(): Promise<{ ok: boolean }> {

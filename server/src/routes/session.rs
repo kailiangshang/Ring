@@ -33,10 +33,10 @@ pub async fn create_session(
     Json(body): Json<CreateSessionInput>,
 ) -> Result<(axum::http::StatusCode, Json<Value>)> {
     let result = session::create_session(&state, &ring_id, &user.token_id, body).await?;
-    
+
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     let _ = crate::services::self_data::record_session_created(&self_dir);
-    
+
     Ok((
         axum::http::StatusCode::CREATED,
         Json(serde_json::to_value(result).unwrap()),

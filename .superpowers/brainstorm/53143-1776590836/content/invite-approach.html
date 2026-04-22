@@ -1,0 +1,94 @@
+<h2>Invite Creation: 交互方式选择</h2>
+<p class="subtitle">Config Panel 中 "+ invite member" 按钮点击后的交互方式</p>
+
+<div class="cards">
+  <div class="card" data-choice="modal" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#06080c;padding:12px;border-radius:6px;font-family:'Cascadia Code',monospace;font-size:10px;color:#bfc7d5;position:relative;min-height:200px">
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center">
+          <div style="background:#0a0e14;border:1px solid #1a2030;border-radius:6px;width:300px;overflow:hidden">
+            <div style="padding:10px 14px;border-bottom:1px solid #1a2030;display:flex;align-items:center;gap:8px;background:#080c12">
+              <span style="color:#67E8F9;font-size:11px;font-weight:600">🔗 Create Invite</span>
+              <span style="margin-left:auto;color:#3a4550;cursor:pointer">×</span>
+            </div>
+            <div style="padding:14px">
+              <div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Type</div>
+              <div style="display:flex;gap:6px;margin-bottom:12px">
+                <div style="flex:1;padding:6px;border:1px solid #0891B2;border-radius:3px;text-align:center;font-size:10px;color:#0891B2;background:#0d2a35">open</div>
+                <div style="flex:1;padding:6px;border:1px solid #1a2030;border-radius:3px;text-align:center;font-size:10px;color:#3a4550">audit</div>
+              </div>
+              <div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Role</div>
+              <div style="display:flex;gap:6px;margin-bottom:12px">
+                <div style="flex:1;padding:6px;border:1px solid #0891B2;border-radius:3px;text-align:center;font-size:10px;color:#0891B2;background:#0d2a35">member</div>
+                <div style="flex:1;padding:6px;border:1px solid #1a2030;border-radius:3px;text-align:center;font-size:10px;color:#3a4550">readonly</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px">
+                <div style="flex:1"><div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Max uses</div><div style="background:#0d1117;border:1px solid #1a2030;border-radius:3px;padding:5px 8px;font-size:10px;color:#bfc7d5">1</div></div>
+                <div style="flex:1"><div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Expires (h)</div><div style="background:#0d1117;border:1px solid #1a2030;border-radius:3px;padding:5px 8px;font-size:10px;color:#bfc7d5">24</div></div>
+              </div>
+              <div style="padding:6px 10px;background:#0891B2;color:#06080c;border-radius:3px;text-align:center;font-size:10px;font-weight:700;letter-spacing:1px;margin-top:4px">GENERATE LINK</div>
+            </div>
+          </div>
+        </div>
+        <!-- Background: Config Panel -->
+        <div style="opacity:0.3">
+          <div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Members · 3</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><div style="width:18px;height:18px;border-radius:3px;background:#0d2a35;color:#0891B2;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">K</div><span style="font-size:10px;color:#67E8F9">kaiiang</span><span style="font-size:8px;color:#3a4550">creator</span></div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:18px;height:18px;border-radius:3px;background:#0a1f0a;color:#22c55e;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">Z</div><span style="font-size:10px;color:#8892a0">zhangsan</span><span style="font-size:8px;color:#3a4550">admin</span></div>
+          <div style="padding:5px 8px;border:1px solid #0891B2;border-radius:3px;text-align:center;font-size:10px;color:#0891B2;cursor:pointer">+ invite member</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Modal Overlay (Recommended)</h3>
+      <p>半透明遮罩 + 居中弹窗。代码库中首次引入 modal 模式，但复杂表单最适合 modal。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="inline" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#0a0e14;border:1px solid #1a2030;border-radius:6px;padding:14px;font-family:'Cascadia Code',monospace;font-size:10px;color:#bfc7d5;width:100%">
+        <div style="font-size:9px;color:#3a4550;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Members · 3</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px"><div style="width:18px;height:18px;border-radius:3px;background:#0d2a35;color:#0891B2;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">K</div><span style="font-size:10px;color:#67E8F9">kaiiang</span></div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><div style="width:18px;height:18px;border-radius:3px;background:#0a1f0a;color:#22c55e;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:600">Z</div><span style="font-size:10px;color:#8892a0">zhangsan</span></div>
+        <div style="border-top:1px solid #1a2030;padding-top:8px;margin-top:4px">
+          <div style="font-size:9px;color:#0891B2;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px">Create Invite</div>
+          <div style="display:flex;gap:4px;margin-bottom:6px"><div style="flex:1;padding:4px;border:1px solid #0891B2;border-radius:2px;text-align:center;font-size:9px;color:#0891B2;background:#0d2a35">open</div><div style="flex:1;padding:4px;border:1px solid #1a2030;border-radius:2px;text-align:center;font-size:9px;color:#3a4550">audit</div></div>
+          <div style="display:flex;gap:4px;margin-bottom:6px"><div style="flex:1;background:#0d1117;border:1px solid #1a2030;border-radius:2px;padding:4px 6px;font-size:9px;color:#bfc7d5">max: 1</div><div style="flex:1;background:#0d1117;border:1px solid #1a2030;border-radius:2px;padding:4px 6px;font-size:9px;color:#bfc7d5">24h</div></div>
+          <div style="padding:4px 8px;background:#0891B2;color:#06080c;border-radius:2px;text-align:center;font-size:9px;font-weight:700;letter-spacing:1px">GENERATE</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Inline Expand</h3>
+      <p>点击后 Config Panel 内展开邀请表单。不需要新 UI 模式，但 320px 面板空间有限。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="panel" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="background:#06080c;padding:12px;border-radius:6px;font-family:'Cascadia Code',monospace;font-size:10px;color:#bfc7d5;display:flex;gap:0;min-height:180px">
+        <div style="flex:1;border-right:1px solid #1a2030;padding-right:8px;opacity:0.3">
+          <div style="font-size:9px;color:#3a4550;margin-bottom:4px">Config Panel</div>
+          <div style="font-size:9px;color:#6b7d8e">Members · 3</div>
+          <div style="font-size:9px;color:#6b7d8e">Blueprint</div>
+        </div>
+        <div style="width:180px;padding-left:8px">
+          <div style="font-size:9px;color:#67E8F9;font-weight:600;margin-bottom:6px">🔗 Invite</div>
+          <div style="font-size:9px;color:#3a4550;margin-bottom:2px">TYPE</div>
+          <div style="display:flex;gap:3px;margin-bottom:4px"><div style="flex:1;padding:3px;border:1px solid #0891B2;border-radius:2px;text-align:center;font-size:8px;color:#0891B2;background:#0d2a35">open</div><div style="flex:1;padding:3px;border:1px solid #1a2030;border-radius:2px;text-align:center;font-size:8px;color:#3a4550">audit</div></div>
+          <div style="padding:4px 6px;background:#0891B2;color:#06080c;border-radius:2px;text-align:center;font-size:8px;font-weight:700;letter-spacing:1px">GENERATE</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. Separate Panel</h3>
+      <p>新面板类型加入 panel stack。复用现有面板模式，但表单 + token 列表挤在一个面板里。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons" style="margin-top:16px">
+  <div class="pros"><h4>推荐 A (Modal)</h4><ul><li>表单空间充足，用户体验最好</li><li>生成链接后可以直接显示 + 复制按钮</li><li>Config Panel 不会被撑得过长</li><li>后续审批队列也可以复用 modal</li></ul></div>
+  <div class="cons"><h4>A 的代价</h4><ul><li>需要新建 Modal 组件（代码库首次）</li><li>增加一个新 UI 模式</li></ul></div>
+</div>

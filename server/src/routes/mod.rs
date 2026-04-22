@@ -60,6 +60,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/config/llm/test", post(config::test_llm_config))
         .route("/config/gitlab/test", post(config::test_gitlab_config))
         .route(
+            "/config/auto_compact",
+            get(config::get_auto_compact).put(config::update_auto_compact),
+        )
+        .route(
             "/rings/{ring_id}/mode",
             get(mode::get_mode).put(mode::update_mode),
         )
@@ -174,9 +178,18 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
-        .route("/rings/{ring_id}/blueprint", get(blueprint::get_blueprint_handler))
-        .route("/rings/{ring_id}/blueprint/from-template", post(blueprint::preview_template))
-        .route("/rings/{ring_id}/blueprint/confirm", post(blueprint::confirm_blueprint_handler))
+        .route(
+            "/rings/{ring_id}/blueprint",
+            get(blueprint::get_blueprint_handler),
+        )
+        .route(
+            "/rings/{ring_id}/blueprint/from-template",
+            post(blueprint::preview_template),
+        )
+        .route(
+            "/rings/{ring_id}/blueprint/confirm",
+            post(blueprint::confirm_blueprint_handler),
+        )
         .route("/super/chat", post(super_chat::super_chat_handler))
         .route("/super/chat/history", get(super_chat::super_history))
         .route(
@@ -187,6 +200,8 @@ pub fn build_router(state: AppState) -> Router {
             "/super/preferences",
             get(super_chat::get_preferences).put(super_chat::update_preferences),
         )
+        .route("/super/cross-ring-query", post(super_chat::cross_ring_query_handler))
+        .route("/super/cross-ring-analysis", post(super_chat::cross_ring_analysis_handler))
         .route("/skills", get(skills::list_skills))
         .route("/skills/install", post(skills::install_skill_handler))
         .route(
@@ -219,12 +234,18 @@ pub fn build_router(state: AppState) -> Router {
             post(invite::reject_request),
         )
         .route("/notifications", get(notification::list_notifications))
-        .route("/notifications/unread-count", get(notification::get_unread_count))
+        .route(
+            "/notifications/unread-count",
+            get(notification::get_unread_count),
+        )
         .route(
             "/notifications/{notification_id}/read",
             post(notification::mark_as_read),
         )
-        .route("/notifications/read-all", post(notification::mark_all_as_read))
+        .route(
+            "/notifications/read-all",
+            post(notification::mark_all_as_read),
+        )
         .route(
             "/notifications/{notification_id}",
             delete(notification::delete_notification),

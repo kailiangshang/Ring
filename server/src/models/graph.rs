@@ -23,6 +23,7 @@ pub struct GraphNodeRow {
     pub content: String,
     pub tags: String,
     pub markdown_path: Option<String>,
+    pub metadata: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -49,10 +50,18 @@ pub struct CreateNodeInput {
     pub tags: Vec<String>,
     #[serde(default)]
     pub content: String,
+    #[serde(default)]
+    pub markdown_path: Option<String>,
+    #[serde(default = "default_metadata")]
+    pub metadata: serde_json::Value,
 }
 
 fn default_node_type() -> String {
     "topic".into()
+}
+
+fn default_metadata() -> serde_json::Value {
+    serde_json::json!({})
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,6 +69,8 @@ pub struct UpdateNodeInput {
     pub label: Option<String>,
     pub tags: Option<Vec<String>>,
     pub content: Option<String>,
+    pub markdown_path: Option<String>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -125,8 +136,8 @@ pub async fn create_node(
     input: &CreateNodeInput,
 ) -> Result<GraphNodeRow> {
     sqlx::query_as::<_, GraphNodeRow>(
-        "INSERT INTO graph_nodes (id, graph_id, ring_id, label, parent_id, node_type, content, tags)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        "INSERT INTO graph_nodes (id, graph_id, ring_id, label, parent_id, node_type, content, tags, markdown_path, metadata)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
          RETURNING *",
     )
     .bind(id)
@@ -137,6 +148,8 @@ pub async fn create_node(
     .bind(&input.node_type)
     .bind(&input.content)
     .bind(serde_json::to_string(&input.tags).unwrap_or_else(|_| "[]".into()))
+    .bind(&input.markdown_path)
+    .bind(serde_json::to_string(&input.metadata).unwrap_or_else(|_| "{}".into()))
     .fetch_one(pool)
     .await
     .map_err(|e| RingError::Internal(e.to_string()))
@@ -161,13 +174,25 @@ pub async fn update_node(
         .unwrap_or(current.tags);
     let content = input.content.as_deref().unwrap_or(&current.content);
 
+    let markdown_path = input
+        .markdown_path
+        .as_deref()
+        .unwrap_or(current.markdown_path.as_deref().unwrap_or(""));
+    let metadata = input
+        .metadata
+        .as_ref()
+        .map(|m| serde_json::to_string(m).unwrap_or_else(|_| "{}".into()))
+        .unwrap_or(current.metadata);
+
     sqlx::query_as::<_, GraphNodeRow>(
-        "UPDATE graph_nodes SET label = ?1, tags = ?2, content = ?3, updated_at = datetime('now')
-         WHERE id = ?4 RETURNING *",
+        "UPDATE graph_nodes SET label = ?1, tags = ?2, content = ?3, markdown_path = ?4, metadata = ?5, updated_at = datetime('now')
+         WHERE id = ?6 RETURNING *",
     )
     .bind(label)
     .bind(tags)
     .bind(content)
+    .bind(markdown_path)
+    .bind(metadata)
     .bind(node_id)
     .fetch_one(pool)
     .await

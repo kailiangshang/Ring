@@ -37,7 +37,13 @@ pub async fn trigger_archive(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<CreateArchiveInput>,
-) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
+) -> Result<
+    Sse<
+        axum::response::sse::KeepAliveStream<
+            BoxStream<'static, std::result::Result<Event, Infallible>>,
+        >,
+    >,
+> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let is_creator = role == "creator" || role == "admin";
 
@@ -92,11 +98,19 @@ pub async fn trigger_archive(
                         Ok(u) => u,
                         Err(_) => return,
                     };
-                    let archive_detail = format!("Title: {}\nContent preview: {}...", title, &content[..content.len().min(200)]);
+                    let archive_detail = format!(
+                        "Title: {}\nContent preview: {}...",
+                        title,
+                        &content[..content.len().min(200)]
+                    );
                     tokio::spawn(async move {
                         let _ = crate::services::group_doc_maintenance::update_archive_patterns(
-                            &state, &ring_id, &user_row, &archive_detail,
-                        ).await;
+                            &state,
+                            &ring_id,
+                            &user_row,
+                            &archive_detail,
+                        )
+                        .await;
                     });
                 }
                 Err(e) => {
@@ -161,7 +175,8 @@ pub async fn trigger_archive(
             });
             yield Ok(Event::default().event("progress").data(data.to_string()));
         }
-    }.boxed();
+    }
+    .boxed();
 
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
 }
@@ -227,13 +242,9 @@ pub async fn review_archive(
     .await?;
 
     if let ReviewAction::Reject = body.action {
-        let detail = format!(
-            "归档 {} 被拒绝（文件: {}）",
-            archive_id, record.file_name
-        );
-        let _ = crate::services::group_doc_maintenance::add_correction(
-            &state, &ring_id, &detail,
-        ).await;
+        let detail = format!("归档 {} 被拒绝（文件: {}）", archive_id, record.file_name);
+        let _ =
+            crate::services::group_doc_maintenance::add_correction(&state, &ring_id, &detail).await;
     }
 
     Ok(Json(record))
@@ -247,9 +258,9 @@ pub async fn get_archive_diff(
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
     let record = archive::get_record(&state.db, &archive_id).await?;
-    let mr_iid = record.merge_request_iid.ok_or_else(|| {
-        RingError::BadRequest("archive has no merge request".into())
-    })?;
+    let mr_iid = record
+        .merge_request_iid
+        .ok_or_else(|| RingError::BadRequest("archive has no merge request".into()))?;
 
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let (gitlab_url, gitlab_token) = match (user_row.gitlab_url, user_row.gitlab_token) {

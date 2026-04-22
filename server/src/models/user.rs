@@ -15,6 +15,7 @@ pub struct UserRow {
     pub llm_base_url: Option<String>,
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
+    pub auto_compact: bool,
     pub created_at: String,
 }
 
@@ -66,8 +67,8 @@ pub async fn create_user(
 ) -> Result<UserRow> {
     let model = input.llm_model.as_deref().unwrap_or("gpt-4o");
     sqlx::query_as::<_, UserRow>(
-        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token)
-         VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9)
+        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token, auto_compact)
+         VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, 1)
          RETURNING *"
     )
         .bind(token_id)
@@ -90,8 +91,8 @@ pub async fn create_joiner_user(
     display_name: &str,
 ) -> Result<UserRow> {
     sqlx::query_as::<_, UserRow>(
-        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token)
-         VALUES (?1, ?2, NULL, 0, 'openai', NULL, 'gpt-4o', NULL, NULL, NULL)
+        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token, auto_compact)
+         VALUES (?1, ?2, NULL, 0, 'openai', NULL, 'gpt-4o', NULL, NULL, NULL, 1)
          RETURNING *",
     )
     .bind(token_id)

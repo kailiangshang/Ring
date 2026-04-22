@@ -4,6 +4,7 @@ use axum::Json;
 use crate::error::Result;
 use crate::extractors::AuthUser;
 use crate::models::config::UpdateLLMConfig;
+use crate::models::conversation_token::UpdateAutoCompact;
 use crate::services::config;
 use crate::state::AppState;
 
@@ -22,6 +23,23 @@ pub async fn update_llm_config(
 ) -> Result<Json<crate::models::config::LLMConfigResponse>> {
     let cfg = config::update_llm_config(&state, &user.token_id, body).await?;
     Ok(Json(cfg))
+}
+
+pub async fn get_auto_compact(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<serde_json::Value>> {
+    let auto_compact = crate::models::conversation_token::get_auto_compact(&state.db, &user.token_id).await?;
+    Ok(Json(serde_json::json!({ "auto_compact": auto_compact })))
+}
+
+pub async fn update_auto_compact(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<UpdateAutoCompact>,
+) -> Result<Json<serde_json::Value>> {
+    let auto_compact = crate::models::conversation_token::update_auto_compact(&state.db, &user.token_id, body.auto_compact).await?;
+    Ok(Json(serde_json::json!({ "auto_compact": auto_compact })))
 }
 
 pub async fn test_llm_config(

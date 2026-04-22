@@ -101,8 +101,15 @@ pub async fn create_session(
         tokio::spawn(async move {
             if let Ok(user_row) = state_c.get_user_decrypted(&user_id_c).await {
                 let _ = crate::services::material_prep::generate_materials(
-                    &state_c, &session_id, &ring_id_c, &skill, &title, &description, &user_row,
-                ).await;
+                    &state_c,
+                    &session_id,
+                    &ring_id_c,
+                    &skill,
+                    &title,
+                    &description,
+                    &user_row,
+                )
+                .await;
             }
         });
     }
@@ -400,11 +407,12 @@ pub struct SummarizeContext {
 }
 
 pub fn start_summarize_stream(
-    _state: &AppState,
+    state: &AppState,
     user_row: &user::UserRow,
     ctx: SummarizeContext,
 ) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
-    let system_prompt = crate::services::skill::build_summary_system_prompt(&ctx.skill)
+    let system_prompt = crate::services::skill::load_skill_prompt(&ctx.skill, &state.skills_dir)
+        .or_else(|| crate::services::skill::build_summary_system_prompt(&ctx.skill))
         .unwrap_or_else(|| "Summarize the following discussion.".to_string());
 
     let user_message = format!(

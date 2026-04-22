@@ -760,3 +760,324 @@ pub async fn get_super_history(
 ) -> Result<Vec<MessageRow>> {
     chat::get_history(state, Some(SUPER_RING_ID), user_id, before_id, limit).await
 }
+
+pub fn stream_cross_ring_query(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    query: String,
+) -> tokio::sync::mpsc::Receiver<SseEvent> {
+    let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+    tokio::spawn(async move {
+        if let Err(e) = stream_cross_ring_query_inner(state, user, query, &tx).await {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+        }
+    });
+
+    rx
+}
+
+async fn stream_cross_ring_query_inner(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    query: String,
+    tx: &tokio::sync::mpsc::Sender<SseEvent>,
+) -> Result<()> {
+    let message_id = ulid::Ulid::new().to_string();
+    let _ = tx
+        .send(SseEvent::Start {
+            message_id: message_id.clone(),
+            role: "super_ring".to_string(),
+        })
+        .await;
+
+    let ring_summary = build_ring_summary(&state.db, &user.token_id).await;
+    
+    let mut all_ring_details = String::new();
+    let rings = sqlx::query_as::<_, (String, String)>(
+        "SELECT r.id, r.name FROM rings r
+         JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
+         ORDER BY r.created_at",
+    )
+    .bind(&user.token_id)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    for (_ring_id, ring_name) in &rings {
+        if let Ok(detail) = execute_query_ring_detail(
+            &state.db, &state.rings_dir, &user.token_id, ring_name
+        ).await {
+            all_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
+        }
+    }
+
+    let system_prompt = format!(
+        "你是 Super Ring，用户的全局 AI 助手。用户提出了一个跨 Ring 的查询问题。\n\n以下是用户的所有 Ring 的汇总信息：\n{}\n\n以下是每个 Ring 的详细数据：\n{}\n\n请基于以上信息，回答用户的问题。如果信息不足，请明确告知。",
+        ring_summary, all_ring_details
+    );
+
+    let api_key = user
+        .llm_api_key
+        .as_deref()
+        .ok_or_else(|| RingError::Internal("LLM API key not configured".into()))?;
+    let mut config = OpenAIConfig::new().with_api_key(api_key);
+    if let Some(base_url) = &user.llm_base_url {
+        config = config.with_api_base(base_url);
+    }
+    let client = Client::with_config(config);
+    let model = user.llm_model.clone();
+
+    let request = CreateChatCompletionRequest {
+        messages: vec![
+            ChatCompletionRequestMessage::System(
+                ChatCompletionRequestSystemMessage {
+                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+                    name: None,
+                },
+            ),
+            ChatCompletionRequestMessage::User(
+                ChatCompletionRequestUserMessage {
+                    content: ChatCompletionRequestUserMessageContent::Text(query),
+                    name: None,
+                },
+            ),
+        ],
+        model,
+        stream: Some(true),
+        ..Default::default()
+    };
+
+    let mut stream = match client.chat().create_stream(request).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+            return Ok(());
+        }
+    };
+
+    let mut full_content = String::new();
+    let mut token_usage: Option<String> = None;
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(chunk) => {
+                if let Some(choice) = chunk.choices.first() {
+                    if let Some(delta) = &choice.delta.content {
+                        full_content.push_str(delta);
+                        let _ = tx
+                            .send(SseEvent::Delta {
+                                content: delta.clone(),
+                            })
+                            .await;
+                    }
+                }
+                if let Some(usage) = &chunk.usage {
+                    token_usage = Some(serde_json::to_string(usage).unwrap_or_default());
+                }
+            }
+            Err(e) => {
+                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                break;
+            }
+        }
+    }
+
+    let _ = tx
+        .send(SseEvent::End {
+            message_id: message_id.clone(),
+            full_content: full_content.clone(),
+            token_usage,
+        })
+        .await;
+
+    let ai_msg_id = message_id;
+    let _ = message::insert_message(
+        &state.db,
+        &message::NewMessage {
+            id: &ai_msg_id,
+            ring_id: Some(SUPER_RING_ID),
+            user_id: &user.token_id,
+            role: "super_ring",
+            sender_name: "SUPER RING",
+            content: &full_content,
+            node_refs: &[],
+            tag_refs: &[],
+            token_usage: None,
+        },
+    )
+    .await;
+
+    Ok(())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CrossRingAnalysisRequest {
+    pub ring_names: Vec<String>,
+    pub analysis_type: String,
+    pub question: Option<String>,
+}
+
+pub fn stream_cross_ring_analysis(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    request: CrossRingAnalysisRequest,
+) -> tokio::sync::mpsc::Receiver<SseEvent> {
+    let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+    tokio::spawn(async move {
+        if let Err(e) = stream_cross_ring_analysis_inner(state, user, request, &tx).await {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+        }
+    });
+
+    rx
+}
+
+async fn stream_cross_ring_analysis_inner(
+    state: AppState,
+    user: crate::models::user::UserRow,
+    request: CrossRingAnalysisRequest,
+    tx: &tokio::sync::mpsc::Sender<SseEvent>,
+) -> Result<()> {
+    let message_id = ulid::Ulid::new().to_string();
+    let _ = tx
+        .send(SseEvent::Start {
+            message_id: message_id.clone(),
+            role: "super_ring".to_string(),
+        })
+        .await;
+
+    let mut selected_ring_details = String::new();
+    
+    for ring_name in &request.ring_names {
+        if let Ok(detail) = execute_query_ring_detail(
+            &state.db, &state.rings_dir, &user.token_id, ring_name
+        ).await {
+            selected_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
+        }
+    }
+
+    let analysis_prompt = match request.analysis_type.as_str() {
+        "compare" => {
+            format!(
+                "请对比以下 Ring 的差异和共同点：\n{}\n\n请从目标、成员、内容、进展等维度进行对比分析。",
+                selected_ring_details
+            )
+        }
+        "merge" => {
+            format!(
+                "请分析以下 Ring 的内容，找出可以整合或合并的部分：\n{}\n\n请提出具体的整合建议。",
+                selected_ring_details
+            )
+        }
+        "summary" => {
+            format!(
+                "请对以下 Ring 的内容进行汇总分析：\n{}\n\n请提供综合摘要和关键洞察。",
+                selected_ring_details
+            )
+        }
+        _ => {
+            format!(
+                "请分析以下 Ring 的内容：\n{}\n\n用户问题：{}\n\n请基于以上信息回答。",
+                selected_ring_details,
+                request.question.unwrap_or_default()
+            )
+        }
+    };
+
+    let api_key = user
+        .llm_api_key
+        .as_deref()
+        .ok_or_else(|| RingError::Internal("LLM API key not configured".into()))?;
+    let mut config = OpenAIConfig::new().with_api_key(api_key);
+    if let Some(base_url) = &user.llm_base_url {
+        config = config.with_api_base(base_url);
+    }
+    let client = Client::with_config(config);
+    let model = user.llm_model.clone();
+
+    let request = CreateChatCompletionRequest {
+        messages: vec![
+            ChatCompletionRequestMessage::System(
+                ChatCompletionRequestSystemMessage {
+                    content: ChatCompletionRequestSystemMessageContent::Text(
+                        "你是 Super Ring，用户的全局 AI 助手。你的任务是分析多个 Ring 的数据并提供洞察。".to_string()
+                    ),
+                    name: None,
+                },
+            ),
+            ChatCompletionRequestMessage::User(
+                ChatCompletionRequestUserMessage {
+                    content: ChatCompletionRequestUserMessageContent::Text(analysis_prompt),
+                    name: None,
+                },
+            ),
+        ],
+        model,
+        stream: Some(true),
+        ..Default::default()
+    };
+
+    let mut stream = match client.chat().create_stream(request).await {
+        Ok(s) => s,
+        Err(e) => {
+            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+            return Ok(());
+        }
+    };
+
+    let mut full_content = String::new();
+    let mut token_usage: Option<String> = None;
+
+    while let Some(chunk_result) = stream.next().await {
+        match chunk_result {
+            Ok(chunk) => {
+                if let Some(choice) = chunk.choices.first() {
+                    if let Some(delta) = &choice.delta.content {
+                        full_content.push_str(delta);
+                        let _ = tx
+                            .send(SseEvent::Delta {
+                                content: delta.clone(),
+                            })
+                            .await;
+                    }
+                }
+                if let Some(usage) = &chunk.usage {
+                    token_usage = Some(serde_json::to_string(usage).unwrap_or_default());
+                }
+            }
+            Err(e) => {
+                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                break;
+            }
+        }
+    }
+
+    let _ = tx
+        .send(SseEvent::End {
+            message_id: message_id.clone(),
+            full_content: full_content.clone(),
+            token_usage,
+        })
+        .await;
+
+    let ai_msg_id = message_id;
+    let _ = message::insert_message(
+        &state.db,
+        &message::NewMessage {
+            id: &ai_msg_id,
+            ring_id: Some(SUPER_RING_ID),
+            user_id: &user.token_id,
+            role: "super_ring",
+            sender_name: "SUPER RING",
+            content: &full_content,
+            node_refs: &[],
+            tag_refs: &[],
+            token_usage: None,
+        },
+    )
+    .await;
+
+    Ok(())
+}
