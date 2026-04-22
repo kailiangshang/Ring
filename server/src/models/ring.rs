@@ -11,6 +11,7 @@ pub struct RingRow {
     pub role_description: Option<String>,
     pub interaction_mode: String,
     pub skill_permission_mode: String,
+    pub auto_archive: bool,
     pub blueprint_status: String,
     pub gitlab_repo_url: Option<String>,
     pub created_at: String,
@@ -46,6 +47,7 @@ pub struct RingDetail {
     pub blueprint_status: String,
     pub interaction_mode: String,
     pub skill_permission_mode: String,
+    pub auto_archive: bool,
     pub created_at: String,
 }
 
@@ -131,10 +133,11 @@ pub async fn get_ring_detail(
             String,
             String,
             String,
+            bool,
         ),
     >(
         "SELECT r.id, r.name, r.role_description, r.blueprint_status,
-                r.interaction_mode, r.skill_permission_mode, r.created_at
+                r.interaction_mode, r.skill_permission_mode, r.created_at, r.auto_archive
          FROM rings r
          JOIN members m ON m.ring_id = r.id AND m.user_id = ?2
          WHERE r.id = ?1",
@@ -167,6 +170,7 @@ pub async fn get_ring_detail(
         interaction_mode: row.4,
         skill_permission_mode: row.5,
         created_at: row.6,
+        auto_archive: row.7,
     })
 }
 
