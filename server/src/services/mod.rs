@@ -10,6 +10,7 @@ pub mod llm;
 pub mod material_prep;
 pub mod member;
 pub mod mode;
+pub mod privacy_filter;
 pub mod ring;
 pub mod self_data;
 pub mod session;
