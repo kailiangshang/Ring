@@ -32,6 +32,110 @@ pub struct RepoStatusResponse {
     pub has_remote: bool,
 }
 
+pub async fn quick_archive_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Json(body): Json<CreateArchiveInput>,
+) -> Result<Json<serde_json::Value>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let is_creator = role == "creator" || role == "admin";
+
+    let content = body.content.clone();
+    let title = if content.len() > 40 {
+        format!("{}...", &content[..40])
+    } else {
+        content.clone()
+    };
+
+    let git = GitService::new();
+    let repo_path = archive_service::ring_repo_path(&state.rings_dir, &ring_id);
+
+    if !repo_path.join(".git").exists() {
+        return Err(RingError::RepoNotFound {
+            ring_id: ring_id.to_string(),
+        });
+    }
+
+    let _ = git.pull(&repo_path);
+
+    let file_name = archive_service::sanitize_filename(&title);
+    let file_path = repo_path.join("archives").join(&file_name);
+    std::fs::write(&file_path, &content)?;
+
+    let record_id = ulid::Ulid::new().to_string();
+
+    if is_creator {
+        git.add_all(&repo_path)?;
+        let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
+
+        let has_remote = git.has_remote(&repo_path);
+        if has_remote {
+            git.push(&repo_path, "origin", "main")?;
+        }
+
+        archive::insert_record(
+            &state.db, &record_id, &ring_id, body.session_id.as_deref(), None, &file_name, &user.token_id,
+        )
+        .await?;
+
+        let status = if has_remote { "pushed" } else { "committed" };
+        archive::update_status(
+            &state.db, &record_id, status, Some(&sha), None, None).await?;
+    } else {
+        let repo_url = sqlx::query_scalar::<_, Option<String>>(
+            "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
+        )
+        .bind(&ring_id)
+        .fetch_one(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        let user_row = state.get_user_decrypted(&user.token_id).await?;
+        let (gitlab_url, gitlab_token) = (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
+
+        match (repo_url, gitlab_url, gitlab_token) {
+            (Some(url), Some(gl_url), Some(gl_token)) => {
+                let gitlab = GitLabClient::new(&gl_url, &gl_token);
+                let branch_name = format!("archive/{record_id}");
+
+                git.create_branch(&repo_path, &branch_name)?;
+                git.add_all(&repo_path)?;
+                let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
+                git.push(&repo_path, "origin", &branch_name)?;
+                git.checkout(&repo_path, "main")?;
+
+                archive::insert_record(
+                    &state.db, &record_id, &ring_id, body.session_id.as_deref(), None, &file_name, &user.token_id,
+                )
+                .await?;
+                archive::update_status(
+                    &state.db, &record_id, "committed", Some(&sha), Some(&branch_name), None,
+                )
+                .await?;
+
+                let mr = gitlab
+                    .create_mr(
+                        &url,
+                        &branch_name,
+                        "main",
+                        &format!("归档: {title}"),
+                        &format!("由 {} 提交的归档请求", user.token_id),
+                    )
+                    .await?;
+
+                archive::update_status(&state.db, &record_id, "mr_opened", None, None, Some(mr.iid)).await?;
+            }
+            _ => {
+                return Err(RingError::GitlabNotConfigured);
+            }
+        }
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true, "record_id": record_id })))
+}
+
 pub async fn trigger_archive(
     State(state): State<AppState>,
     user: AuthUser,

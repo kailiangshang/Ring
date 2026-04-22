@@ -155,6 +155,7 @@ pub fn build_router(state: AppState) -> Router {
             post(session::highlight_material_handler),
         )
         .route("/rings/{ring_id}/archive", post(archive::trigger_archive))
+        .route("/rings/{ring_id}/archive/quick", post(archive::quick_archive_handler))
         .route("/rings/{ring_id}/archives", get(archive::list_archives))
         .route(
             "/rings/{ring_id}/archives/{archive_id}",

@@ -6,9 +6,27 @@ import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
 
 export function InputArea() {
-  const { input, setInput, send, sending, stopStreaming } = useChatStore()
+  const { input, setInput, send, sending, stopStreaming, messages } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [showArchiveBanner, setShowArchiveBanner] = useState(false)
+
+  const lastMessage = messages[messages.length - 1]
+  const shouldRecommend = lastMessage && lastMessage.role === 'group_ring' && lastMessage.content && (
+    lastMessage.content.includes('结论') ||
+    lastMessage.content.includes('总结') ||
+    lastMessage.content.includes('决策') ||
+    lastMessage.content.includes('方案') ||
+    lastMessage.content.includes('决定') ||
+    lastMessage.content.includes('agreed') ||
+    lastMessage.content.includes('decided') ||
+    lastMessage.content.includes('conclusion') ||
+    lastMessage.content.includes('resolved') ||
+    lastMessage.content.includes('solution') ||
+    lastMessage.content.includes('finalized') ||
+    lastMessage.content.includes('确定') ||
+    lastMessage.content.includes('共识')
+  )
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (ac.visible) {
@@ -84,8 +102,64 @@ export function InputArea() {
     ac.hide()
   }
 
+  const handleArchiveConfirm = () => {
+    setShowArchiveBanner(false)
+  }
+
+  const handleArchiveDismiss = () => {
+    setShowArchiveBanner(false)
+  }
+
   return (
     <div style={{ position: 'relative' }}>
+      {shouldRecommend && !showArchiveBanner && (
+        <div
+          style={{
+            padding: '8px 12px',
+            background: 'var(--bg-elevated)',
+            borderTop: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+            AI recommends archiving this conversation
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={handleArchiveConfirm}
+              style={{
+                background: 'var(--accent-cyan)',
+                color: 'var(--bg-base)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '4px 12px',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Archive
+            </button>
+            <button
+              onClick={handleArchiveDismiss}
+              style={{
+                background: 'transparent',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '4px 12px',
+                fontSize: 11,
+                cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
       <CommandAutocomplete onSelect={handleSelect} />
       <div
         style={{
