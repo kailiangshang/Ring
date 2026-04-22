@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { useCommandHistoryStore } from '../../stores/command-history-store'
+import { useModeStore } from '../../stores/mode-store'
+import { useAppStore } from '../../stores/app-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
@@ -9,6 +11,9 @@ export function InputArea() {
   const { input, setInput, send, sending, stopStreaming } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const auto_archive = useModeStore((s) => s.auto_archive)
+  const toggleAutoArchive = useModeStore((s) => s.toggleAutoArchive)
+  const context = useAppStore((s) => s.current_context)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (ac.visible) {
@@ -97,6 +102,24 @@ export function InputArea() {
         }}
       >
         <ModeIndicator />
+        {context === 'ring' && (
+          <button
+            onClick={toggleAutoArchive}
+            style={{
+              background: auto_archive ? 'var(--accent-green)' : 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '6px 10px',
+              color: auto_archive ? 'var(--bg-base)' : 'var(--text-secondary)',
+              fontSize: 11,
+              cursor: 'pointer',
+              fontWeight: 700,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {auto_archive ? 'AUTO ON' : 'AUTO OFF'}
+          </button>
+        )}
         <input
           type="text"
           value={input}
