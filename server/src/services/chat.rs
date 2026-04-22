@@ -1,7 +1,7 @@
 use crate::error::Result;
-use crate::models::conversation_token::{self, TOKEN_THRESHOLD};
 use crate::models::message::{self, MessageRow};
 use crate::services::llm::{LlmClient, SseEvent};
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const COMPACT_THRESHOLD: usize = 30;
@@ -16,16 +16,6 @@ pub async fn get_history(
 ) -> Result<Vec<MessageRow>> {
     let messages = message::list_messages(&state.db, ring_id, user_id, before_id, limit).await?;
     Ok(messages.into_iter().rev().collect())
-}
-
-pub async fn check_token_threshold(
-    state: &AppState,
-    user: &crate::models::user::UserRow,
-    ring_id: Option<&str>,
-) -> Result<(i64, bool)> {
-    let token_count = conversation_token::get_token_count(&state.db, &user.token_id, ring_id).await?;
-    let should_compact = user.auto_compact && token_count >= TOKEN_THRESHOLD;
-    Ok((token_count, should_compact))
 }
 
 pub async fn auto_compact_history(
@@ -80,9 +70,6 @@ pub async fn auto_compact_history(
             .execute(&state.db)
             .await;
     }
-
-    let _ = conversation_token::reset_tokens(&state.db, user_id, ring_id
-    ).await;
 
     Ok(Some(summary))
 }
@@ -191,11 +178,18 @@ pub async fn start_chat_stream(
         load_history_context(&state.db, params.ring_id, &user.token_id, 20).await?
     };
 
+    let filters = user
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_content = apply_filters(params.content, &filters);
+
     let llm = LlmClient::from_user(user)?;
     let rx = llm.chat_stream(
         system_prompt,
         history,
-        params.content.to_string(),
+        filtered_content,
         params.ai_role.to_string(),
     );
     Ok(rx)

@@ -60,8 +60,8 @@ pub fn build_router(state: AppState) -> Router {
         .route("/config/llm/test", post(config::test_llm_config))
         .route("/config/gitlab/test", post(config::test_gitlab_config))
         .route(
-            "/config/auto_compact",
-            get(config::get_auto_compact).put(config::update_auto_compact),
+            "/config/privacy_filters",
+            get(config::get_privacy_filters).put(config::update_privacy_filters),
         )
         .route(
             "/rings/{ring_id}/mode",
@@ -200,8 +200,6 @@ pub fn build_router(state: AppState) -> Router {
             "/super/preferences",
             get(super_chat::get_preferences).put(super_chat::update_preferences),
         )
-        .route("/super/cross-ring-query", post(super_chat::cross_ring_query_handler))
-        .route("/super/cross-ring-analysis", post(super_chat::cross_ring_analysis_handler))
         .route("/skills", get(skills::list_skills))
         .route("/skills/install", post(skills::install_skill_handler))
         .route(

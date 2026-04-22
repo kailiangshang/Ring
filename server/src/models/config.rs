@@ -85,6 +85,75 @@ pub async fn update_llm_config(
     get_llm_config(pool, user_id).await
 }
 
+#[derive(Debug, Serialize)]
+pub struct PrivacyFiltersResponse {
+    pub phone: bool,
+    pub id_card: bool,
+    pub email: bool,
+    pub bank_card: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePrivacyFilters {
+    pub phone: Option<bool>,
+    pub id_card: Option<bool>,
+    pub email: Option<bool>,
+    pub bank_card: Option<bool>,
+}
+
+pub async fn get_privacy_filters(
+    pool: &sqlx::SqlitePool,
+    user_id: &str,
+) -> Result<PrivacyFiltersResponse> {
+    let row = sqlx::query_scalar::<_, Option<String>>(
+        "SELECT privacy_filters FROM users WHERE token_id = ?1",
+    )
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+
+    let filters = match row {
+        Some(json) => crate::services::privacy_filter::PrivacyFilters::from_json(&json),
+        None => crate::services::privacy_filter::PrivacyFilters::default(),
+    };
+
+    Ok(PrivacyFiltersResponse {
+        phone: filters.phone,
+        id_card: filters.id_card,
+        email: filters.email,
+        bank_card: filters.bank_card,
+    })
+}
+
+pub async fn update_privacy_filters(
+    pool: &sqlx::SqlitePool,
+    user_id: &str,
+    input: &UpdatePrivacyFilters,
+) -> Result<PrivacyFiltersResponse> {
+    let current = get_privacy_filters(pool, user_id).await?;
+
+    let filters = crate::services::privacy_filter::PrivacyFilters {
+        phone: input.phone.unwrap_or(current.phone),
+        id_card: input.id_card.unwrap_or(current.id_card),
+        email: input.email.unwrap_or(current.email),
+        bank_card: input.bank_card.unwrap_or(current.bank_card),
+    };
+
+    sqlx::query("UPDATE users SET privacy_filters = ?1 WHERE token_id = ?2")
+        .bind(filters.to_json())
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+
+    Ok(PrivacyFiltersResponse {
+        phone: filters.phone,
+        id_card: filters.id_card,
+        email: filters.email,
+        bank_card: filters.bank_card,
+    })
+}
+
 pub async fn get_setup_done(pool: &sqlx::SqlitePool) -> Result<bool> {
     let done = sqlx::query_scalar::<_, bool>("SELECT is_setup FROM setup_state WHERE id = 1")
         .fetch_one(pool)

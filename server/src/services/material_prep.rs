@@ -3,6 +3,7 @@ use crate::models::graph;
 use crate::models::session;
 use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const MATERIAL_PREP_PROMPT: &str = r#"你正在为一场会议准备材料。请根据以下会议主题、Skill 类型和群组上下文，生成 3-5 条会议准备材料。
@@ -36,17 +37,24 @@ pub async fn generate_materials(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = crate::services::skill::load_skill_prompt(skill, &state.skills_dir)
-        .or_else(|| crate::services::skill::build_material_system_prompt(skill, title, description))
-        .unwrap_or_else(|| "你是一个会议材料准备助手。".to_string());
+    let filters = user
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_title = apply_filters(title, &filters);
+    let filtered_description = apply_filters(description, &filters);
+    let filtered_context = apply_filters(&context, &filters);
 
     let prompt = format!(
         "{}\nSkill: {}\n标题: {}\n描述: {}\n\n群组图谱上下文:\n{}",
-        MATERIAL_PREP_PROMPT, skill, title, description, context
+        MATERIAL_PREP_PROMPT, skill, filtered_title, filtered_description, filtered_context
     );
 
     let llm = LlmClient::from_user(user)?;
-    let response = llm.chat_complete(system_prompt, prompt).await?;
+    let response = llm
+        .chat_complete("你是一个会议材料准备助手。".into(), prompt)
+        .await?;
 
     let materials: Vec<serde_json::Value> = serde_json::from_str(&response)
         .unwrap_or_else(|_| parse_materials_from_text(&response, skill, title));
