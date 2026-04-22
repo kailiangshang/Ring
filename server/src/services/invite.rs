@@ -222,6 +222,9 @@ pub async fn execute_join(state: &AppState, input: &JoinRequest) -> Result<JoinR
         .await
         .unwrap_or_default();
 
+    let self_dir = crate::services::self_data::get_self_dir(&token_id);
+    let _ = crate::services::self_data::record_ring_joined(&self_dir, &row.ring_id, &ring_name);
+
     let gitlab_repo_url: Option<String> =
         sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
             .bind(&row.ring_id)

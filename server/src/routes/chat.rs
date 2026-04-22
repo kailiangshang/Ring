@@ -94,6 +94,9 @@ pub async fn ring_chat(
     let user_id = user.token_id.clone();
     let state_c = state.clone();
     let user_row_c = user_row.clone();
+    let self_dir = crate::services::self_data::get_self_dir(&user_id);
+    let content_len = body.content.len();
+    let _ = crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -202,6 +205,9 @@ pub async fn self_chat(
 
     let pool = state.db.clone();
     let user_id = user.token_id.clone();
+    let self_dir = crate::services::self_data::get_self_dir(&user_id);
+    let content_len = body.content.len();
+    let _ = crate::services::self_data::record_chat_message(&self_dir, None, content_len);
 
     let s = stream! {
         while let Some(event) = rx.recv().await {

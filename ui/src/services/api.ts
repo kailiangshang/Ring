@@ -252,3 +252,27 @@ export async function exportSessionMessages(ringId: string, sessionId: string) {
 export async function getArchiveDiff(ringId: string, archiveId: string): Promise<{ diffs: Array<{ old_path: string; new_path: string; diff: string }> }> {
   return api.get(`/rings/${ringId}/archives/${archiveId}/diff`)
 }
+
+export async function getSelfPersonality(): Promise<{ tone: string; proactivity: boolean; suggestions: boolean }> {
+  return api.get('/self/personality')
+}
+
+export async function updateSelfPersonality(data: { tone: string; proactivity: boolean; suggestions: boolean }): Promise<{ ok: boolean }> {
+  return api.put('/self/personality', data)
+}
+
+export async function getSelfPrivacy(): Promise<{ level: string; share_metrics: boolean; allow_proactive: boolean }> {
+  return api.get('/self/privacy')
+}
+
+export async function updateSelfPrivacy(data: { level: string; share_metrics: boolean; allow_proactive: boolean }): Promise<{ ok: boolean }> {
+  return api.put('/self/privacy', data)
+}
+
+export async function exportSelfData(): Promise<Record<string, unknown>> {
+  return api.get('/self/export')
+}
+
+export async function resetSelfData(): Promise<{ ok: boolean }> {
+  return api.post('/self/reset', {})
+}

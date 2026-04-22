@@ -81,6 +81,16 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/self/metrics", get(self_data::get_metrics))
         .route(
+            "/self/personality",
+            get(self_data::get_personality).put(self_data::update_personality),
+        )
+        .route(
+            "/self/privacy",
+            get(self_data::get_privacy).put(self_data::update_privacy),
+        )
+        .route("/self/export", get(self_data::export_data))
+        .route("/self/reset", post(self_data::reset_data))
+        .route(
             "/rings/{ring_id}/graph",
             get(graph::get_graph).post(graph::create_node_handler),
         )

@@ -2,6 +2,8 @@ use async_stream::stream;
 use axum::extract::{Path, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
+use futures_util::stream::BoxStream;
+use futures_util::StreamExt;
 use serde::Serialize;
 use std::convert::Infallible;
 
@@ -35,7 +37,7 @@ pub async fn trigger_archive(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<CreateArchiveInput>,
-) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
+) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let is_creator = role == "creator" || role == "admin";
 
@@ -78,6 +80,11 @@ pub async fn trigger_archive(
             {
                 Ok(_) => {
                     let _ = tx.send(ArchiveStep::Complete).await;
+
+                    let self_dir = crate::services::self_data::get_self_dir(&token_id);
+                    let _ = crate::services::self_data::record_archive_operation(
+                        &self_dir, &ring_id_c, &title,
+                    );
 
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
@@ -154,7 +161,7 @@ pub async fn trigger_archive(
             });
             yield Ok(Event::default().event("progress").data(data.to_string()));
         }
-    };
+    }.boxed();
 
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
 }

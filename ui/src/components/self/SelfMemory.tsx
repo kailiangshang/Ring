@@ -6,6 +6,8 @@ interface Metrics {
   tool_usage: Record<string, unknown> | null
   dwell_time: Record<string, unknown> | null
   archive_patterns: Record<string, unknown> | null
+  chat_patterns: Record<string, unknown> | null
+  ring_activity: Record<string, unknown> | null
 }
 
 const sectionStyle: React.CSSProperties = {
@@ -44,31 +46,62 @@ export function SelfMemory() {
       .catch(() => {})
   }, [])
 
-  const stats = metrics?.session_stats as Record<string, number> | null
-  const totalSessions = stats?.total_sessions ?? 0
-  const totalMessages = stats?.total_messages ?? 0
-  const avgLength = stats?.avg_message_length ?? 0
+  const chatStats = metrics?.chat_patterns as Record<string, number> | null
+  const totalMessages = chatStats?.total_messages ?? 0
+  const avgLength = chatStats?.avg_message_length ?? 0
+
+  const sessionStats = metrics?.session_stats as Record<string, number> | null
+  const totalSessions = sessionStats?.total_sessions ?? 0
+
+  const archiveStats = metrics?.archive_patterns as Record<string, unknown> | null
+
+  const ringActivity = metrics?.ring_activity as Record<string, unknown> | null
+  const totalRings = ringActivity?.total_rings as number ?? 0
+  const rings = ringActivity?.rings as Array<{ id: string; name: string; joined_at: string }> | undefined
 
   return (
     <div style={{ padding: 8, fontSize: 12, overflow: 'auto', flex: 1 }}>
       <div style={sectionStyle}>
-        <span style={labelStyle}>Behavior Profile</span>
+        <span style={labelStyle}>Chat Stats</span>
         <div style={valueStyle}>
-          <div>Total sessions: {totalSessions}</div>
           <div>Total messages: {totalMessages}</div>
           <div>Avg message length: {avgLength > 0 ? Math.round(avgLength) : '-'} chars</div>
         </div>
       </div>
 
       <div style={sectionStyle}>
-        <span style={labelStyle}>Interaction Stats</span>
+        <span style={labelStyle}>Session Stats</span>
         <div style={valueStyle}>
-          {metrics?.archive_patterns ? (
-            Object.entries(metrics.archive_patterns).map(([k, v]) => (
-              <div key={k}>{k}: {String(v)}</div>
-            ))
+          <div>Total sessions: {totalSessions}</div>
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <span style={labelStyle}>Archive Patterns</span>
+        <div style={valueStyle}>
+          {archiveStats?.total_archives !== undefined ? (
+            <div>Total archives: {String(archiveStats.total_archives)}</div>
           ) : (
             <div style={{ color: 'var(--text-dim)' }}>No data yet</div>
+          )}
+          {archiveStats?.last_archive_date ? (
+            <div>Last: {String(archiveStats.last_archive_date)}</div>
+          ) : null}
+        </div>
+      </div>
+
+      <div style={sectionStyle}>
+        <span style={labelStyle}>Ring Activity</span>
+        <div style={valueStyle}>
+          <div>Total rings: {totalRings}</div>
+          {rings && rings.length > 0 && (
+            <div style={{ marginTop: 4 }}>
+              {rings.slice(0, 5).map((r) => (
+                <div key={r.id} style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                  • {r.name}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

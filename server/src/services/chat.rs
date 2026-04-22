@@ -24,7 +24,34 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
             prompt.push_str("\n\n请用简洁、专业的方式回答用户的问题。如果引用了图谱中的节点或概念，请明确标注。");
             prompt
         }
-        None => "你是用户的个人 AI 助手 Self。你完全了解用户的偏好、目标和历史对话。请以友好、个性化的方式回答。".into(),
+        None => {
+            let mut prompt = "你是用户的个人 AI 助手 Self。你完全了解用户的偏好、目标和历史对话。".to_string();
+            
+            let self_dir = crate::services::self_data::get_self_dir("");
+            let (identity, identity_exists) = crate::services::self_data::read_self_file(&self_dir, "identity").unwrap_or_default();
+            if identity_exists && !identity.is_empty() {
+                prompt.push_str("\n\n用户身份定义：\n");
+                prompt.push_str(&identity);
+            }
+            
+            let (style, style_exists) = crate::services::self_data::read_self_file(&self_dir, "style").unwrap_or_default();
+            if style_exists && !style.is_empty() {
+                prompt.push_str("\n\n对话风格偏好：\n");
+                prompt.push_str(&style);
+            }
+            
+            let personality = crate::services::self_data::read_self_file(&self_dir, "personality").unwrap_or_default();
+            if personality.1 && !personality.0.is_empty() {
+                if let Ok(p) = serde_json::from_str::<serde_json::Value>(&personality.0) {
+                    if let Some(tone) = p.get("tone").and_then(|v| v.as_str()) {
+                        prompt.push_str(&format!("\n\n语气风格：{tone}"));
+                    }
+                }
+            }
+            
+            prompt.push_str("\n\n请以友好、个性化的方式回答。");
+            prompt
+        }
     }
 }
 

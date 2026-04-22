@@ -79,6 +79,12 @@ impl From<std::io::Error> for RingError {
     }
 }
 
+impl From<serde_json::Error> for RingError {
+    fn from(e: serde_json::Error) -> Self {
+        RingError::Internal(format!("JSON error: {e}"))
+    }
+}
+
 impl IntoResponse for RingError {
     fn into_response(self) -> Response {
         let (status, message) = match &self {
