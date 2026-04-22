@@ -24,6 +24,8 @@ pub struct ChatRequest {
     pub node_refs: Vec<String>,
     #[serde(default)]
     pub tag_refs: Vec<String>,
+    #[serde(default)]
+    pub ephemeral: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,6 +76,8 @@ pub async fn ring_chat(
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }
 
+    let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
+
     let mut rx = chat::start_chat_stream(
         &state,
         &user_row,
@@ -85,6 +89,7 @@ pub async fn ring_chat(
             content: &body.content,
             node_refs: body.node_refs,
             tag_refs: body.tag_refs,
+            ephemeral: body.ephemeral,
         },
     )
     .await?;
@@ -188,6 +193,8 @@ pub async fn self_chat(
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
+    let _ = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await;
+
     let mut rx = chat::start_chat_stream(
         &state,
         &user_row,
@@ -199,6 +206,7 @@ pub async fn self_chat(
             content: &body.content,
             node_refs: body.node_refs,
             tag_refs: body.tag_refs,
+            ephemeral: false,
         },
     )
     .await?;

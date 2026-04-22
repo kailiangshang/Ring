@@ -169,7 +169,7 @@ Ring Hub（用户入口）
 | 2 | **Blueprint/模板系统** | 6.1.2 | ~~模板选择、AI 引导共建图谱、预览确认、%blueprint 命令~~ ✅ |
 | 3 | **通知系统** | 2.10 | ~~数据模型、PR/成员/Session 变更通知、未读列表 UI~~ ✅ |
 | 4 | **导出中心** | 2.8 | ~~聊天记录(Markdown)、会话记录(Markdown)、图谱(JSON)、全 Ring 备份(JSON)、Self/Super 聊天导出~~ ✅ |
-| 5 | **Context 管理** | 2.9 | ~~Token 用量追踪~~ ✅、自动 compact、ephemeral 模式 |
+| 5 | **Context 管理** | 2.9 | ~~Token 用量追踪~~ ✅、~~自动 compact（超过30条自动摘要压缩）~~ ✅、~~ephemeral 模式（临时对话不保存历史）~~ ✅ |
 
 ### AI 自动化
 
