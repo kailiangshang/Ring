@@ -68,6 +68,7 @@ pub async fn submit_setup(state: &AppState, input: SetupRequest) -> Result<Setup
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
         gitlab_token: encrypted_gitlab_token,
+        privacy_filters: None,
     };
     let user = user::create_user(&state.db, &token_id, &create_input).await?;
     set_setup_done(&state.db).await?;
@@ -96,6 +97,7 @@ pub async fn update_setup(
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
         gitlab_token: encrypted_gitlab_token,
+        privacy_filters: None,
     };
     let user = user::update_user(&state.db, token_id, &update_input).await?;
     Ok(SetupResponse {
