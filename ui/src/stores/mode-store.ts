@@ -6,9 +6,12 @@ import { useRingStore } from './ring-store'
 interface ModeState {
   interaction_mode: InteractionMode
   skill_permission_mode: SkillPermissionMode
+  auto_archive: boolean
   syncing: boolean
   setInteractionMode: (mode: InteractionMode) => void
   setSkillMode: (mode: SkillPermissionMode) => void
+  setAutoArchive: (enabled: boolean) => void
+  toggleAutoArchive: () => void
   toggleAuto: () => void
   syncToServer: () => Promise<void>
   fetchFromServer: (ringId: string) => Promise<void>
@@ -18,6 +21,7 @@ interface ModeState {
 export const useModeStore = create<ModeState>((set, get) => ({
   interaction_mode: 'normal',
   skill_permission_mode: 'plan',
+  auto_archive: false,
   syncing: false,
 
   setInteractionMode: (mode) => {
@@ -27,6 +31,16 @@ export const useModeStore = create<ModeState>((set, get) => ({
 
   setSkillMode: (mode) => {
     set({ skill_permission_mode: mode })
+    get().syncToServer()
+  },
+
+  setAutoArchive: (enabled) => {
+    set({ auto_archive: enabled })
+    get().syncToServer()
+  },
+
+  toggleAutoArchive: () => {
+    set({ auto_archive: !get().auto_archive })
     get().syncToServer()
   },
 
@@ -40,10 +54,11 @@ export const useModeStore = create<ModeState>((set, get) => ({
     if (!ringId) return
     set({ syncing: true })
     try {
-      const { interaction_mode, skill_permission_mode } = get()
+      const { interaction_mode, skill_permission_mode, auto_archive } = get()
       await api.put(`/rings/${ringId}/mode`, {
         interaction_mode,
         skill_permission_mode,
+        auto_archive,
       })
     } catch {
       // silent fail — mode is local-first
@@ -53,10 +68,11 @@ export const useModeStore = create<ModeState>((set, get) => ({
 
   fetchFromServer: async (ringId) => {
     try {
-      const res = await api.get<{ interaction_mode: string; skill_permission_mode: string }>(`/rings/${ringId}/mode`)
+      const res = await api.get<{ interaction_mode: string; skill_permission_mode: string; auto_archive: boolean }>(`/rings/${ringId}/mode`)
       set({
         interaction_mode: res.interaction_mode as InteractionMode,
         skill_permission_mode: res.skill_permission_mode as SkillPermissionMode,
+        auto_archive: res.auto_archive,
       })
     } catch {
       // keep defaults
@@ -64,5 +80,5 @@ export const useModeStore = create<ModeState>((set, get) => ({
   },
 
   reset: () =>
-    set({ interaction_mode: 'normal', skill_permission_mode: 'plan' }),
+    set({ interaction_mode: 'normal', skill_permission_mode: 'plan', auto_archive: false }),
 }))

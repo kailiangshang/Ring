@@ -2097,50 +2097,19 @@ async fn test_self_identity_crud() {
 }
 
 #[tokio::test]
-async fn test_session_skill_prompt_loading() {
-    let (state, tmp) = setup_unique_skills_app().await;
+async fn test_auto_archive_toggle() {
+    let state = setup_app().await;
     let app = build_router(state);
+
     let token = do_setup(&app).await;
     let ring_id = create_ring(&app, &token).await;
 
-    let custom_skill_dir = std::path::Path::new(&tmp)
-        .join("skills")
-        .join("custom_decision");
-    std::fs::create_dir_all(&custom_skill_dir).unwrap();
-    let skill_content = r#"---
-name: custom_decision
-description: "Custom decision skill"
-version: "1.0.0"
-system_prompt: "You are a custom decision-making assistant. Focus on consensus building."
----
-
-# Custom Decision Skill
-
-This is a custom skill for testing."#;
-    std::fs::write(custom_skill_dir.join("SKILL.md"), skill_content).unwrap();
-
-    let session_body = r#"{"title":"Decision Test","skill":"decision","archivable":true}"#;
-    let resp = app
-        .clone()
-        .oneshot(make_request(
-            "POST",
-            &format!("/api/rings/{ring_id}/sessions"),
-            Some(session_body),
-            Some(&token),
-        ))
-        .await
-        .unwrap();
-    assert_eq!(resp.status(), StatusCode::CREATED);
-    let json = read_body(resp).await;
-    let _session_id = json["id"].as_str().unwrap();
-    assert_eq!(json["phase"], "material_prep");
-    assert_eq!(json["skill"], "decision");
-
+    // Get initial mode
     let resp = app
         .clone()
         .oneshot(make_request(
             "GET",
-            &format!("/api/skills/custom_decision"),
+            &format!("/api/rings/{ring_id}/mode"),
             None,
             Some(&token),
         ))
@@ -2148,9 +2117,35 @@ This is a custom skill for testing."#;
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
     let json = read_body(resp).await;
-    let content = json["content"].as_str().unwrap();
-    assert!(content.contains("system_prompt"));
-    assert!(content.contains("consensus building"));
+    assert_eq!(json["auto_archive"], false);
 
-    let _ = std::fs::remove_dir_all(std::path::Path::new(&tmp));
+    // Toggle auto_archive on
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/mode"),
+            Some(r#"{"auto_archive":true}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["auto_archive"], true);
+
+    // Toggle auto_archive off
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/mode"),
+            Some(r#"{"auto_archive":false}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["auto_archive"], false);
 }

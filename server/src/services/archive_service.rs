@@ -386,3 +386,176 @@ pub async fn auto_archive_session(
         units.len()
     );
 }
+
+#[allow(clippy::too_many_arguments)]
+pub async fn auto_archive_chat(
+    pool: &SqlitePool,
+    git: &GitService,
+    rings_dir: &std::path::Path,
+    ring_id: &str,
+    user_message: &str,
+    ai_response: &str,
+    user_id: &str,
+    user_row: &crate::models::user::UserRow,
+) {
+    tracing::info!("auto_archive_chat started: ring={ring_id}");
+
+    let system_prompt = "你是一个知识管理助手。分析以下对话内容，判断AI的回复是否值得归档。\n\n值得归档的内容包括：决策记录、结论总结、知识点、调研发现、方案对比、技术方案等。\n不值得归档的内容包括：闲聊、问候、简单确认、无实质内容的回复等。\n\n如果值得归档，返回JSON对象：\n{\"should_archive\": true, \"title\": \"简短标题\", \"content\": \"Markdown格式的归档内容\"}\n\n如果不值得归档，返回：\n{\"should_archive\": false}\n\n返回纯JSON，不要markdown code block。";
+
+    let user_prompt = format!("用户消息：\n{}\n\nAI回复：\n{}", user_message, ai_response);
+
+    let llm = match crate::services::llm::LlmClient::from_user(user_row) {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::warn!("auto_archive_chat failed to create LLM client: {e}");
+            return;
+        }
+    };
+
+    let response = match llm
+        .chat_complete(system_prompt.to_string(), user_prompt)
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("auto_archive_chat LLM call failed: {e}");
+            return;
+        }
+    };
+
+    let cleaned = response.trim();
+    let json_str = if cleaned.starts_with("```") {
+        cleaned
+            .lines()
+            .skip(1)
+            .take_while(|l| !l.starts_with("```"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        cleaned.to_string()
+    };
+
+    #[derive(Debug, serde::Deserialize)]
+    struct ArchiveDecision {
+        should_archive: bool,
+        title: Option<String>,
+        content: Option<String>,
+    }
+
+    let decision: ArchiveDecision = match serde_json::from_str(&json_str) {
+        Ok(d) => d,
+        Err(e) => {
+            tracing::warn!("auto_archive_chat failed to parse LLM JSON: {e}\nraw: {json_str}");
+            return;
+        }
+    };
+
+    if !decision.should_archive {
+        tracing::info!("auto_archive_chat: content not worth archiving");
+        return;
+    }
+
+    let title = match decision.title {
+        Some(t) => t,
+        None => {
+            tracing::warn!("auto_archive_chat: missing title in decision");
+            return;
+        }
+    };
+
+    let content = match decision.content {
+        Some(c) => c,
+        None => {
+            tracing::warn!("auto_archive_chat: missing content in decision");
+            return;
+        }
+    };
+
+    let role = match crate::models::ring::get_user_role(pool, ring_id, user_id).await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!("auto_archive_chat failed to get user role: {e}");
+            return;
+        }
+    };
+
+    let is_creator = role == "creator" || role == "admin";
+    let title_with_ts = format!("{}_{}", chrono::Utc::now().format("%H%M%S"), title);
+
+    if is_creator {
+        match archive_content_creator(
+            pool,
+            git,
+            rings_dir,
+            ring_id,
+            None,
+            None,
+            &content,
+            &title_with_ts,
+            user_id,
+        )
+        .await
+        {
+            Ok(_) => {
+                tracing::info!("auto_archive_chat: archived '{}'", title);
+            }
+            Err(e) => {
+                tracing::warn!("auto_archive_chat failed to archive: {e}");
+            }
+        }
+    } else {
+        let repo_url = match sqlx::query_scalar::<_, Option<String>>(
+            "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
+        )
+        .bind(ring_id)
+        .fetch_one(pool)
+        .await
+        {
+            Ok(url) => url,
+            Err(e) => {
+                tracing::warn!("auto_archive_chat failed to get repo url: {e}");
+                return;
+            }
+        };
+
+        let (gitlab_url, gitlab_token) = match (&user_row.gitlab_url, &user_row.gitlab_token) {
+            (Some(url), Some(token)) => (url.clone(), token.clone()),
+            _ => {
+                tracing::warn!("auto_archive_chat: GitLab not configured for member");
+                return;
+            }
+        };
+
+        match repo_url {
+            Some(url) => {
+                let gitlab =
+                    crate::services::gitlab_service::GitLabClient::new(&gitlab_url, &gitlab_token);
+                match archive_content_member(
+                    pool,
+                    git,
+                    &gitlab,
+                    rings_dir,
+                    ring_id,
+                    &url,
+                    None,
+                    None,
+                    &content,
+                    &title_with_ts,
+                    user_id,
+                )
+                .await
+                {
+                    Ok(_) => {
+                        tracing::info!("auto_archive_chat: created MR for '{}'", title);
+                    }
+                    Err(e) => {
+                        tracing::warn!("auto_archive_chat failed to create MR: {e}");
+                    }
+                }
+            }
+            None => {
+                tracing::warn!("auto_archive_chat: no GitLab repo configured");
+            }
+        }
+    }
+}

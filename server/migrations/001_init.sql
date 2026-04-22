@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS rings (
     role_description TEXT,
     interaction_mode TEXT NOT NULL DEFAULT 'normal',
     skill_permission_mode TEXT NOT NULL DEFAULT 'plan',
+    auto_archive BOOLEAN NOT NULL DEFAULT 0,
     blueprint_status TEXT NOT NULL DEFAULT 'pending',
     gitlab_repo_url TEXT,
     gitlab_namespace TEXT,

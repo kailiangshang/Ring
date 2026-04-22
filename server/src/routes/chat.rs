@@ -87,10 +87,7 @@ pub async fn ring_chat(
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }
 
-    let (_token_count, should_compact) = chat::check_token_threshold(&state, &user_row, Some(&ring_id)).await.unwrap_or((0, false));
-    if should_compact {
-        let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
-    }
+    let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -115,6 +112,7 @@ pub async fn ring_chat(
     let user_row_c = user_row.clone();
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
+    let user_message = body.content.clone();
     let _ =
         crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
@@ -152,25 +150,47 @@ pub async fn ring_chat(
                         },
                     ).await;
 
-                    if let Some(ref usage_str) = token_usage {
-                        if let Ok(usage) = serde_json::from_str::<serde_json::Value>(usage_str) {
-                            let total: i64 = usage.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0);
-                            if total > 0 {
-                                let _ = crate::models::conversation_token::add_tokens(
-                                    &pool, &user_id, Some(&ring_id_c), total
-                                ).await;
-                            }
-                        }
-                    }
-
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
-                    let user_id = user_id.clone();
+                    let user_id_for_doc = user_id.clone();
                     let user_row = user_row_c.clone();
                     tokio::spawn(async move {
                         let _ = crate::services::group_doc_maintenance::update_active_context(
-                            &state, &ring_id, &user_id, &user_row
+                            &state, &ring_id, &user_id_for_doc, &user_row
                         ).await;
+                    });
+
+                    // Auto-archive check
+                    let pool_auto = pool.clone();
+                    let ring_id_auto = ring_id_c.clone();
+                    let user_id_auto = user_id.clone();
+                    let user_row_auto = user_row_c.clone();
+                    let content_auto = full_content.clone();
+                    let user_message_auto = user_message.clone();
+                    let rings_dir_auto = state_c.rings_dir.clone();
+                    tokio::spawn(async move {
+                        let auto_archive: bool = sqlx::query_scalar(
+                            "SELECT auto_archive FROM rings WHERE id = ?1",
+                        )
+                        .bind(&ring_id_auto)
+                        .fetch_one(&pool_auto)
+                        .await
+                        .unwrap_or(false);
+
+                        if auto_archive {
+                            let git = crate::services::git_service::GitService::new();
+                            crate::services::archive_service::auto_archive_chat(
+                                &pool_auto,
+                                &git,
+                                &rings_dir_auto,
+                                &ring_id_auto,
+                                &user_message_auto,
+                                &content_auto,
+                                &user_id_auto,
+                                &user_row_auto,
+                            )
+                            .await;
+                        }
                     });
                 }
                 SseEvent::Error(msg) => {
@@ -219,10 +239,7 @@ pub async fn self_chat(
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
-    let (_token_count, should_compact) = chat::check_token_threshold(&state, &user_row, None).await.unwrap_or((0, false));
-    if should_compact {
-        let _ = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await;
-    }
+    let _ = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await;
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -279,17 +296,6 @@ pub async fn self_chat(
                             token_usage: token_usage.as_deref(),
                         },
                     ).await;
-
-                    if let Some(ref usage_str) = token_usage {
-                        if let Ok(usage) = serde_json::from_str::<serde_json::Value>(usage_str) {
-                            let total: i64 = usage.get("total_tokens").and_then(|v| v.as_i64()).unwrap_or(0);
-                            if total > 0 {
-                                let _ = crate::models::conversation_token::add_tokens(
-                                    &pool, &user_id, None, total
-                                ).await;
-                            }
-                        }
-                    }
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });
