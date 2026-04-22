@@ -12,6 +12,27 @@ import { useSessionStore } from './session-store'
 import { useRingStore } from './ring-store'
 import { useAppStore } from './app-store'
 import { useGraphStore } from './graph-store'
+import { useInviteStore } from './invite-store'
+
+function getCommandHelp(command: string): string {
+  const helpMap: Record<string, string> = {
+    graph: '### /graph\n\nOpen the graph panel to view and edit the knowledge graph.\n\n**Usage:** `/graph`',
+    archive: '### /archive\n\nOpen the archive panel to view archived conversations.\n\n**Usage:** `/archive`',
+    config: '### /config\n\nOpen the configuration panel.\n\n**Usage:** `/config`',
+    session: '### /session\n\nSession operations.\n\n**Usage:**\n- `/session` - Open session panel\n- `/session create <title>` - Create new session\n- `/session close` - Close current session\n- `/session start` - Start discussion\n- `/session summarize` - AI summary',
+    new: '### /new\n\nCreate a new Ring.\n\n**Usage:** `/new <ring-name>`',
+    save: '### /save\n\nArchive the current conversation.\n\n**Usage:** `/save [optional-title]`',
+    node: '### /node\n\nGraph node operations.\n\n**Usage:**\n- `/node add <name>` - Add new node\n- `/node link <from> <to>` - Link two nodes',
+    mode: '### /mode\n\nSet interaction mode.\n\n**Usage:** `/mode [auto/normal]`',
+    prefs: '### /prefs\n\nManage preferences.\n\n**Usage:**\n- `/prefs` - Show preferences\n- `/prefs set <key> <value>` - Set preference',
+    skill: '### /skill\n\nManage skills.\n\n**Usage:**\n- `/skill list` - List skills\n- `/skill install <name> <url>` - Install skill\n- `/skill remove <name>` - Remove skill',
+    members: '### /members\n\nShow member list.\n\n**Usage:** `/members`',
+    invite: '### /invite\n\nCreate invitation tokens.\n\n**Usage:**\n- `/invite open` - Open invitation\n- `/invite audit` - Audit invitation',
+    help: '### /help\n\nShow help information.\n\n**Usage:**\n- `/help` - Show all commands\n- `/help <command>` - Show specific command help',
+  }
+
+  return helpMap[command] || `No help available for command: ${command}`
+}
 
 const PREFS_KEY_MAP: Record<string, { section: string; key: string }> = {
   language: { section: '语言', key: 'default' },
@@ -184,7 +205,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const parsed = parseCommand(input)
 
     const isUICommand = parsed && parsed.every(
-      (cmd) => cmd.type === 'action' || cmd.type === 'prefs' || cmd.type === 'skill' || cmd.type === 'help' || (cmd.type === 'address' && cmd.target === 'self')
+      (cmd) => cmd.type === 'action' || cmd.type === 'help' || (cmd.type === 'address' && cmd.target === 'self')
     )
 
     if (parsed) {
@@ -192,34 +213,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
         switch (cmd.type) {
           case 'action': {
             if (cmd.action === 'graph') usePanelStore.getState().toggle('graph')
-            else if (cmd.action === 'archive') {
-              const sub = cmd.args?.split(/\s+/)[0]
-              if (sub === 'list' || sub === 'queue') {
-                usePanelStore.getState().toggle('archive')
-              } else if (sub === 'review') {
-                const parts = cmd.args?.split(/\s+/)
-                const reviewId = parts?.[1]
-                const reviewAction = parts?.[2] as 'merge' | 'reject' | undefined
+            else if (cmd.action === 'archive') usePanelStore.getState().toggle('archive')
+            else if (cmd.action === 'config') usePanelStore.getState().toggle('config')
+            else if (cmd.action === 'session') {
+              if (cmd.subcommand === 'create') {
+                const title = cmd.args.trim()
                 const rid = useRingStore.getState().active_ring_id
-                if (reviewId && reviewAction && rid) {
-                  useArchiveStore.getState().reviewArchive(rid, reviewId, reviewAction)
-                  addMessage({
-                    id: `sys-${Date.now()}`,
-                    role: 'system',
-                    sender_name: 'SYSTEM',
-                    content: `MR ${reviewId} ${reviewAction === 'merge' ? 'merged' : 'rejected'}`,
-                    created_at: new Date().toISOString(),
-                  })
+                if (title && rid) {
+                  useSessionStore.getState().createSession(rid, title)
+                }
+              } else if (cmd.subcommand === 'close') {
+                const sid = useSessionStore.getState().active_session?.id
+                const rid = useRingStore.getState().active_ring_id
+                if (sid && rid) {
+                  useSessionStore.getState().closeSession(rid, sid)
+                }
+              } else if (cmd.subcommand === 'start') {
+                const sid = useSessionStore.getState().active_session?.id
+                const rid = useRingStore.getState().active_ring_id
+                if (sid && rid) {
+                  useSessionStore.getState().startSession(rid, sid)
+                }
+              } else if (cmd.subcommand === 'summarize') {
+                const sid = useSessionStore.getState().active_session?.id
+                const rid = useRingStore.getState().active_ring_id
+                if (sid && rid) {
+                  useSessionStore.getState().summarizeSession(rid, sid)
                 }
               } else {
-                usePanelStore.getState().toggle('archive')
+                usePanelStore.getState().toggle('session')
               }
             }
-            else if (cmd.action === 'config') usePanelStore.getState().toggle('config')
-            else if (cmd.action === 'session') usePanelStore.getState().toggle('session')
-            else if (cmd.action === 'auto') useModeStore.getState().toggleAuto()
             else if (cmd.action === 'new') {
-              const name = cmd.args
+              const name = cmd.args.trim()
               if (name) {
                 useRingStore.getState().createRing(name, `You are a ${name} assistant`)
               }
@@ -229,7 +255,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               const sid = useSessionStore.getState().active_session?.id
               const msgs = get().messages.filter((m) => m.role === 'user' || m.role === 'group_ring')
               const lastUserMsg = [...msgs].reverse().find((m) => m.role === 'user')
-              const title = cmd.args || lastUserMsg?.content.slice(0, 40) || 'untitled'
+              const title = cmd.args.trim() || lastUserMsg?.content.slice(0, 40) || 'untitled'
               const content = msgs.slice(-6).map((m) => `${m.sender_name}: ${m.content}`).join('\n')
               if (rid) {
                 useArchiveStore.getState().triggerArchive(rid, content, title, sid)
@@ -243,10 +269,71 @@ export const useChatStore = create<ChatState>((set, get) => ({
               }
             }
             else if (cmd.action === 'node') {
-              const name = cmd.args
-              const rid = useRingStore.getState().active_ring_id
-              if (name && rid) {
-                useGraphStore.getState().createNode(rid, name)
+              if (cmd.subcommand === 'add') {
+                const name = cmd.args.trim()
+                const rid = useRingStore.getState().active_ring_id
+                if (name && rid) {
+                  useGraphStore.getState().createNode(rid, name)
+                }
+              } else if (cmd.subcommand === 'link') {
+                const parts = cmd.args.trim().split(/\s+/)
+                const from = parts[0]
+                const to = parts[1]
+                const rid = useRingStore.getState().active_ring_id
+                if (from && to && rid) {
+                  useGraphStore.getState().linkNodes(rid, from, to)
+                }
+              }
+            }
+            else if (cmd.action === 'mode') {
+              const mode = cmd.args.trim()
+              if (mode === 'auto' || mode === 'normal') {
+                useModeStore.getState().setInteractionMode(mode)
+              }
+            }
+            else if (cmd.action === 'prefs') {
+              if (cmd.subcommand === 'set') {
+                const parts = cmd.args.trim().split(/\s+/)
+                const key = parts[0]
+                const value = parts.slice(1).join(' ')
+                if (key && value) {
+                  handlePrefsSet(key, value, addMessage)
+                }
+              } else {
+                handlePrefsShow(addMessage)
+              }
+            }
+            else if (cmd.action === 'skill') {
+              if (cmd.subcommand === 'install') {
+                const parts = cmd.args.trim().split(/\s+/)
+                const name = parts[0]
+                const url = parts[1]
+                if (name && url) {
+                  handleSkillInstall(name, url, addMessage)
+                }
+              } else if (cmd.subcommand === 'remove') {
+                const name = cmd.args.trim()
+                if (name) {
+                  handleSkillRemove(name, addMessage)
+                }
+              } else {
+                handleSkillList(addMessage)
+              }
+            }
+            else if (cmd.action === 'members') {
+              usePanelStore.getState().toggle('members')
+            }
+            else if (cmd.action === 'invite') {
+              if (cmd.subcommand === 'open') {
+                const rid = useRingStore.getState().active_ring_id
+                if (rid) {
+                  useInviteStore.getState().createToken(rid, 'open')
+                }
+              } else if (cmd.subcommand === 'audit') {
+                const rid = useRingStore.getState().active_ring_id
+                if (rid) {
+                  useInviteStore.getState().createToken(rid, 'audit')
+                }
               }
             }
             break
@@ -260,42 +347,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 setTimeout(() => useSelfChatStore.getState().send(), 0)
               }
             }
-            break
-          }
-          case 'meta': {
-            if (cmd.key === 'mode' && cmd.value) useModeStore.getState().setInteractionMode(cmd.value as 'normal' | 'auto')
-            else if (cmd.key === 'skill' && cmd.value) useModeStore.getState().setSkillMode(cmd.value as 'auto' | 'plan' | 'edit')
-            break
-          }
-          case 'prefs': {
-            if (cmd.subcommand === 'set' && cmd.key && cmd.value) {
-              handlePrefsSet(cmd.key, cmd.value, addMessage)
-            } else {
-              handlePrefsShow(addMessage)
+            else if (cmd.target === 'ring') {
+              // Switch to ring context and send message
+              useAppStore.getState().setContext('ring')
+            }
+            else if (cmd.target === 'super') {
+              // Switch to super context and send message
+              useAppStore.getState().setContext('super')
+            }
+            else if (cmd.target === 'node') {
+              // Node reference - handled in message sending
             }
             break
           }
-          case 'skill': {
-            if (cmd.subcommand === 'install' && cmd.name && cmd.url) {
-              handleSkillInstall(cmd.name, cmd.url, addMessage)
-            } else if (cmd.subcommand === 'remove' && cmd.name) {
-              handleSkillRemove(cmd.name, addMessage)
+          case 'help': {
+            const targetCmd = cmd.command
+            if (targetCmd) {
+              addMessage({
+                id: `sys-help-${Date.now()}`,
+                role: 'system',
+                sender_name: 'SYSTEM',
+                content: getCommandHelp(targetCmd),
+                created_at: new Date().toISOString(),
+              })
             } else {
-              handleSkillList(addMessage)
+              addMessage({
+                id: `sys-help-${Date.now()}`,
+                role: 'system',
+                sender_name: 'SYSTEM',
+                content: `## Commands\n\n### Environment (/ prefix)\n| Command | Description |\n|---------|-------------|\n| /graph | Open graph panel |\n| /archive | Open archive panel |\n| /config | Open config panel |\n| /session [create/close/start/summarize] | Session operations |\n| /new <name> | Create new ring |\n| /save | Archive conversation |\n| /node [add/link] | Graph node operations |\n| /mode [auto/normal] | Set interaction mode |\n| /prefs [set key value] | Show/set preferences |\n| /skill [list/install/remove] | Manage skills |\n| /members | Show members |\n| /invite [open/audit] | Create invite |\n| /help [command] | Show help |\n\n### Addressing (@ prefix)\n| Command | Description |\n|---------|-------------|\n| @self [message] | Talk to Self |\n| @ring [message] | Talk to Ring AI |\n| @super [message] | Talk to Super Ring |\n| @node <name> | Reference graph node |`,
+                created_at: new Date().toISOString(),
+              })
             }
             break
           }
-          case 'reference':
-            break
-          case 'help':
-            addMessage({
-              id: `sys-help-${Date.now()}`,
-              role: 'system',
-              sender_name: 'SYSTEM',
-              content: `## Commands\n\n| Prefix | Command | Description |\n|--------|---------|-------------|\n| \`/\` or \`!\` | /graph | Open graph panel |\n| \`/\` or \`!\` | /archive | Open archive panel |\n| \`/\` or \`!\` | /config | Open config panel |\n| \`/\` or \`!\` | /session | Open session panel |\n| \`/\` or \`!\` | /new <name> | Create new ring |\n| \`/\` or \`!\` | /save | Archive conversation |\n| \`/\` or \`!\` | /node <name> | Add graph node |\n| \`/\` or \`!\` | /auto | Toggle auto mode |\n| \`/\` or \`%\` | /prefs | Show/set preferences |\n| \`/\` or \`%\` | /skill | Manage skills |\n| \`/\` or \`%\` | /mode | Set interaction mode |\n| \`/\` or \`@\` | /self | Talk to Self |\n| \`/\` | /help | Show this help |\n| \`#\` | #nodename | Reference graph node |`,
-              created_at: new Date().toISOString(),
-            })
-            break
         }
       }
     }
