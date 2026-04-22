@@ -11,7 +11,6 @@ use crate::extractors::AuthUser;
 use crate::models::ring;
 use crate::models::session as session_model;
 use crate::models::session::{ArchiveToggleInput, CreateSessionInput, InviteParticipantsInput};
-use crate::models::user;
 use crate::services::llm::SseEvent;
 use crate::services::session;
 use crate::state::AppState;
@@ -151,7 +150,7 @@ pub async fn summarize_session(
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
-    let user_row = user::get_user(&state.db, &user.token_id).await?;
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _ = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if !session_model::is_owner(&state.db, &session_id, &user.token_id).await? {
         return Err(RingError::Forbidden("only owner can summarize".into()));

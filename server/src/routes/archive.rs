@@ -54,6 +54,7 @@ pub async fn trigger_archive(
     let session_id = body.session_id.clone();
     let token_id = user.token_id.clone();
     let ring_id_c = ring_id.clone();
+    let state_c = state.clone();
 
     tokio::spawn(async move {
         let git = GitService::new();
@@ -92,7 +93,7 @@ pub async fn trigger_archive(
             .ok()
             .flatten();
 
-            let user_row = crate::models::user::get_user(&pool, &token_id).await;
+            let user_row = state_c.get_user_decrypted(&token_id).await;
             let (gitlab_url, gitlab_token) = match user_row {
                 Ok(u) => (u.gitlab_url.clone(), u.gitlab_token.clone()),
                 Err(_) => (None, None),
@@ -176,7 +177,7 @@ pub async fn review_archive(
         return Err(RingError::Forbidden("only creator/admin can review".into()));
     }
 
-    let user_row = crate::models::user::get_user(&state.db, &user.token_id).await?;
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
     let (gitlab_url, gitlab_token) = match (user_row.gitlab_url, user_row.gitlab_token) {
         (Some(url), Some(token)) => (url, token),
         _ => return Err(RingError::GitlabNotConfigured),

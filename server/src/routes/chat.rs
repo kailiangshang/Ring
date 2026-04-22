@@ -9,7 +9,6 @@ use crate::error::{Result, RingError};
 use crate::extractors::auth::AuthUser;
 use crate::models::message;
 use crate::models::ring;
-use crate::models::user;
 use crate::services::{
     chat::{self, ChatParams},
     llm::SseEvent,
@@ -48,7 +47,7 @@ pub async fn ring_chat(
     Path(ring_id): Path<String>,
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
-    let user_row = user::get_user(&state.db, &user.token_id).await?;
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
     let ring_info = sqlx::query_as::<_, (String, Option<String>)>(
@@ -157,7 +156,7 @@ pub async fn self_chat(
     user: AuthUser,
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
-    let user_row = user::get_user(&state.db, &user.token_id).await?;
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
 
     let mut rx = chat::start_chat_stream(
         &state,

@@ -9,7 +9,6 @@ use std::pin::Pin;
 use crate::error::Result;
 use crate::extractors::auth::AuthUser;
 use crate::models::message;
-use crate::models::user;
 use crate::services::{llm::SseEvent, super_chat};
 use crate::state::AppState;
 
@@ -65,7 +64,7 @@ pub async fn super_chat_handler(
     user: AuthUser,
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<KeepAliveStream<BoxedSseStream>>> {
-    let user_row = user::get_user(&state.db, &user.token_id).await?;
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
     let mut rx = super_chat::stream_super_chat(state, user_row, body.content);
 
     let s: BoxedSseStream = Box::pin(stream! {

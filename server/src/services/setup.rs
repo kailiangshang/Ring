@@ -56,15 +56,18 @@ pub async fn submit_setup(state: &AppState, input: SetupRequest) -> Result<Setup
     }
 
     let token_id = format!("user-{}", Ulid::new());
+    let encrypted_api_key = input.llm_api_key.map(|k| state.encryption.encrypt(&k));
+    let encrypted_gitlab_token = input.gitlab_token.map(|t| state.encryption.encrypt(&t));
+
     let create_input = user::CreateUser {
         display_name: input.display_name,
         avatar: input.avatar,
         llm_provider: input.llm_provider,
-        llm_api_key: input.llm_api_key,
+        llm_api_key: encrypted_api_key,
         llm_model: input.llm_model,
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
-        gitlab_token: input.gitlab_token,
+        gitlab_token: encrypted_gitlab_token,
     };
     let user = user::create_user(&state.db, &token_id, &create_input).await?;
     set_setup_done(&state.db).await?;
@@ -81,15 +84,18 @@ pub async fn update_setup(
     token_id: &str,
     input: SetupRequest,
 ) -> Result<SetupResponse> {
+    let encrypted_api_key = input.llm_api_key.map(|k| state.encryption.encrypt(&k));
+    let encrypted_gitlab_token = input.gitlab_token.map(|t| state.encryption.encrypt(&t));
+
     let update_input = user::UpdateUser {
         display_name: Some(input.display_name),
         avatar: input.avatar,
         llm_provider: Some(input.llm_provider),
-        llm_api_key: input.llm_api_key,
+        llm_api_key: encrypted_api_key,
         llm_model: input.llm_model,
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
-        gitlab_token: input.gitlab_token,
+        gitlab_token: encrypted_gitlab_token,
     };
     let user = user::update_user(&state.db, token_id, &update_input).await?;
     Ok(SetupResponse {
