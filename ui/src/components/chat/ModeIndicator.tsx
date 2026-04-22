@@ -7,6 +7,7 @@ import { ModeSelector } from './ModeSelector'
 export function ModeIndicator() {
   const context = useAppStore((s) => s.current_context)
   const interaction_mode = useModeStore((s) => s.interaction_mode)
+  const auto_archive = useModeStore((s) => s.auto_archive)
   const syncing = useModeStore((s) => s.syncing)
   const fetchFromServer = useModeStore((s) => s.fetchFromServer)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
@@ -42,6 +43,9 @@ export function ModeIndicator() {
         [{label}
         {interaction_mode === 'auto' && context !== 'super' && (
           <span style={{ color: 'var(--accent-amber)' }}>·auto</span>
+        )}
+        {auto_archive && context !== 'super' && (
+          <span style={{ color: 'var(--accent-green)' }}>·arch</span>
         )}
         ]
       </button>
