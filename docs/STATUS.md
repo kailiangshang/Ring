@@ -175,7 +175,7 @@ Ring Hub（用户入口）
 
 | # | 功能 | PRD 章节 | 说明 |
 |---|------|----------|------|
-| 6 | **`.group/` AI 自动维护** | 2.6 | active-context、archive-patterns、corrections、knowledge-summary 自动更新 |
+| 6 | **`.group/` AI 自动维护** | 2.6 | ~~active-context（聊天后）、archive-patterns（归档后）、corrections（拒绝归档时）、knowledge-summary（图谱变更后）自动更新~~ ✅ |
 | 7 | **Session 材料准备** | 2.12 | AI 根据 Skill 自动收集/生成材料（API 在但逻辑未实现） |
 | 8 | **Graph 对话修正** | 6.8 | "删掉那个节点"→ AI 执行变更并提交 |
 

@@ -77,6 +77,8 @@ pub async fn ring_chat(
     let pool = state.db.clone();
     let ring_id_c = ring_id.clone();
     let user_id = user.token_id.clone();
+    let state_c = state.clone();
+    let user_row_c = user_row.clone();
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -111,6 +113,16 @@ pub async fn ring_chat(
                             token_usage: token_usage.as_deref(),
                         },
                     ).await;
+
+                    let state = state_c.clone();
+                    let ring_id = ring_id_c.clone();
+                    let user_id = user_id.clone();
+                    let user_row = user_row_c.clone();
+                    tokio::spawn(async move {
+                        let _ = crate::services::group_doc_maintenance::update_active_context(
+                            &state, &ring_id, &user_id, &user_row
+                        ).await;
+                    });
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });

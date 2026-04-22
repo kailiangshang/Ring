@@ -7,7 +7,7 @@ use std::convert::Infallible;
 
 use crate::error::{Result, RingError};
 use crate::extractors::auth::AuthUser;
-use crate::models::archive::{self, CreateArchiveInput, ReviewInput};
+use crate::models::archive::{self, CreateArchiveInput, ReviewAction, ReviewInput};
 use crate::models::ring;
 use crate::services::archive_service::{self, ArchiveStep};
 use crate::services::git_service::GitService;
@@ -78,6 +78,19 @@ pub async fn trigger_archive(
             {
                 Ok(_) => {
                     let _ = tx.send(ArchiveStep::Complete).await;
+
+                    let state = state_c.clone();
+                    let ring_id = ring_id_c.clone();
+                    let user_row = match state.get_user_decrypted(&token_id).await {
+                        Ok(u) => u,
+                        Err(_) => return,
+                    };
+                    let archive_detail = format!("Title: {}\nContent preview: {}...", title, &content[..content.len().min(200)]);
+                    tokio::spawn(async move {
+                        let _ = crate::services::group_doc_maintenance::update_archive_patterns(
+                            &state, &ring_id, &user_row, &archive_detail,
+                        ).await;
+                    });
                 }
                 Err(e) => {
                     tracing::error!("archive failed: {e}");
@@ -205,6 +218,16 @@ pub async fn review_archive(
         body.action,
     )
     .await?;
+
+    if let ReviewAction::Reject = body.action {
+        let detail = format!(
+            "归档 {} 被拒绝（文件: {}）",
+            archive_id, record.file_name
+        );
+        let _ = crate::services::group_doc_maintenance::add_correction(
+            &state, &ring_id, &detail,
+        ).await;
+    }
 
     Ok(Json(record))
 }

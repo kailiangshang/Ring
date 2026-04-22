@@ -46,7 +46,7 @@ pub struct ReviewInput {
     pub action: ReviewAction,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum ReviewAction {
     Merge,

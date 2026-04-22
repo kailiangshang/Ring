@@ -26,6 +26,17 @@ pub async fn create_node_handler(
 ) -> Result<Json<crate::models::graph::GraphNodeRow>> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let node = services::graph::create_node(&state, &ring_id, &body).await?;
+
+    let state_c = state.clone();
+    let ring_id_c = ring_id.clone();
+    tokio::spawn(async move {
+        if let Ok(user_row) = state_c.get_user_decrypted(&user.token_id).await {
+            let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
+                &state_c, &ring_id_c, &user_row
+            ).await;
+        }
+    });
+
     Ok(Json(node))
 }
 
@@ -51,6 +62,18 @@ pub async fn delete_node(
         ));
     }
     services::graph::delete_node(&state, &node_id).await?;
+
+    let state_c = state.clone();
+    let ring_id_c = ring_id.clone();
+    let user_id = user.token_id.clone();
+    tokio::spawn(async move {
+        if let Ok(user_row) = state_c.get_user_decrypted(&user_id).await {
+            let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
+                &state_c, &ring_id_c, &user_row
+            ).await;
+        }
+    });
+
     Ok(Json(serde_json::json!({"status": "deleted"})))
 }
 

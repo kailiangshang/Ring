@@ -3,7 +3,7 @@ use sqlx::FromRow;
 
 use crate::error::{Result, RingError};
 
-#[derive(Debug, FromRow, Serialize)]
+#[derive(Debug, FromRow, Serialize, Clone)]
 pub struct UserRow {
     pub token_id: String,
     pub display_name: String,

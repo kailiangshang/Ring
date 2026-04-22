@@ -17,3 +17,4 @@ pub mod super_chat;
 pub mod blueprint;
 pub mod blueprint_service;
 pub mod encryption;
+pub mod group_doc_maintenance;
