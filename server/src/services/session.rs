@@ -9,6 +9,7 @@ use crate::models::session::{
 };
 use crate::models::user;
 use crate::services::llm::{LlmClient, SseEvent};
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const VALID_SKILLS: &[&str] = &[
@@ -407,9 +408,16 @@ pub fn start_summarize_stream(
     let system_prompt = crate::services::skill::build_summary_system_prompt(&ctx.skill)
         .unwrap_or_else(|| "Summarize the following discussion.".to_string());
 
+    let filters = user_row
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_messages = apply_filters(&ctx.messages_text, &filters);
+
     let user_message = format!(
         "Here is the discussion transcript:\n\n{}\n\nPlease generate the summary.",
-        ctx.messages_text
+        filtered_messages
     );
 
     let llm = LlmClient::from_user(user_row)?;
