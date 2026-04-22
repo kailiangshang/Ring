@@ -3,6 +3,7 @@ use crate::models::graph;
 use crate::models::session;
 use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const MATERIAL_PREP_PROMPT: &str = r#"你正在为一场会议准备材料。请根据以下会议主题、Skill 类型和群组上下文，生成 3-5 条会议准备材料。
@@ -36,9 +37,18 @@ pub async fn generate_materials(
         .collect::<Vec<_>>()
         .join("\n");
 
+    let filters = user
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_title = apply_filters(title, &filters);
+    let filtered_description = apply_filters(description, &filters);
+    let filtered_context = apply_filters(&context, &filters);
+
     let prompt = format!(
         "{}\nSkill: {}\n标题: {}\n描述: {}\n\n群组图谱上下文:\n{}",
-        MATERIAL_PREP_PROMPT, skill, title, description, context
+        MATERIAL_PREP_PROMPT, skill, filtered_title, filtered_description, filtered_context
     );
 
     let llm = LlmClient::from_user(user)?;
