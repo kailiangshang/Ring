@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useGraphStore } from '../../stores/graph-store'
 import { useRingStore } from '../../stores/ring-store'
 import { GraphCanvas } from './GraphCanvas'
@@ -13,10 +13,11 @@ export function GraphPanel() {
   const createNode = useGraphStore((s) => s.createNode)
   const deleteNode = useGraphStore((s) => s.deleteNode)
   const selectNode = useGraphStore((s) => s.selectNode)
-
-  const [newNodeLabel, setNewLabel] = useState('')
   const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
   const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
+
+  const [newNodeLabel, setNewLabel] = useState('')
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (active_ring_id) {
@@ -24,12 +25,35 @@ export function GraphPanel() {
     }
   }, [active_ring_id, fetchGraph])
 
+  // Extract all unique tags
+  const allTags = useMemo(() => {
+    const tags = new Set<string>()
+    nodes.forEach((n) => n.tags.forEach((t) => tags.add(t)))
+    return Array.from(tags).sort()
+  }, [nodes])
+
+  // Filter nodes by selected tags
+  const filteredNodes = useMemo(() => {
+    if (selectedTags.size === 0) return nodes
+    return nodes.filter((n) => n.tags.some((t) => selectedTags.has(t)))
+  }, [nodes, selectedTags])
+
   const selectedNode = nodes.find((n) => n.id === selected_node_id)
 
   const handleCreateNode = () => {
     if (!newNodeLabel.trim() || !active_ring_id) return
     createNode(active_ring_id, newNodeLabel.trim())
     setNewLabel('')
+  }
+
+  const toggleTag = (tag: string) => {
+    const newTags = new Set(selectedTags)
+    if (newTags.has(tag)) {
+      newTags.delete(tag)
+    } else {
+      newTags.add(tag)
+    }
+    setSelectedTags(newTags)
   }
 
   if (loading) {
@@ -81,14 +105,56 @@ export function GraphPanel() {
             +Node
           </button>
         </div>
+
+        {/* Tag filter */}
+        {allTags.length > 0 && (
+          <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Filter:</span>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => toggleTag(tag)}
+                style={{
+                  fontSize: 9,
+                  padding: '1px 6px',
+                  borderRadius: 2,
+                  border: '1px solid var(--border)',
+                  background: selectedTags.has(tag) ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                  color: selectedTags.has(tag) ? 'var(--bg-base)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+            {selectedTags.size > 0 && (
+              <button
+                onClick={() => setSelectedTags(new Set())}
+                style={{
+                  fontSize: 9,
+                  padding: '1px 6px',
+                  borderRadius: 2,
+                  border: 'none',
+                  background: 'none',
+                  color: 'var(--accent-amber)',
+                  cursor: 'pointer',
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+
         <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)' }}>
-          {nodes.length} nodes · {edges.length} edges
+          {filteredNodes.length} / {nodes.length} nodes · {edges.length} edges
+          {selectedTags.size > 0 && ` · ${selectedTags.size} tag filter${selectedTags.size > 1 ? 's' : ''} active`}
         </div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
         <GraphCanvas
-          nodes={nodes}
+          nodes={filteredNodes}
           edges={edges}
           selectedNodeId={selected_node_id}
           collapsedNodes={collapsed_nodes}
