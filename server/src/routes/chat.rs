@@ -2,6 +2,8 @@ use async_stream::stream;
 use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
+use futures_util::stream::BoxStream;
+use futures_util::StreamExt;
 use serde::Deserialize;
 use std::convert::Infallible;
 
@@ -46,7 +48,7 @@ pub async fn ring_chat(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<ChatRequest>,
-) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
+) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
@@ -58,6 +60,19 @@ pub async fn ring_chat(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
+
+    if let Ok(Some(result)) = crate::services::graph_chat_command::try_handle_graph_command(
+        &state, &ring_id, &user_row, &body.content,
+    ).await {
+        let result_clone = result.clone();
+        let s = stream! {
+            let message_id = ulid::Ulid::new().to_string();
+            yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
+            yield Ok(Event::default().event("delta").data(serde_json::json!({"content": result_clone}).to_string()));
+            yield Ok(Event::default().event("message_end").data(serde_json::json!({"message_id": message_id, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}).to_string()));
+        }.boxed();
+        return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
+    }
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -130,7 +145,7 @@ pub async fn ring_chat(
                 }
             }
         }
-    };
+    }.boxed();
 
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
 }

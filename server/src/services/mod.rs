@@ -4,6 +4,7 @@ pub mod config;
 pub mod git_service;
 pub mod gitlab_service;
 pub mod graph;
+pub mod graph_chat_command;
 pub mod invite;
 pub mod llm;
 pub mod material_prep;
