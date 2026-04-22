@@ -220,7 +220,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 const title = cmd.args.trim()
                 const rid = useRingStore.getState().active_ring_id
                 if (title && rid) {
-                  useSessionStore.getState().createSession(rid, title)
+                  useSessionStore.getState().createSession({ title, skill: 'decision' })
                 }
               } else if (cmd.subcommand === 'close') {
                 const sid = useSessionStore.getState().active_session?.id
@@ -233,12 +233,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 const rid = useRingStore.getState().active_ring_id
                 if (sid && rid) {
                   useSessionStore.getState().startSession(rid, sid)
-                }
-              } else if (cmd.subcommand === 'summarize') {
-                const sid = useSessionStore.getState().active_session?.id
-                const rid = useRingStore.getState().active_ring_id
-                if (sid && rid) {
-                  useSessionStore.getState().summarizeSession(rid, sid)
                 }
               } else {
                 usePanelStore.getState().toggle('session')
@@ -274,14 +268,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 const rid = useRingStore.getState().active_ring_id
                 if (name && rid) {
                   useGraphStore.getState().createNode(rid, name)
-                }
-              } else if (cmd.subcommand === 'link') {
-                const parts = cmd.args.trim().split(/\s+/)
-                const from = parts[0]
-                const to = parts[1]
-                const rid = useRingStore.getState().active_ring_id
-                if (from && to && rid) {
-                  useGraphStore.getState().linkNodes(rid, from, to)
                 }
               }
             }
@@ -320,19 +306,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 handleSkillList(addMessage)
               }
             }
-            else if (cmd.action === 'members') {
-              usePanelStore.getState().toggle('members')
-            }
             else if (cmd.action === 'invite') {
               if (cmd.subcommand === 'open') {
                 const rid = useRingStore.getState().active_ring_id
                 if (rid) {
-                  useInviteStore.getState().createToken(rid, 'open')
+                  useInviteStore.getState().create_token(rid, { type: 'open' })
                 }
               } else if (cmd.subcommand === 'audit') {
                 const rid = useRingStore.getState().active_ring_id
                 if (rid) {
-                  useInviteStore.getState().createToken(rid, 'audit')
+                  useInviteStore.getState().create_token(rid, { type: 'audit' })
                 }
               }
             }
@@ -395,12 +378,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       role: 'user',
       sender_name: 'You',
       content: input,
-      node_refs: parsed?.filter((c) => c.type === 'reference').map((c) => c.name),
+      node_refs: parsed?.filter((c): c is { type: 'address'; target: string; rest: string } => c.type === 'address' && c.target === 'node').map((c) => c.rest),
       created_at: new Date().toISOString(),
     })
 
     const user_content = input
-    const node_refs = parsed?.filter((c) => c.type === 'reference').map((c) => c.name) ?? []
+    const node_refs = parsed?.filter((c): c is { type: 'address'; target: string; rest: string } => c.type === 'address' && c.target === 'node').map((c) => c.rest) ?? []
 
     set({ input: '', sending: true })
 
