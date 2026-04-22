@@ -6,71 +6,94 @@ describe('parseCommand', () => {
     expect(parseCommand('hello world')).toBeNull()
   })
 
-  it('parses @self', () => {
+  it('returns null for old prefixes', () => {
+    expect(parseCommand('!graph')).toBeNull()
+    expect(parseCommand('%prefs')).toBeNull()
+    expect(parseCommand('#node')).toBeNull()
+  })
+
+  it('parses /graph', () => {
+    const result = parseCommand('/graph')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'graph', args: '' })
+  })
+
+  it('parses /archive', () => {
+    const result = parseCommand('/archive')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'archive', args: '' })
+  })
+
+  it('parses /session create with title', () => {
+    const result = parseCommand('/session create My Session')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'session', subcommand: 'create', args: 'My Session' })
+  })
+
+  it('parses /session close', () => {
+    const result = parseCommand('/session close')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'session', subcommand: 'close', args: '' })
+  })
+
+  it('parses /node add with name', () => {
+    const result = parseCommand('/node add 竞品分析')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'node', subcommand: 'add', args: '竞品分析' })
+  })
+
+  it('parses /skill list', () => {
+    const result = parseCommand('/skill list')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'skill', subcommand: 'list', args: '' })
+  })
+
+  it('parses /mode auto', () => {
+    const result = parseCommand('/mode auto')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'action', action: 'mode', args: 'auto' })
+  })
+
+  it('parses /help', () => {
+    const result = parseCommand('/help')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'help' })
+  })
+
+  it('parses /help session', () => {
+    const result = parseCommand('/help session')
+    expect(result).toHaveLength(1)
+    expect(result![0]).toEqual({ type: 'help', command: 'session' })
+  })
+
+  it('parses @self with message', () => {
     const result = parseCommand('@self hello')
     expect(result).toHaveLength(1)
     expect(result![0]).toEqual({ type: 'address', target: 'self', rest: 'hello' })
   })
 
-  it('parses @ring', () => {
+  it('parses @ring with message', () => {
     const result = parseCommand('@ring 分析一下')
     expect(result).toHaveLength(1)
     expect(result![0]).toEqual({ type: 'address', target: 'ring', rest: '分析一下' })
   })
 
-  it('parses @super', () => {
+  it('parses @super with message', () => {
     const result = parseCommand('@super 总结')
     expect(result).toHaveLength(1)
     expect(result![0]).toEqual({ type: 'address', target: 'super', rest: '总结' })
   })
 
-  it('parses !graph', () => {
-    const result = parseCommand('!graph')
+  it('parses @node with name', () => {
+    const result = parseCommand('@node 竞品分析')
     expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'action', action: 'graph', args: '' })
+    expect(result![0]).toEqual({ type: 'address', target: 'node', rest: '竞品分析' })
   })
 
-  it('parses !save with args', () => {
-    const result = parseCommand('!save some content')
+  it('parses @self without message', () => {
+    const result = parseCommand('@self')
     expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'action', action: 'save', args: 'some content' })
-  })
-
-  it('parses !auto as toggle', () => {
-    const result = parseCommand('!auto')
-    expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'action', action: 'auto', args: '' })
-  })
-
-  it('parses %skill plan', () => {
-    const result = parseCommand('%skill plan')
-    expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'meta', key: 'skill', value: 'plan' })
-  })
-
-  it('parses %mode auto', () => {
-    const result = parseCommand('%mode auto')
-    expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'meta', key: 'mode', value: 'auto' })
-  })
-
-  it('parses #nodename', () => {
-    const result = parseCommand('#竞品分析')
-    expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'reference', name: '竞品分析' })
-  })
-
-  it('parses multiple commands in one input', () => {
-    const result = parseCommand('@ring #竞品分析 帮我看看这个节点')
-    expect(result).toHaveLength(2)
-    expect(result![0]).toEqual({ type: 'address', target: 'ring', rest: '' })
-    expect(result![1]).toEqual({ type: 'reference', name: '竞品分析' })
-  })
-
-  it('parses !new with args for ring creation', () => {
-    const result = parseCommand('!new 竞品分析组')
-    expect(result).toHaveLength(1)
-    expect(result![0]).toEqual({ type: 'action', action: 'new', args: '竞品分析组' })
+    expect(result![0]).toEqual({ type: 'address', target: 'self', rest: '' })
   })
 
   it('returns null for empty input', () => {

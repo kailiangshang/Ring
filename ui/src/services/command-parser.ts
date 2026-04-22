@@ -1,115 +1,63 @@
 export type ParsedCommand =
   | { type: 'address'; target: string; rest: string }
-  | { type: 'reference'; name: string }
-  | { type: 'action'; action: string; args: string }
-  | { type: 'meta'; key: string; value: string }
-  | { type: 'prefs'; subcommand: 'show' | 'set'; key?: string; value?: string }
-  | { type: 'skill'; subcommand: 'list' | 'install' | 'remove'; name?: string; url?: string }
-  | { type: 'help' }
-
-const SLASH_MAP: Record<string, string> = {
-  graph: '!',
-  archive: '!',
-  config: '!',
-  session: '!',
-  new: '!',
-  save: '!',
-  node: '!',
-  auto: '!',
-  prefs: '%',
-  skill: '%',
-  mode: '%',
-  help: '!',
-  self: '@',
-}
-
-function convertSlash(input: string): string {
-  const trimmed = input.trim()
-  if (!trimmed.startsWith('/')) return input
-  const tokens = trimmed.split(/\s+/)
-  const cmd = tokens[0].slice(1).toLowerCase()
-  const prefix = SLASH_MAP[cmd]
-  if (!prefix) return input
-  return `${prefix}${tokens.slice(1).join(' ')}`
-}
+  | { type: 'action'; action: string; subcommand?: string; args: string }
+  | { type: 'help'; command?: string }
 
 export function parseCommand(input: string): ParsedCommand[] | null {
-  const converted = convertSlash(input.trim())
-  const trimmed = converted.trim()
+  const trimmed = input.trim()
   if (!trimmed) return null
 
-  const commands: ParsedCommand[] = []
-  const tokens = trimmed.split(/\s+/)
-  let hasCommand = false
-  let i = 0
-
-  if (input.trim().startsWith('/help')) {
-    return [{ type: 'help' }]
+  // Old prefixes are no longer supported
+  if (trimmed.startsWith('!') || trimmed.startsWith('%') || trimmed.startsWith('#')) {
+    return null
   }
 
-  while (i < tokens.length) {
-    const token = tokens[i]
-
-    if (token.startsWith('@')) {
-      hasCommand = true
-      const target = token.slice(1).toLowerCase()
-      const restTokens: string[] = []
-      let j = i + 1
-      while (j < tokens.length && !tokens[j].match(/^[@#!%]/)) {
-        restTokens.push(tokens[j])
-        j++
-      }
-      commands.push({ type: 'address', target, rest: restTokens.join(' ') })
-      i = j
-      continue
-    }
-
-    if (token.startsWith('#')) {
-      hasCommand = true
-      const name = token.slice(1)
-      commands.push({ type: 'reference', name })
-      i++
-      continue
-    }
-
-    if (token.startsWith('!')) {
-      hasCommand = true
-      const action = token.slice(1).toLowerCase()
-      const args = tokens.slice(i + 1).join(' ')
-      commands.push({ type: 'action', action, args })
-      break
-    }
-
-    if (token.startsWith('%')) {
-      hasCommand = true
-      const body = token.slice(1).toLowerCase()
-      if (body === 'prefs') {
-        const subcommand = tokens[i + 1]?.toLowerCase()
-        if (subcommand === 'set' && tokens[i + 2] && tokens[i + 3]) {
-          commands.push({ type: 'prefs', subcommand: 'set', key: tokens[i + 2].toLowerCase(), value: tokens.slice(i + 3).join(' ') })
-        } else {
-          commands.push({ type: 'prefs', subcommand: 'show' })
-        }
-        break
-      }
-      if (body === 'skill') {
-        const sub = tokens[i + 1]?.toLowerCase()
-        if (sub === 'install' && tokens[i + 2] && tokens[i + 3]) {
-          commands.push({ type: 'skill', subcommand: 'install', name: tokens[i + 2], url: tokens.slice(i + 3).join(' ') })
-        } else if (sub === 'remove' && tokens[i + 2]) {
-          commands.push({ type: 'skill', subcommand: 'remove', name: tokens[i + 2] })
-        } else {
-          commands.push({ type: 'skill', subcommand: 'list' })
-        }
-        break
-      }
-      const nextToken = tokens[i + 1]
-      commands.push({ type: 'meta', key: body, value: nextToken ?? '' })
-      break
-    }
-
-    break
+  if (trimmed.startsWith('/')) {
+    return parseSlashCommand(trimmed)
   }
 
-  return hasCommand && commands.length > 0 ? commands : null
+  if (trimmed.startsWith('@')) {
+    return parseAddressCommand(trimmed)
+  }
+
+  return null
+}
+
+function parseSlashCommand(input: string): ParsedCommand[] | null {
+  const tokens = input.slice(1).split(/\s+/)
+  const command = tokens[0]?.toLowerCase()
+  
+  if (!command) return null
+
+  if (command === 'help') {
+    const targetCommand = tokens[1]?.toLowerCase()
+    return [{ type: 'help', command: targetCommand }]
+  }
+
+  // Commands with subcommands
+  const subcommandCommands = ['session', 'skill', 'node', 'invite', 'prefs']
+  if (subcommandCommands.includes(command) && tokens[1]) {
+    return [{
+      type: 'action',
+      action: command,
+      subcommand: tokens[1].toLowerCase(),
+      args: tokens.slice(2).join(' ')
+    }]
+  }
+
+  return [{
+    type: 'action',
+    action: command,
+    args: tokens.slice(1).join(' ')
+  }]
+}
+
+function parseAddressCommand(input: string): ParsedCommand[] | null {
+  const tokens = input.slice(1).split(/\s+/)
+  const target = tokens[0]?.toLowerCase()
+  
+  if (!target) return null
+
+  const rest = tokens.slice(1).join(' ')
+  return [{ type: 'address', target, rest }]
 }
