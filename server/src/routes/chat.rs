@@ -87,6 +87,23 @@ pub async fn ring_chat(
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }
 
+    if chat::detect_archive_intent(&body.content) {
+        let ring_id_c = ring_id.clone();
+        let user_id_c = user.token_id.clone();
+        let state_c = state.clone();
+        let content_c = body.content.clone();
+        let s = stream! {
+            let message_id = ulid::Ulid::new().to_string();
+            yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
+            yield Ok(Event::default().event("delta").data(serde_json::json!({"content": "检测到归档意图，正在启动归档流程..."}).to_string()));
+            yield Ok(Event::default().event("message_end").data(serde_json::json!({"message_id": message_id, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}).to_string()));
+            let _ = crate::services::archive_service::quick_archive(
+                &state_c, &ring_id_c, &user_id_c, &content_c,
+            ).await;
+        }.boxed();
+        return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
+    }
+
     let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
 
     let mut rx = chat::start_chat_stream(
