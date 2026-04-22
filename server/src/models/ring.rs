@@ -170,6 +170,19 @@ pub async fn get_ring_detail(
     })
 }
 
+pub async fn update_blueprint_status(
+    pool: &sqlx::SqlitePool,
+    ring_id: &str,
+    status: &str,
+) -> Result<()> {
+    sqlx::query("UPDATE rings SET blueprint_status = ?1 WHERE id = ?2")
+        .bind(status)
+        .bind(ring_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_user_role(
     pool: &sqlx::SqlitePool,
     ring_id: &str,

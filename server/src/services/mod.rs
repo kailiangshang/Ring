@@ -14,4 +14,6 @@ pub mod session;
 pub mod setup;
 pub mod skill;
 pub mod super_chat;
+pub mod blueprint;
+pub mod blueprint_service;
 pub mod encryption;

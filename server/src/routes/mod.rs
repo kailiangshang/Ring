@@ -7,6 +7,7 @@ use tower_http::trace::TraceLayer;
 use crate::state::AppState;
 
 mod archive;
+mod blueprint;
 mod chat;
 mod config;
 mod graph;
@@ -157,6 +158,9 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
+        .route("/rings/{ring_id}/blueprint", get(blueprint::get_blueprint_handler))
+        .route("/rings/{ring_id}/blueprint/from-template", post(blueprint::preview_template))
+        .route("/rings/{ring_id}/blueprint/confirm", post(blueprint::confirm_blueprint_handler))
         .route("/super/chat", post(super_chat::super_chat_handler))
         .route("/super/chat/history", get(super_chat::super_history))
         .route(
