@@ -2,6 +2,7 @@ import { usePanelStore, type PanelType } from '../../stores/panel-store'
 import { useRingStore } from '../../stores/ring-store'
 import { TabItem } from '../header/TabItem'
 import { HeaderActions } from '../header/HeaderActions'
+import { NotificationBell } from '../NotificationBell'
 
 const TABS: { type: PanelType; label: string }[] = [
   { type: 'graph', label: 'Graph' },
@@ -58,7 +59,10 @@ export function HeaderTabBar() {
         />
       ))}
 
-      <HeaderActions />
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <NotificationBell />
+        <HeaderActions />
+      </div>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 # Ring 项目现状
 
-> 最后更新：2026-04-21
+> 最后更新：2026-04-22
 
 ## 技术栈
 
@@ -167,7 +167,7 @@ Ring Hub（用户入口）
 |---|------|----------|------|
 | 1 | **Self 完整实现** | 2.6, UI 8 | Memory（行为画像/统计/偏好）、Personality 设置、隐私控制、数据导出/重置、主动建议、@self 转发消息 |
 | 2 | **Blueprint/模板系统** | 6.1.2 | ~~模板选择、AI 引导共建图谱、预览确认、%blueprint 命令~~ ✅ |
-| 3 | **通知系统** | 2.10 | 数据模型、PR/成员/Session 变更通知、未读列表 UI |
+| 3 | **通知系统** | 2.10 | ~~数据模型、PR/成员/Session 变更通知、未读列表 UI~~ ✅ |
 | 4 | **导出中心** | 2.8 | 图谱图片、Markdown、聊天记录、会话记录、全 Ring 备份（7 种格式） |
 | 5 | **Context 管理** | 2.9 | ~~Token 用量追踪~~ ✅、自动 compact、ephemeral 模式 |
 
@@ -198,7 +198,7 @@ Ring Hub（用户入口）
 ## 测试
 
 ```bash
-cd server && cargo test          # 54/54 集成测试通过
+cd server && cargo test          # 55/55 集成测试通过
 cd ui && npm test                # 22/23 前端测试通过（1 个 pre-existing failure）
 cd ui && npx tsc --noEmit        # TypeScript 检查通过
 cargo clippy -- -D warnings      # 无警告

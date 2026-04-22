@@ -6,6 +6,7 @@ import { ChatArea } from '../chat/ChatArea'
 import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { CreateInviteModal } from '../invite/CreateInviteModal'
+import { NotificationBell } from '../NotificationBell'
 import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
@@ -52,6 +53,9 @@ function SuperRingHeader() {
         active={panels.some((p) => p.type === 'super_settings')}
         onClick={() => toggle('super_settings')}
       />
+      <div style={{ marginLeft: 'auto' }}>
+        <NotificationBell />
+      </div>
     </div>
   )
 }
