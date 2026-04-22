@@ -24,6 +24,23 @@ pub async fn update_llm_config(
     Ok(Json(cfg))
 }
 
+pub async fn get_privacy_filters(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<crate::models::config::PrivacyFiltersResponse>> {
+    let filters = config::get_privacy_filters(&state, &user.token_id).await?;
+    Ok(Json(filters))
+}
+
+pub async fn update_privacy_filters(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<crate::models::config::UpdatePrivacyFilters>,
+) -> Result<Json<crate::models::config::PrivacyFiltersResponse>> {
+    let filters = config::update_privacy_filters(&state, &user.token_id, body).await?;
+    Ok(Json(filters))
+}
+
 pub async fn test_llm_config(
     Json(body): Json<crate::models::config::TestLLMRequest>,
 ) -> Result<Json<serde_json::Value>> {

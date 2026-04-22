@@ -60,6 +60,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/config/llm/test", post(config::test_llm_config))
         .route("/config/gitlab/test", post(config::test_gitlab_config))
         .route(
+            "/config/privacy_filters",
+            get(config::get_privacy_filters).put(config::update_privacy_filters),
+        )
+        .route(
             "/rings/{ring_id}/mode",
             get(mode::get_mode).put(mode::update_mode),
         )
