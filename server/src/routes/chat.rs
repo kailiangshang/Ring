@@ -101,6 +101,7 @@ pub async fn ring_chat(
     let user_row_c = user_row.clone();
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
+    let user_message = body.content.clone();
     let _ = crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
     let s = stream! {
@@ -145,6 +146,38 @@ pub async fn ring_chat(
                         let _ = crate::services::group_doc_maintenance::update_active_context(
                             &state, &ring_id, &user_id, &user_row
                         ).await;
+                    });
+
+                    // Auto-archive check
+                    let pool_auto = pool.clone();
+                    let ring_id_auto = ring_id_c.clone();
+                    let user_id_auto = user_id.clone();
+                    let user_row_auto = user_row_c.clone();
+                    let content_auto = full_content.clone();
+                    let user_message_auto = user_message.clone();
+                    tokio::spawn(async move {
+                        let auto_archive: bool = sqlx::query_scalar(
+                            "SELECT auto_archive FROM rings WHERE id = ?1",
+                        )
+                        .bind(&ring_id_auto)
+                        .fetch_one(&pool_auto)
+                        .await
+                        .unwrap_or(false);
+
+                        if auto_archive {
+                            let git = crate::services::git_service::GitService::new();
+                            crate::services::archive_service::auto_archive_chat(
+                                &pool_auto,
+                                &git,
+                                &state_c.rings_dir,
+                                &ring_id_auto,
+                                &user_message_auto,
+                                &content_auto,
+                                &user_id_auto,
+                                &user_row_auto,
+                            )
+                            .await;
+                        }
                     });
                 }
                 SseEvent::Error(msg) => {
