@@ -10,13 +10,13 @@ interface HintItem {
 }
 
 const HINTS: HintItem[] = [
-  { label: '%graph', action: 'graph', context: ['ring'] },
-  { label: '%archive', action: 'archive', context: ['ring'] },
-  { label: '%config', action: 'config', context: ['ring'] },
-  { label: '%session', action: 'session', context: ['ring'] },
-  { label: '%skills', action: 'super_skills', context: ['super'] },
-  { label: '%prefs', action: 'super_settings', context: ['super'] },
-  { label: '%save', action: null, context: ['session'] },
+  { label: '/graph', action: 'graph', context: ['ring'] },
+  { label: '/archive', action: 'archive', context: ['ring'] },
+  { label: '/config', action: 'config', context: ['ring'] },
+  { label: '/session', action: 'session', context: ['ring'] },
+  { label: '/skills', action: 'super_skills', context: ['super'] },
+  { label: '/prefs', action: 'super_settings', context: ['super'] },
+  { label: '/save', action: null, context: ['session'] },
   { label: '@self', action: null, selfAction: true, context: ['super', 'ring', 'session'] },
 ]
 
