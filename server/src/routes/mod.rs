@@ -17,6 +17,7 @@ mod invite;
 mod join_page;
 mod members;
 mod mode;
+mod notification;
 mod rings;
 mod self_data;
 mod session;
@@ -201,6 +202,17 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/rings/{ring_id}/join-requests/{request_id}/reject",
             post(invite::reject_request),
+        )
+        .route("/notifications", get(notification::list_notifications))
+        .route("/notifications/unread-count", get(notification::get_unread_count))
+        .route(
+            "/notifications/{notification_id}/read",
+            post(notification::mark_as_read),
+        )
+        .route("/notifications/read-all", post(notification::mark_all_as_read))
+        .route(
+            "/notifications/{notification_id}",
+            delete(notification::delete_notification),
         )
         .with_state(state.clone());
 

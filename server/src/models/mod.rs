@@ -4,6 +4,7 @@ pub mod graph;
 pub mod invite;
 pub mod member;
 pub mod message;
+pub mod notification;
 pub mod ring;
 pub mod session;
 pub mod user;
