@@ -145,7 +145,8 @@ impl LlmClient {
                                     }
                                 }
                                 if let Some(usage) = &chunk.usage {
-                                    token_usage = Some(serde_json::to_string(usage).unwrap_or_default());
+                                    token_usage =
+                                        Some(serde_json::to_string(usage).unwrap_or_default());
                                 }
                             }
                             Err(e) => {

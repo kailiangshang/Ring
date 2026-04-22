@@ -4,7 +4,9 @@ use axum::Json;
 use crate::error::Result;
 use crate::extractors::AuthUser;
 use crate::models::ring;
-use crate::services::blueprint_service::{confirm_blueprint, get_blueprint, preview_from_template, FromTemplateRequest};
+use crate::services::blueprint_service::{
+    confirm_blueprint, get_blueprint, preview_from_template, FromTemplateRequest,
+};
 use crate::state::AppState;
 
 pub async fn get_blueprint_handler(
@@ -25,7 +27,9 @@ pub async fn preview_template(
 ) -> Result<Json<crate::services::blueprint_service::BlueprintPreview>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" && role != "admin" {
-        return Err(crate::error::RingError::Forbidden("only creator/admin can manage blueprint".into()));
+        return Err(crate::error::RingError::Forbidden(
+            "only creator/admin can manage blueprint".into(),
+        ));
     }
     let preview = preview_from_template(&state, &body.template).await?;
     Ok(Json(preview))
@@ -38,7 +42,9 @@ pub async fn confirm_blueprint_handler(
 ) -> Result<Json<serde_json::Value>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" && role != "admin" {
-        return Err(crate::error::RingError::Forbidden("only creator/admin can manage blueprint".into()));
+        return Err(crate::error::RingError::Forbidden(
+            "only creator/admin can manage blueprint".into(),
+        ));
     }
     confirm_blueprint(&state, &ring_id).await?;
     Ok(Json(serde_json::json!({ "status": "confirmed" })))

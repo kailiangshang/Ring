@@ -10,7 +10,10 @@ use crate::state::AppState;
 fn markdown_response(body: String, filename: String) -> impl IntoResponse {
     (
         [
-            (header::CONTENT_TYPE, "text/markdown; charset=utf-8".to_string()),
+            (
+                header::CONTENT_TYPE,
+                "text/markdown; charset=utf-8".to_string(),
+            ),
             (
                 header::CONTENT_DISPOSITION,
                 format!(r#"attachment; filename="{}""#, filename),
@@ -23,7 +26,10 @@ fn markdown_response(body: String, filename: String) -> impl IntoResponse {
 fn json_response(body: String, filename: String) -> impl IntoResponse {
     (
         [
-            (header::CONTENT_TYPE, "application/json; charset=utf-8".to_string()),
+            (
+                header::CONTENT_TYPE,
+                "application/json; charset=utf-8".to_string(),
+            ),
             (
                 header::CONTENT_DISPOSITION,
                 format!(r#"attachment; filename="{}""#, filename),
@@ -40,8 +46,8 @@ pub async fn export_ring_chat(
 ) -> Result<impl IntoResponse> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
-    let messages = message::list_messages(
-        &state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
+    let messages =
+        message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
 
     let mut md = String::new();
     md.push_str(&format!("# Chat Export - Ring {}\n\n", ring_id));
@@ -62,8 +68,7 @@ pub async fn export_self_chat(
     State(state): State<AppState>,
     user: AuthUser,
 ) -> Result<impl IntoResponse> {
-    let messages = message::list_messages(
-        &state.db, None, &user.token_id, None, 10000).await?;
+    let messages = message::list_messages(&state.db, None, &user.token_id, None, 10000).await?;
 
     let mut md = String::new();
     md.push_str("# Self Chat Export\n\n");
@@ -84,8 +89,7 @@ pub async fn export_super_chat(
     State(state): State<AppState>,
     user: AuthUser,
 ) -> Result<impl IntoResponse> {
-    let messages = message::list_messages(
-        &state.db, None, &user.token_id, None, 10000).await?;
+    let messages = message::list_messages(&state.db, None, &user.token_id, None, 10000).await?;
 
     let mut md = String::new();
     md.push_str("# Super Ring Chat Export\n\n");
@@ -124,7 +128,10 @@ pub async fn export_ring_graph(
     let json_str = serde_json::to_string_pretty(&json)
         .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    Ok(json_response(json_str, format!("ring_{}_graph.json", ring_id)))
+    Ok(json_response(
+        json_str,
+        format!("ring_{}_graph.json", ring_id),
+    ))
 }
 
 pub async fn export_ring_backup(
@@ -134,16 +141,14 @@ pub async fn export_ring_backup(
 ) -> Result<impl IntoResponse> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
-    let ring_info = sqlx::query_as::<_, ring::RingRow>(
-        "SELECT * FROM rings WHERE id = ?1",
-    )
-    .bind(&ring_id)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    let ring_info = sqlx::query_as::<_, ring::RingRow>("SELECT * FROM rings WHERE id = ?1")
+        .bind(&ring_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    let messages = message::list_messages(
-        &state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
+    let messages =
+        message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
 
     let graph = graph::ensure_default_graph(&state.db, &ring_id).await?;
     let nodes = graph::list_nodes(&state.db, &graph.id).await?;
@@ -187,7 +192,10 @@ pub async fn export_ring_backup(
     let json_str = serde_json::to_string_pretty(&backup)
         .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    Ok(json_response(json_str, format!("ring_{}_backup.json", ring_id)))
+    Ok(json_response(
+        json_str,
+        format!("ring_{}_backup.json", ring_id),
+    ))
 }
 
 pub async fn export_session_messages(
@@ -197,10 +205,7 @@ pub async fn export_session_messages(
 ) -> Result<impl IntoResponse> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
-    let msgs = sqlx::query_as::<
-        _,
-        crate::models::session::SessionMessageRow,
-    >(
+    let msgs = sqlx::query_as::<_, crate::models::session::SessionMessageRow>(
         "SELECT * FROM session_messages WHERE session_id = ?1 ORDER BY seq_num",
     )
     .bind(&session_id)

@@ -37,13 +37,11 @@ pub struct FromTemplateRequest {
 }
 
 pub async fn get_blueprint(state: &AppState, ring_id: &str) -> Result<BlueprintResponse> {
-    let row = sqlx::query_as::<_, (String,)>(
-        "SELECT blueprint_status FROM rings WHERE id = ?1"
-    )
-    .bind(ring_id)
-    .fetch_optional(&state.db)
-    .await?
-    .ok_or_else(|| RingError::NotFound(format!("ring {} not found", ring_id)))?;
+    let row = sqlx::query_as::<_, (String,)>("SELECT blueprint_status FROM rings WHERE id = ?1")
+        .bind(ring_id)
+        .fetch_optional(&state.db)
+        .await?
+        .ok_or_else(|| RingError::NotFound(format!("ring {} not found", ring_id)))?;
 
     Ok(BlueprintResponse {
         status: row.0,

@@ -42,10 +42,9 @@ pub async fn auto_compact_history(
     );
 
     let llm = LlmClient::from_user(user)?;
-    let summary = llm.chat_complete(
-        "你是一个对话压缩助手。".into(),
-        prompt,
-    ).await?;
+    let summary = llm
+        .chat_complete("你是一个对话压缩助手。".into(), prompt)
+        .await?;
 
     let summary_id = ulid::Ulid::new().to_string();
     message::insert_message(
@@ -61,7 +60,8 @@ pub async fn auto_compact_history(
             tag_refs: &[],
             token_usage: None,
         },
-    ).await?;
+    )
+    .await?;
 
     for msg in old_messages {
         let _ = sqlx::query("DELETE FROM messages WHERE id = ?1")
@@ -84,22 +84,27 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
             prompt
         }
         None => {
-            let mut prompt = "你是用户的个人 AI 助手 Self。你完全了解用户的偏好、目标和历史对话。".to_string();
-            
+            let mut prompt =
+                "你是用户的个人 AI 助手 Self。你完全了解用户的偏好、目标和历史对话。".to_string();
+
             let self_dir = crate::services::self_data::get_self_dir("");
-            let (identity, identity_exists) = crate::services::self_data::read_self_file(&self_dir, "identity").unwrap_or_default();
+            let (identity, identity_exists) =
+                crate::services::self_data::read_self_file(&self_dir, "identity")
+                    .unwrap_or_default();
             if identity_exists && !identity.is_empty() {
                 prompt.push_str("\n\n用户身份定义：\n");
                 prompt.push_str(&identity);
             }
-            
-            let (style, style_exists) = crate::services::self_data::read_self_file(&self_dir, "style").unwrap_or_default();
+
+            let (style, style_exists) =
+                crate::services::self_data::read_self_file(&self_dir, "style").unwrap_or_default();
             if style_exists && !style.is_empty() {
                 prompt.push_str("\n\n对话风格偏好：\n");
                 prompt.push_str(&style);
             }
-            
-            let personality = crate::services::self_data::read_self_file(&self_dir, "personality").unwrap_or_default();
+
+            let personality = crate::services::self_data::read_self_file(&self_dir, "personality")
+                .unwrap_or_default();
             if personality.1 && !personality.0.is_empty() {
                 if let Ok(p) = serde_json::from_str::<serde_json::Value>(&personality.0) {
                     if let Some(tone) = p.get("tone").and_then(|v| v.as_str()) {
@@ -107,7 +112,7 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
                     }
                 }
             }
-            
+
             prompt.push_str("\n\n请以友好、个性化的方式回答。");
             prompt
         }
@@ -146,7 +151,7 @@ pub async fn start_chat_stream(
     params: &ChatParams<'_>,
 ) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
     let user_msg_id = ulid::Ulid::new().to_string();
-    
+
     if !params.ephemeral {
         message::insert_message(
             &state.db,

@@ -101,8 +101,15 @@ pub async fn create_session(
         tokio::spawn(async move {
             if let Ok(user_row) = state_c.get_user_decrypted(&user_id_c).await {
                 let _ = crate::services::material_prep::generate_materials(
-                    &state_c, &session_id, &ring_id_c, &skill, &title, &description, &user_row,
-                ).await;
+                    &state_c,
+                    &session_id,
+                    &ring_id_c,
+                    &skill,
+                    &title,
+                    &description,
+                    &user_row,
+                )
+                .await;
             }
         });
     }

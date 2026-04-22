@@ -402,10 +402,7 @@ pub async fn auto_archive_chat(
 
     let system_prompt = "你是一个知识管理助手。分析以下对话内容，判断AI的回复是否值得归档。\n\n值得归档的内容包括：决策记录、结论总结、知识点、调研发现、方案对比、技术方案等。\n不值得归档的内容包括：闲聊、问候、简单确认、无实质内容的回复等。\n\n如果值得归档，返回JSON对象：\n{\"should_archive\": true, \"title\": \"简短标题\", \"content\": \"Markdown格式的归档内容\"}\n\n如果不值得归档，返回：\n{\"should_archive\": false}\n\n返回纯JSON，不要markdown code block。";
 
-    let user_prompt = format!(
-        "用户消息：\n{}\n\nAI回复：\n{}",
-        user_message, ai_response
-    );
+    let user_prompt = format!("用户消息：\n{}\n\nAI回复：\n{}", user_message, ai_response);
 
     let llm = match crate::services::llm::LlmClient::from_user(user_row) {
         Ok(l) => l,
@@ -415,7 +412,10 @@ pub async fn auto_archive_chat(
         }
     };
 
-    let response = match llm.chat_complete(system_prompt.to_string(), user_prompt).await {
+    let response = match llm
+        .chat_complete(system_prompt.to_string(), user_prompt)
+        .await
+    {
         Ok(r) => r,
         Err(e) => {
             tracing::warn!("auto_archive_chat LLM call failed: {e}");
@@ -528,9 +528,8 @@ pub async fn auto_archive_chat(
 
         match repo_url {
             Some(url) => {
-                let gitlab = crate::services::gitlab_service::GitLabClient::new(
-                    &gitlab_url, &gitlab_token,
-                );
+                let gitlab =
+                    crate::services::gitlab_service::GitLabClient::new(&gitlab_url, &gitlab_token);
                 match archive_content_member(
                     pool,
                     git,

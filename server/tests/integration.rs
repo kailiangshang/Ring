@@ -2095,3 +2095,57 @@ async fn test_self_identity_crud() {
     assert_eq!(json["exists"], true);
     assert_eq!(json["content"], "I am a personal AI assistant");
 }
+
+#[tokio::test]
+async fn test_auto_archive_toggle() {
+    let state = setup_app().await;
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    // Get initial mode
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{ring_id}/mode"),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["auto_archive"], false);
+
+    // Toggle auto_archive on
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/mode"),
+            Some(r#"{"auto_archive":true}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["auto_archive"], true);
+
+    // Toggle auto_archive off
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/mode"),
+            Some(r#"{"auto_archive":false}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["auto_archive"], false);
+}

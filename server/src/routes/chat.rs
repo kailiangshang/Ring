@@ -50,7 +50,13 @@ pub async fn ring_chat(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<ChatRequest>,
-) -> Result<Sse<axum::response::sse::KeepAliveStream<BoxStream<'static, std::result::Result<Event, Infallible>>>>> {
+) -> Result<
+    Sse<
+        axum::response::sse::KeepAliveStream<
+            BoxStream<'static, std::result::Result<Event, Infallible>>,
+        >,
+    >,
+> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
@@ -64,8 +70,13 @@ pub async fn ring_chat(
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
     if let Ok(Some(result)) = crate::services::graph_chat_command::try_handle_graph_command(
-        &state, &ring_id, &user_row, &body.content,
-    ).await {
+        &state,
+        &ring_id,
+        &user_row,
+        &body.content,
+    )
+    .await
+    {
         let result_clone = result.clone();
         let s = stream! {
             let message_id = ulid::Ulid::new().to_string();
@@ -102,7 +113,8 @@ pub async fn ring_chat(
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
     let user_message = body.content.clone();
-    let _ = crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
+    let _ =
+        crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len);
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -140,11 +152,11 @@ pub async fn ring_chat(
 
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
-                    let user_id = user_id.clone();
+                    let user_id_for_doc = user_id.clone();
                     let user_row = user_row_c.clone();
                     tokio::spawn(async move {
                         let _ = crate::services::group_doc_maintenance::update_active_context(
-                            &state, &ring_id, &user_id, &user_row
+                            &state, &ring_id, &user_id_for_doc, &user_row
                         ).await;
                     });
 
@@ -155,6 +167,7 @@ pub async fn ring_chat(
                     let user_row_auto = user_row_c.clone();
                     let content_auto = full_content.clone();
                     let user_message_auto = user_message.clone();
+                    let rings_dir_auto = state_c.rings_dir.clone();
                     tokio::spawn(async move {
                         let auto_archive: bool = sqlx::query_scalar(
                             "SELECT auto_archive FROM rings WHERE id = ?1",
@@ -169,7 +182,7 @@ pub async fn ring_chat(
                             crate::services::archive_service::auto_archive_chat(
                                 &pool_auto,
                                 &git,
-                                &state_c.rings_dir,
+                                &rings_dir_auto,
                                 &ring_id_auto,
                                 &user_message_auto,
                                 &content_auto,
