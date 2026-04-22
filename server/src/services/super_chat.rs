@@ -19,6 +19,7 @@ use crate::error::{Result, RingError};
 use crate::models::message::{self, MessageRow};
 use crate::services::chat;
 use crate::services::llm::SseEvent;
+use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
 use crate::state::AppState;
 
 const SUPER_RING_ID: &str = "super";
@@ -493,6 +494,13 @@ async fn stream_super_chat_inner(
     let history =
         chat::load_history_context(&state.db, Some(SUPER_RING_ID), &user.token_id, 20).await?;
 
+    let filters = user
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_content = apply_filters(&content, &filters);
+
     let api_key = user
         .llm_api_key
         .as_deref()
@@ -512,7 +520,7 @@ async fn stream_super_chat_inner(
         })
         .await;
 
-    let mut messages = build_messages(&system_prompt, &history, &content);
+    let mut messages = build_messages(&system_prompt, &history, &filtered_content);
 
     let request = CreateChatCompletionRequest {
         messages: messages.clone(),
