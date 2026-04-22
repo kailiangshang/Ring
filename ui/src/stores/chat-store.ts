@@ -215,6 +215,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             if (cmd.action === 'graph') usePanelStore.getState().toggle('graph')
             else if (cmd.action === 'archive') usePanelStore.getState().toggle('archive')
             else if (cmd.action === 'config') usePanelStore.getState().toggle('config')
+            else if (cmd.action === 'blueprint') usePanelStore.getState().toggle('blueprint')
             else if (cmd.action === 'session') {
               if (cmd.subcommand === 'create') {
                 const title = cmd.args.trim()

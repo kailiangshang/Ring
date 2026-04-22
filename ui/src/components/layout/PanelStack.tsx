@@ -7,6 +7,7 @@ import { ConfigPanel } from '../panels/ConfigPanel'
 import { SessionPanel } from '../panels/SessionPanel'
 import { SuperSkillsPanel } from '../panels/SuperSkillsPanel'
 import { SuperSettingsPanel } from '../panels/SuperSettingsPanel'
+import { BlueprintPanel } from '../panels/BlueprintPanel'
 
 const PANEL_CONTENT: Record<string, () => ReactElement> = {
   graph: GraphPanel,
@@ -15,6 +16,7 @@ const PANEL_CONTENT: Record<string, () => ReactElement> = {
   session: SessionPanel,
   super_skills: SuperSkillsPanel,
   super_settings: SuperSettingsPanel,
+  blueprint: BlueprintPanel,
 }
 
 const PANEL_TITLES: Record<string, string> = {
@@ -24,6 +26,7 @@ const PANEL_TITLES: Record<string, string> = {
   session: 'Session',
   super_skills: 'Skills',
   super_settings: 'Settings',
+  blueprint: 'Blueprint',
 }
 
 export function PanelStack() {
