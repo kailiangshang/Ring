@@ -316,7 +316,7 @@ pub async fn export_ai_report(
         ));
     }
 
-    let system_prompt = "你是一个知识分析助手。基于用户提供的图谱节点信息，生成一份结构化的分析报告。报告应包含：概述、关键发现、节点关系分析、建议。使用 Markdown 格式。".to_string();
+    let system_prompt = crate::prompts::export::AI_REPORT_SYSTEM.to_string();
     let user_message = format!("主题：{}\n\n以下是选中的图谱节点：\n\n{}", topic, nodes_info);
 
     let llm = crate::services::llm::LlmClient::from_user(&user_row)?;

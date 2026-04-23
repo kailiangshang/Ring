@@ -4,20 +4,6 @@ use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
 use crate::state::AppState;
 
-const ACTIVE_CONTEXT_PROMPT: &str = r#"基于以下最近的对话历史，生成一个活跃上下文摘要。用 Markdown 格式输出，包含以下部分：
-
-## 近期话题
-- 列出最近讨论的 3-5 个主要话题
-
-## 待处理
-- 列出尚未解决或需要跟进的事项
-
-## 关注节点
-- 列出对话中提到的关键概念或节点
-
-对话历史：
-"#;
-
 pub async fn update_active_context(
     state: &AppState,
     ring_id: &str,
@@ -37,11 +23,11 @@ pub async fn update_active_context(
         .collect::<Vec<_>>()
         .join("\n\n");
 
-    let prompt = format!("{}\n{}", ACTIVE_CONTEXT_PROMPT, history_text);
+    let prompt = format!("{}\n{}", crate::prompts::group_docs::ACTIVE_CONTEXT_USER, history_text);
 
     let llm = LlmClient::from_user(user)?;
     let content = llm
-        .chat_complete("你是一个群组的上下文分析助手。".into(), prompt)
+        .chat_complete(crate::prompts::group_docs::ACTIVE_CONTEXT_SYSTEM.into(), prompt)
         .await?;
 
     sqlx::query(
@@ -59,19 +45,6 @@ pub async fn update_active_context(
     Ok(())
 }
 
-const ARCHIVE_PATTERNS_PROMPT: &str = r#"基于以下归档操作记录，提取归档行为模式偏好。用 Markdown 格式输出，包含以下部分：
-
-## 偏好
-- 粒度偏好（按主题/按项目/其他）
-- 归档位置偏好
-
-## 模式
-- 用户通常将什么类型的内容归入什么节点
-- 其他观察到的模式
-
-归档记录：
-"#;
-
 pub async fn update_archive_patterns(
     state: &AppState,
     ring_id: &str,
@@ -87,11 +60,11 @@ pub async fn update_archive_patterns(
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
     let existing = existing.unwrap_or_default();
-    let prompt = format!("{}\n{}", ARCHIVE_PATTERNS_PROMPT, archive_content);
+    let prompt = format!("{}\n{}", crate::prompts::group_docs::ARCHIVE_PATTERNS_USER, archive_content);
 
     let llm = LlmClient::from_user(user)?;
     let new_patterns = llm
-        .chat_complete("你是一个归档模式分析助手。".into(), prompt)
+        .chat_complete(crate::prompts::group_docs::ARCHIVE_PATTERNS_SYSTEM.into(), prompt)
         .await?;
 
     let merged = if existing.is_empty() {

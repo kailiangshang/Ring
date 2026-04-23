@@ -5,40 +5,28 @@ use crate::error::{Result, RingError};
 pub struct SkillDef {
     pub name: &'static str,
     pub description: &'static str,
-    pub material_prompt: &'static str,
-    pub summary_prompt: &'static str,
 }
 
 const SKILLS: &[SkillDef] = &[
     SkillDef {
         name: "decision",
         description: "团队决策：收集材料 → 讨论 → 决策结论 + 行动项",
-        material_prompt: "You are assisting a decision-making session. Based on the session title and description, identify and collect relevant documents, data points, and graph nodes. For each material, create a concise summary. List pros, cons, risks, and options related to the decision topic.",
-        summary_prompt: "Summarize this decision-making session. Include: 1) The key decision made, 2) Main arguments for and against, 3) Action items with owners, 4) Follow-up dates. Format as structured markdown.",
     },
     SkillDef {
         name: "research",
         description: "研究讨论：收集资源 → 讨论 → 研究报告",
-        material_prompt: "You are assisting a research session. Based on the session title and description, collect relevant resources, references, and existing knowledge from the graph. Identify gaps in knowledge and suggest areas to investigate.",
-        summary_prompt: "Write a research report summarizing this session. Include: 1) Research question, 2) Key findings, 3) Data sources, 4) Conclusions, 5) Recommendations for further research. Format as structured markdown.",
     },
     SkillDef {
         name: "review",
         description: "评审：收集评审目标 → 讨论 → 评审意见 + 改进建议",
-        material_prompt: "You are assisting a review session. Based on the session title and description, collect the review targets (documents, code, designs). Identify review criteria and checklists relevant to the review type.",
-        summary_prompt: "Summarize this review session. Include: 1) Items reviewed, 2) Key findings (issues and positive aspects), 3) Improvement suggestions with priority levels, 4) Agreed actions. Format as structured markdown.",
     },
     SkillDef {
         name: "retrospective",
         description: "回顾：收集项目数据 → 讨论 → 经验教训 + 改进计划",
-        material_prompt: "You are assisting a retrospective session. Based on the session title and description, collect project timeline data, metrics, and previous retrospective outcomes from the graph. Identify key events and milestones.",
-        summary_prompt: "Summarize this retrospective. Include: 1) What went well, 2) What could be improved, 3) Lessons learned, 4) Action items for next cycle. Format as structured markdown.",
     },
     SkillDef {
         name: "knowledge_sharing",
         description: "知识分享：收集材料 → 讨论 → 整理笔记",
-        material_prompt: "You are assisting a knowledge sharing session. Based on the session title and description, collect relevant materials, prior discussions, and graph nodes related to the topic. Organize materials into a logical flow for presentation.",
-        summary_prompt: "Create organized notes from this knowledge sharing session. Include: 1) Key topics covered, 2) Important takeaways, 3) References and resources mentioned, 4) Open questions. Format as structured markdown.",
     },
 ];
 
@@ -51,22 +39,17 @@ pub fn build_material_system_prompt(
     session_title: &str,
     session_description: &str,
 ) -> Option<String> {
-    let skill = get_skill(skill_name)?;
+    let material = crate::prompts::session::skill::material_prompt(skill_name)?;
     Some(format!(
-        "{}\n\nSession: {}\nDescription: {}\n\nAnalyze the topic and provide a structured list of materials that should be prepared for this session. For each material, specify: title, type (document/graph_node/ai_generated), and a brief description of what it should contain.",
-        skill.material_prompt,
-        session_title,
-        if session_description.is_empty() {
-            "N/A"
-        } else {
-            session_description
-        },
+        "{material}\n\nSession: {session_title}\nDescription: {}\n\n\
+        Analyze the topic and provide a structured list of materials that should be prepared. \
+        For each material, specify: title, type (document/graph_node/ai_generated), and a brief description.",
+        if session_description.is_empty() { "N/A" } else { session_description }
     ))
 }
 
 pub fn build_summary_system_prompt(skill_name: &str) -> Option<String> {
-    let skill = get_skill(skill_name)?;
-    Some(skill.summary_prompt.to_string())
+    crate::prompts::session::skill::summary_prompt(skill_name).map(|s| s.to_string())
 }
 
 pub fn load_skill_prompt(skill_name: &str, skills_dir: &Path) -> Option<String> {
@@ -230,11 +213,11 @@ fn export_builtin_skill(name: &str, skills_dir: &Path) -> std::io::Result<()> {
         Some(s) => s,
         None => return Ok(()),
     };
-    let skill_dir = skills_dir.join(name);
-    std::fs::create_dir_all(&skill_dir)?;
+    let material = crate::prompts::session::skill::material_prompt(name).unwrap_or("");
+    let summary = crate::prompts::session::skill::summary_prompt(name).unwrap_or("");
     let system_prompt = format!(
-        "{}\n\nAnalyze the topic and provide a structured list of materials that should be prepared for this session. For each material, specify: title, type (document/graph_node/ai_generated), and a brief description of what it should contain.",
-        builtin.material_prompt
+        "{}\n\nAnalyze the topic and provide a structured list of materials that should be prepared for this session.",
+        material
     );
     let content = format!(
         "---\nname: {}\ndescription: \"{}\"\nversion: \"1.0.0\"\nsystem_prompt: \"{}\"\n---\n\n# {} Skill\n\n{}\n\n## Summary\n\n{}",
@@ -242,9 +225,11 @@ fn export_builtin_skill(name: &str, skills_dir: &Path) -> std::io::Result<()> {
         builtin.description.replace('"', "\\\""),
         system_prompt.replace('"', "\\\""),
         capitalize_first(builtin.name),
-        builtin.material_prompt,
-        builtin.summary_prompt,
+        material,
+        summary,
     );
+    let skill_dir = skills_dir.join(name);
+    std::fs::create_dir_all(&skill_dir)?;
     std::fs::write(skill_dir.join("SKILL.md"), content)?;
     Ok(())
 }

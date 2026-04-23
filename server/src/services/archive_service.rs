@@ -415,7 +415,7 @@ pub async fn auto_archive_session(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = "你是一个知识管理助手。分析以下讨论记录，提取值得长期保存的知识单元。\n\n每个单元包含：\n- title: 简短标题（用于文件名，不超过 30 字，不含特殊字符）\n- content: Markdown 格式的完整归档内容\n\n归档单元可以是：决策记录、结论总结、知识点、调研发现、方案对比等。\n只提取有实质内容的单元。如果讨论内容没有值得归档的，返回空数组。\n\n返回纯 JSON 数组，不要 markdown code block：\n[{\"title\": \"...\", \"content\": \"...\"}]";
+    let system_prompt = crate::prompts::archive::EXTRACT_SYSTEM;
 
     let user_message = format!(
         "Session 标题: {session_title}\nSkill: {session_skill}\n\n讨论记录：\n{messages_text}"
@@ -512,7 +512,7 @@ pub async fn auto_archive_chat(
 ) {
     tracing::info!("auto_archive_chat started: ring={ring_id}");
 
-    let system_prompt = "你是一个知识管理助手。分析以下对话内容，判断AI的回复是否值得归档。\n\n值得归档的内容包括：决策记录、结论总结、知识点、调研发现、方案对比、技术方案等。\n不值得归档的内容包括：闲聊、问候、简单确认、无实质内容的回复等。\n\n如果值得归档，返回JSON对象：\n{\"should_archive\": true, \"title\": \"简短标题\", \"content\": \"Markdown格式的归档内容\"}\n\n如果不值得归档，返回：\n{\"should_archive\": false}\n\n返回纯JSON，不要markdown code block。";
+    let system_prompt = crate::prompts::archive::JUDGE_SYSTEM;
 
     let user_prompt = format!("用户消息：\n{}\n\nAI回复：\n{}", user_message, ai_response);
 

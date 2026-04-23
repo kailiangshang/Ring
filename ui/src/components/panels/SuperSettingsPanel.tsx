@@ -67,14 +67,6 @@ export function SuperSettingsPanel() {
   const [gitlabTesting, setGitlabTesting] = useState(false)
   const [gitlabResult, setGitlabResult] = useState<{ ok: boolean; message: string } | null>(null)
 
-  const [sysPrompt, setSysPrompt] = useState('')
-  const [sysPromptSaving, setSysPromptSaving] = useState(false)
-  const [sysPromptMsg, setSysPromptMsg] = useState<{ ok: boolean; message: string } | null>(null)
-
-  const [prefs, setPrefs] = useState('')
-  const [prefsSaving, setPrefsSaving] = useState(false)
-  const [prefsMsg, setPrefsMsg] = useState<{ ok: boolean; message: string } | null>(null)
-
   useEffect(() => {
     api.get<{ provider: string; model: string; api_key_set: boolean; base_url: string | null }>('/config/llm')
       .then((res) => {
@@ -82,14 +74,6 @@ export function SuperSettingsPanel() {
         setLlmModel(res.model)
         setLlmBaseUrl(res.base_url || '')
       })
-      .catch(() => {})
-
-    api.get<{ prompt: string; is_custom: boolean }>('/super/system-prompt')
-      .then((res) => setSysPrompt(res.prompt))
-      .catch(() => {})
-
-    api.get<{ content: string; is_custom: boolean }>('/super/preferences')
-      .then((res) => setPrefs(res.content))
       .catch(() => {})
   }, [])
 
@@ -148,30 +132,6 @@ export function SuperSettingsPanel() {
     }
   }
 
-  const handleSysPromptSave = async () => {
-    setSysPromptSaving(true)
-    setSysPromptMsg(null)
-    try {
-      await api.put('/super/system-prompt', { prompt: sysPrompt })
-      setSysPromptMsg({ ok: true, message: 'Saved!' })
-    } catch (e) {
-      setSysPromptMsg({ ok: false, message: e instanceof Error ? e.message : 'Save failed' })
-    }
-    setSysPromptSaving(false)
-  }
-
-  const handlePrefsSave = async () => {
-    setPrefsSaving(true)
-    setPrefsMsg(null)
-    try {
-      await api.put('/super/preferences', { content: prefs })
-      setPrefsMsg({ ok: true, message: 'Saved!' })
-    } catch (e) {
-      setPrefsMsg({ ok: false, message: e instanceof Error ? e.message : 'Save failed' })
-    }
-    setPrefsSaving(false)
-  }
-
   return (
     <div style={{ fontSize: 12 }}>
       <p style={{ ...sectionTitle, marginTop: 0 }}>LLM Config</p>
@@ -220,38 +180,6 @@ export function SuperSettingsPanel() {
         {gitlabTesting ? 'TESTING...' : 'TEST CONNECTION'}
       </button>
       <ResultMsg result={gitlabResult} />
-
-      <p style={sectionTitle}>System Prompt</p>
-      <textarea
-        value={sysPrompt}
-        onChange={(e) => setSysPrompt(e.target.value)}
-        style={{
-          ...inputStyle,
-          minHeight: 100,
-          resize: 'vertical',
-          lineHeight: 1.5,
-        }}
-      />
-      <button onClick={handleSysPromptSave} disabled={sysPromptSaving} style={{ ...smallBtn, background: 'var(--accent-cyan)', color: 'var(--bg-base)', borderColor: 'var(--accent-cyan)', marginBottom: 16, opacity: sysPromptSaving ? 0.5 : 1 }}>
-        SAVE PROMPT
-      </button>
-      <ResultMsg result={sysPromptMsg} />
-
-      <p style={sectionTitle}>Preferences</p>
-      <textarea
-        value={prefs}
-        onChange={(e) => setPrefs(e.target.value)}
-        style={{
-          ...inputStyle,
-          minHeight: 100,
-          resize: 'vertical',
-          lineHeight: 1.5,
-        }}
-      />
-      <button onClick={handlePrefsSave} disabled={prefsSaving} style={{ ...smallBtn, background: 'var(--accent-cyan)', color: 'var(--bg-base)', borderColor: 'var(--accent-cyan)', opacity: prefsSaving ? 0.5 : 1 }}>
-        SAVE PREFERENCES
-      </button>
-      <ResultMsg result={prefsMsg} />
     </div>
   )
 }

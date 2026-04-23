@@ -95,14 +95,11 @@ pub async fn auto_compact_history(
         .collect::<Vec<_>>()
         .join("\n\n");
 
-    let prompt = format!(
-        "请对以下对话历史进行压缩总结，保留关键信息、决策、行动项和重要上下文。限制在{}字以内：\n\n{}",
-        COMPACT_SUMMARY_MAX_TOKENS, history_text
-    );
+    let prompt = crate::prompts::compact::user(&history_text, COMPACT_SUMMARY_MAX_TOKENS as i64);
 
     let llm = LlmClient::from_user(user)?;
     let summary = llm
-        .chat_complete("你是一个对话压缩助手。".into(), prompt)
+        .chat_complete(crate::prompts::compact::SYSTEM.into(), prompt)
         .await?;
 
     let summary_id = ulid::Ulid::new().to_string();
@@ -134,46 +131,29 @@ pub async fn auto_compact_history(
 
 pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&str>) -> String {
     match ring_name {
-        Some(name) => {
-            let mut prompt = format!("你是 Ring「{name}」的 AI 助手。");
-            if let Some(desc) = role_description {
-                prompt.push_str(&format!("\n\n角色设定：{desc}"));
-            }
-            prompt.push_str("\n\n请用简洁、专业的方式回答用户的问题。如果引用了图谱中的节点或概念，请明确标注。");
-            prompt
-        }
+        Some(name) => crate::prompts::group_ring::system(name, role_description),
         None => {
-            let mut prompt =
-                "你是用户的个人 AI 助手 Self。你完全了解用户的偏好、目标和历史对话。".to_string();
-
             let self_dir = crate::services::self_data::get_self_dir("");
             let (identity, identity_exists) =
                 crate::services::self_data::read_self_file(&self_dir, "identity")
                     .unwrap_or_default();
-            if identity_exists && !identity.is_empty() {
-                prompt.push_str("\n\n用户身份定义：\n");
-                prompt.push_str(&identity);
-            }
+            let identity = if identity_exists && !identity.is_empty() { Some(identity.as_str()) } else { None };
 
             let (style, style_exists) =
                 crate::services::self_data::read_self_file(&self_dir, "style").unwrap_or_default();
-            if style_exists && !style.is_empty() {
-                prompt.push_str("\n\n对话风格偏好：\n");
-                prompt.push_str(&style);
-            }
+            let style = if style_exists && !style.is_empty() { Some(style.as_str()) } else { None };
 
             let personality = crate::services::self_data::read_self_file(&self_dir, "personality")
                 .unwrap_or_default();
-            if personality.1 && !personality.0.is_empty() {
-                if let Ok(p) = serde_json::from_str::<serde_json::Value>(&personality.0) {
-                    if let Some(tone) = p.get("tone").and_then(|v| v.as_str()) {
-                        prompt.push_str(&format!("\n\n语气风格：{tone}"));
-                    }
-                }
-            }
+            let tone = if personality.1 && !personality.0.is_empty() {
+                serde_json::from_str::<serde_json::Value>(&personality.0)
+                    .ok()
+                    .and_then(|p| p.get("tone").and_then(|v| v.as_str()).map(|s| s.to_string()))
+            } else {
+                None
+            };
 
-            prompt.push_str("\n\n请以友好、个性化的方式回答。");
-            prompt
+            crate::prompts::self_chat::system(identity, style, tone.as_deref())
         }
     }
 }

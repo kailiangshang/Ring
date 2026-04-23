@@ -24,7 +24,7 @@ use crate::state::AppState;
 
 const SUPER_RING_ID: &str = "super";
 
-const DEFAULT_SUPER_SYSTEM_PROMPT: &str = "你是 Super Ring，用户的全局 AI 助手和跨 Ring 协调者。\n\n你的职责：\n1. Ring 管理引导 — 帮助用户创建、配置 Ring\n2. 跨 Ring 分析 — 按需读取所有 Ring 的内容，进行汇总、对比、推荐\n3. 使用引导 — 回答关于 Ring 产品功能的问题\n\n请用简洁、专业的方式回答。";
+const DEFAULT_SUPER_SYSTEM_PROMPT: &str = crate::prompts::super_ring::DEFAULT_SYSTEM;
 
 const DEFAULT_PREFERENCES: &str = "## 语言\n- default: zh-CN\n\n## LLM\n- default_provider: openai\n\n## 输出格式\n- style: concise\n\n## 默认模式\n- mode: normal";
 
@@ -821,10 +821,7 @@ async fn stream_cross_ring_query_inner(
         }
     }
 
-    let system_prompt = format!(
-        "你是 Super Ring，用户的全局 AI 助手。用户提出了一个跨 Ring 的查询问题。\n\n以下是用户的所有 Ring 的汇总信息：\n{}\n\n以下是每个 Ring 的详细数据：\n{}\n\n请基于以上信息，回答用户的问题。如果信息不足，请明确告知。",
-        ring_summary, all_ring_details
-    );
+    let system_prompt = crate::prompts::super_ring::cross_ring_query(&ring_summary, &all_ring_details);
 
     let api_key = user
         .llm_api_key
@@ -967,33 +964,7 @@ async fn stream_cross_ring_analysis_inner(
         }
     }
 
-    let analysis_prompt = match request.analysis_type.as_str() {
-        "compare" => {
-            format!(
-                "请对比以下 Ring 的差异和共同点：\n{}\n\n请从目标、成员、内容、进展等维度进行对比分析。",
-                selected_ring_details
-            )
-        }
-        "merge" => {
-            format!(
-                "请分析以下 Ring 的内容，找出可以整合或合并的部分：\n{}\n\n请提出具体的整合建议。",
-                selected_ring_details
-            )
-        }
-        "summary" => {
-            format!(
-                "请对以下 Ring 的内容进行汇总分析：\n{}\n\n请提供综合摘要和关键洞察。",
-                selected_ring_details
-            )
-        }
-        _ => {
-            format!(
-                "请分析以下 Ring 的内容：\n{}\n\n用户问题：{}\n\n请基于以上信息回答。",
-                selected_ring_details,
-                request.question.unwrap_or_default()
-            )
-        }
-    };
+    let analysis_prompt = crate::prompts::super_ring::cross_ring_analysis(&request.analysis_type, &selected_ring_details);
 
     let api_key = user
         .llm_api_key
