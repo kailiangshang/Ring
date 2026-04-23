@@ -3,6 +3,8 @@ import { useChatStore } from '../../stores/chat-store'
 import { useCommandHistoryStore } from '../../stores/command-history-store'
 import { useArchiveStore } from '../../stores/archive-store'
 import { useRingStore } from '../../stores/ring-store'
+import { useAppStore } from '../../stores/app-store'
+import { useSelfStore } from '../../stores/self-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
@@ -106,9 +108,24 @@ export function InputArea() {
   }
 
   const handleSelect = (val: string) => {
-    setInput(val)
+    setInput('')
     ac.hide()
-    setTimeout(() => inputRef.current?.focus(), 0)
+
+    const cmd = val.trim()
+    if (cmd === '@self ') {
+      useSelfStore.getState().setOpen(true)
+      useSelfStore.getState().setTab('chat')
+      setTimeout(() => {
+        const el = document.querySelector<HTMLInputElement>('.self-chat-input')
+        el?.focus()
+      }, 50)
+    } else if (cmd === '@super ') {
+      useAppStore.getState().setActiveRing(null)
+      setTimeout(() => inputRef.current?.focus(), 50)
+    } else {
+      setInput(val)
+      setTimeout(() => inputRef.current?.focus(), 0)
+    }
   }
 
   const handleArchiveConfirm = () => {

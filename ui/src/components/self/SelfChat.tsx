@@ -60,6 +60,7 @@ export function SelfChat() {
       </div>
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', borderTop: '1px solid var(--border)' }}>
         <textarea
+          className="self-chat-input"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
