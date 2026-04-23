@@ -3,6 +3,7 @@ import { useRingStore } from '../../stores/ring-store'
 import { RingListItem } from './RingListItem'
 import { SessionIndicator } from './SessionIndicator'
 import { useAppStore } from '../../stores/app-store'
+import { usePanelStore } from '../../stores/panel-store'
 
 export function RingList() {
   const rings = useRingStore((s) => s.rings)
@@ -11,14 +12,20 @@ export function RingList() {
   const createRing = useRingStore((s) => s.createRing)
   const setActiveRing = useAppStore((s) => s.setActiveRing)
   const selectRing = useRingStore((s) => s.selectRing)
+  const openPanel = usePanelStore((s) => s.open)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newName.trim()) return
-    createRing(newName.trim(), `You are a ${newName.trim()} assistant`)
+    const ring_id = await createRing(newName.trim(), `You are a ${newName.trim()} assistant`)
     setNewName('')
     setCreating(false)
+    if (ring_id) {
+      selectRing(ring_id)
+      setActiveRing(ring_id)
+      openPanel('graph')
+    }
   }
 
   return (
