@@ -1,7 +1,10 @@
+import { useState, useRef, useEffect } from 'react'
 import type { ChatMessage } from '../../types/chat'
 import { useChatStore } from '../../stores/chat-store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+
+const COLLAPSE_HEIGHT = 200
 
 const ROLE_COLORS: Record<string, string> = {
   user: 'var(--accent-ice)',
@@ -72,6 +75,25 @@ export function MessageItem({ message }: MessageItemProps) {
   const label = message.role === 'user' ? 'YOU' : message.sender_name.toUpperCase()
   const isUser = message.role === 'user'
 
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [collapsed, setCollapsed] = useState(false)
+  const [overflowing, setOverflowing] = useState(false)
+
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    if (el.scrollHeight > COLLAPSE_HEIGHT + 40) {
+      setOverflowing(true)
+      setCollapsed(true)
+    }
+  }, [message.content])
+
+  useEffect(() => {
+    if (isStreaming) setCollapsed(false)
+  }, [isStreaming])
+
+  const isAi = !isUser && message.role !== 'system'
+
   return (
     <div style={{
       padding: '8px 16px',
@@ -93,7 +115,18 @@ export function MessageItem({ message }: MessageItemProps) {
             {new Date(message.created_at).toLocaleTimeString()}
           </span>
         </div>
-        <div style={{ color: 'var(--text-primary)', lineHeight: 1.6, fontSize: 13 }}>
+        <div
+          ref={contentRef}
+          style={{
+            color: 'var(--text-primary)',
+            lineHeight: 1.6,
+            fontSize: 13,
+            maxHeight: collapsed ? COLLAPSE_HEIGHT : undefined,
+            overflow: collapsed ? 'hidden' : 'visible',
+            position: 'relative',
+            transition: 'max-height 0.2s ease',
+          }}
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
             {message.content}
           </ReactMarkdown>
@@ -108,7 +141,51 @@ export function MessageItem({ message }: MessageItemProps) {
               animation: 'blink 1s step-end infinite',
             }} />
           )}
+          {collapsed && overflowing && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                height: 40,
+                background: 'linear-gradient(transparent, var(--bg-base))',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              onClick={() => setCollapsed(false)}
+            >
+              <span style={{
+                fontSize: 10,
+                color: 'var(--accent-cyan)',
+                fontWeight: 700,
+                paddingBottom: 4,
+                letterSpacing: '0.05em',
+              }}>
+                EXPAND
+              </span>
+            </div>
+          )}
         </div>
+        {!collapsed && overflowing && isAi && (
+          <button
+            onClick={() => setCollapsed(true)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-cyan)',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+              padding: '2px 0',
+              letterSpacing: '0.05em',
+            }}
+          >
+            COLLAPSE
+          </button>
+        )}
         {message.token_usage && message.role !== 'user' && (
           <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
             {message.token_usage.prompt_tokens !== undefined && (

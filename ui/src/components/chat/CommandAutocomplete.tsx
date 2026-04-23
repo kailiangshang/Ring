@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useRef, useEffect } from 'react'
 import { useAppStore } from '../../stores/app-store'
 
 interface CommandDef {
@@ -127,11 +128,21 @@ export function CommandAutocomplete({ onSelect }: { onSelect: (val: string) => v
   const visible = useAutocompleteStore((s) => s.visible)
   const matches = useAutocompleteStore((s) => s.matches)
   const selectedIndex = useAutocompleteStore((s) => s.selectedIndex)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!containerRef.current || selectedIndex < 0) return
+    const items = containerRef.current.children
+    if (items[selectedIndex]) {
+      items[selectedIndex].scrollIntoView({ block: 'nearest' })
+    }
+  }, [selectedIndex])
 
   if (!visible || matches.length === 0) return null
 
   return (
     <div
+      ref={containerRef}
       style={{
         position: 'absolute',
         bottom: '100%',
