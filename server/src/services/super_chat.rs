@@ -429,7 +429,8 @@ async fn execute_query_ring_detail(
                 if name.ends_with(".md") {
                     if let Ok(content) = std::fs::read_to_string(entry.path()) {
                         let truncated = if content.len() > 500 {
-                            format!("{}...（截断）", &content[..500])
+                            let s: String = content.chars().take(500).collect();
+                            format!("{s}...（截断）")
                         } else {
                             content
                         };

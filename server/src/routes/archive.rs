@@ -43,7 +43,8 @@ pub async fn quick_archive_handler(
 
     let content = body.content.clone();
     let title = if content.len() > 40 {
-        format!("{}...", &content[..40])
+        let s: String = content.chars().take(40).collect();
+        format!("{s}...")
     } else {
         content.clone()
     };
@@ -205,7 +206,7 @@ pub async fn trigger_archive(
                     let archive_detail = format!(
                         "Title: {}\nContent preview: {}...",
                         title,
-                        &content[..content.len().min(200)]
+                        content.chars().take(200).collect::<String>()
                     );
                     tokio::spawn(async move {
                         let _ = crate::services::group_doc_maintenance::update_archive_patterns(

@@ -29,7 +29,8 @@ pub async fn quick_archive(
 
     let is_creator = role == "creator" || role == "admin";
     let title = if content.len() > 40 {
-        format!("{}...", &content[..40])
+        let s: String = content.chars().take(40).collect();
+        format!("{s}...")
     } else {
         content.to_string()
     };
