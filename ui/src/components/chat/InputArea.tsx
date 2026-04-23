@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { useCommandHistoryStore } from '../../stores/command-history-store'
 import { useArchiveStore } from '../../stores/archive-store'
@@ -12,6 +12,7 @@ export function InputArea() {
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [showArchiveBanner, setShowArchiveBanner] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const lastMessage = messages[messages.length - 1]
   const shouldRecommend = lastMessage && lastMessage.role === 'group_ring' && lastMessage.content && (
@@ -107,6 +108,7 @@ export function InputArea() {
   const handleSelect = (val: string) => {
     setInput(val)
     ac.hide()
+    setTimeout(() => inputRef.current?.focus(), 0)
   }
 
   const handleArchiveConfirm = () => {
@@ -183,6 +185,7 @@ export function InputArea() {
       >
         <ModeIndicator />
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => handleChange(e.target.value)}
