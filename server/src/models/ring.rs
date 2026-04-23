@@ -57,6 +57,21 @@ pub async fn create_ring(
     creator_id: &str,
     input: &CreateRing,
 ) -> Result<RingRow> {
+    let exists: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM rings WHERE creator_id = ?1 AND name = ?2)"
+    )
+    .bind(creator_id)
+    .bind(&input.name)
+    .fetch_one(pool)
+    .await
+    .unwrap_or(false);
+
+    if exists {
+        return Err(crate::error::RingError::BadRequest(
+            format!("Ring「{}」already exists", input.name)
+        ));
+    }
+
     let ring = sqlx::query_as::<_, RingRow>(
         "INSERT INTO rings (id, name, creator_id, role_description, gitlab_repo_url, gitlab_namespace)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)

@@ -15,16 +15,20 @@ export function RingList() {
   const openPanel = usePanelStore((s) => s.open)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
 
   const handleCreate = async () => {
     if (!newName.trim()) return
+    setCreateError(null)
     const ring_id = await createRing(newName.trim(), `You are a ${newName.trim()} assistant`)
-    setNewName('')
-    setCreating(false)
     if (ring_id) {
+      setNewName('')
+      setCreating(false)
       selectRing(ring_id)
       setActiveRing(ring_id)
       openPanel('graph')
+    } else {
+      setCreateError('Failed to create ring. Name may already exist.')
     }
   }
 
@@ -73,6 +77,11 @@ export function RingList() {
               marginBottom: 4,
             }}
           />
+          {createError && (
+            <div style={{ fontSize: 10, color: 'var(--accent-amber)', marginBottom: 4 }}>
+              {createError}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 4 }}>
             <button
               onClick={handleCreate}
