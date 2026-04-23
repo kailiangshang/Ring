@@ -118,8 +118,65 @@ pub async fn archive_toggle(
 ) -> Result<Json<Value>> {
     let result =
         session::toggle_archive(&state, &ring_id, &session_id, &user.token_id, body.enabled)
-            .await?;
+    .await?;
     Ok(Json(serde_json::to_value(result).unwrap()))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct TransferOwnershipInput {
+    pub new_owner_id: String,
+}
+
+pub async fn transfer_ownership(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, session_id)): Path<(String, String)>,
+    Json(body): Json<TransferOwnershipInput>,
+) -> Result<Json<serde_json::Value>> {
+    let role = crate::models::ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    if role != "creator" {
+        return Err(crate::error::RingError::Forbidden(
+            "only creator can transfer session ownership".into(),
+        ));
+    }
+
+    let is_participant: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM session_participants WHERE session_id = ?1 AND token_id = ?2",
+    )
+    .bind(&session_id)
+    .bind(&body.new_owner_id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    if !is_participant {
+        return Err(crate::error::RingError::BadRequest(
+            "new owner must be a session participant".into(),
+        ));
+    }
+
+    sqlx::query("UPDATE sessions SET owner = ?1 WHERE id = ?2")
+        .bind(&body.new_owner_id)
+        .bind(&session_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    sqlx::query("UPDATE session_participants SET role = 'owner' WHERE session_id = ?1 AND token_id = ?2")
+        .bind(&session_id)
+        .bind(&body.new_owner_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    sqlx::query("UPDATE session_participants SET role = 'participant' WHERE session_id = ?1 AND token_id = ?2 AND role = 'owner'")
+        .bind(&session_id)
+        .bind(&user.token_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    Ok(Json(serde_json::json!({"status": "transferred"})))
 }
 
 pub async fn get_messages(

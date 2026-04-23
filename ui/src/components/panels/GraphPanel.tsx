@@ -17,8 +17,15 @@ export function GraphPanel() {
   const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
   const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
 
+  const graphs = useGraphStore((s) => s.graphs)
+  const createGraph = useGraphStore((s) => s.createGraph)
+  const switchGraph = useGraphStore((s) => s.switchGraph)
+  const graph_id = useGraphStore((s) => s.graph_id)
+
   const [newNodeLabel, setNewLabel] = useState('')
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
+  const [newGraphName, setNewGraphName] = useState('')
+  const [showNewGraph, setShowNewGraph] = useState(false)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -68,6 +75,28 @@ export function GraphPanel() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)' }}>
+        {graphs.length > 1 && (
+          <div style={{ marginBottom: 6, display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+            {graphs.map((g) => (
+              <button
+                key={g.id}
+                onClick={() => active_ring_id && switchGraph(active_ring_id, g.id)}
+                style={{
+                  fontSize: 10,
+                  padding: '2px 8px',
+                  borderRadius: 3,
+                  border: `1px solid ${g.id === graph_id ? 'var(--accent-cyan)' : 'var(--border)'}`,
+                  background: g.id === graph_id ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                  color: g.id === graph_id ? 'var(--bg-base)' : 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  fontWeight: g.id === graph_id ? 700 : 400,
+                }}
+              >
+                {g.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input
             value={newNodeLabel}
@@ -119,7 +148,70 @@ export function GraphPanel() {
           >
             Export
           </button>
+          {graphs.length < 3 && (
+            <button
+              onClick={() => setShowNewGraph(!showNewGraph)}
+              style={{
+                background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '4px 10px',
+                fontSize: 11,
+                cursor: 'pointer',
+              }}
+            >
+              +Graph
+            </button>
+          )}
         </div>
+        {showNewGraph && (
+          <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
+            <input
+              value={newGraphName}
+              onChange={(e) => setNewGraphName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && newGraphName.trim() && active_ring_id) {
+                  createGraph(active_ring_id, newGraphName.trim())
+                  setNewGraphName('')
+                  setShowNewGraph(false)
+                }
+              }}
+              placeholder="graph name..."
+              style={{
+                flex: 1,
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                padding: '4px 8px',
+                color: 'var(--text-primary)',
+                fontSize: 11,
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => {
+                if (newGraphName.trim() && active_ring_id) {
+                  createGraph(active_ring_id, newGraphName.trim())
+                  setNewGraphName('')
+                  setShowNewGraph(false)
+                }
+              }}
+              style={{
+                background: 'var(--accent-cyan)',
+                color: 'var(--bg-base)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Create
+            </button>
+          </div>
+        )}
 
         {/* Tag filter */}
         {allTags.length > 0 && (

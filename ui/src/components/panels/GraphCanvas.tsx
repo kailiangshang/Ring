@@ -31,6 +31,7 @@ const NODE_COLORS: Record<string, string> = {
 export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSelectNode, onToggleCollapse }: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const simRef = useRef<d3.Simulation<SimNode, SimEdge> | null>(null)
 
   // Filter nodes based on collapsed state
   const getVisibleNodes = useCallback(() => {
@@ -101,6 +102,8 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
       .force('charge', d3.forceManyBody().strength(-200))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force('collision', d3.forceCollide().radius(30))
+
+    simRef.current = simulation
 
     const link = g
       .append('g')
@@ -229,9 +232,49 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
     return () => cleanup?.()
   }, [render])
 
+  const exportSVG = useCallback(() => {
+    if (!svgRef.current) return
+    const clone = svgRef.current.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('width', '1200')
+    clone.setAttribute('height', '800')
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = `text{font-family:system-ui,sans-serif}circle{transition:none}`
+    clone.insertBefore(style, clone.firstChild)
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(clone)
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'graph.svg'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }, [])
+
   return (
-    <div ref={containerRef} style={{ width: '100%', height: '100%', background: 'var(--bg-base)' }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', background: 'var(--bg-base)', position: 'relative' }}>
       <svg ref={svgRef} width="100%" height="100%" />
+      <button
+        onClick={exportSVG}
+        style={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          background: 'var(--bg-hover)',
+          color: 'var(--text-secondary)',
+          border: '1px solid var(--border)',
+          borderRadius: 3,
+          padding: '2px 8px',
+          fontSize: 10,
+          cursor: 'pointer',
+          zIndex: 10,
+        }}
+      >
+        SVG
+      </button>
     </div>
   )
 }

@@ -1,6 +1,10 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::header;
 use axum::response::IntoResponse;
+use flate2::write::GzEncoder;
+use flate2::Compression;
+use serde::Deserialize;
+use tar::Builder;
 
 use crate::error::Result;
 use crate::extractors::auth::AuthUser;
@@ -170,7 +174,7 @@ pub async fn export_ring_backup(
     .await
     .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    let backup = serde_json::json!({
+    let metadata = serde_json::json!({
         "version": "1.0",
         "exported_at": chrono::Utc::now().to_rfc3339(),
         "ring": {
@@ -179,23 +183,62 @@ pub async fn export_ring_backup(
             "role_description": ring_info.role_description,
             "interaction_mode": ring_info.interaction_mode,
             "created_at": ring_info.created_at,
-        },
-        "messages": messages.iter().rev().collect::<Vec<_>>(),
-        "graph": {
-            "nodes": nodes,
-            "edges": edges,
-        },
-        "sessions": sessions,
-        "archives": archives,
+        }
     });
 
-    let json_str = serde_json::to_string_pretty(&backup)
+    let graph_json = serde_json::json!({
+        "nodes": nodes,
+        "edges": edges,
+    });
+
+    let mut chat_md = String::new();
+    chat_md.push_str(&format!("# Ring: {}\n\n", ring_info.name));
+    chat_md.push_str(&format!("Exported: {}\n\n---\n\n", chrono::Utc::now().to_rfc3339()));
+    for msg in messages.iter().rev() {
+        let role_label = if msg.role == "user" { "User" } else { "AI" };
+        chat_md.push_str(&format!("## {} ({})\n\n", role_label, msg.sender_name));
+        chat_md.push_str(&msg.content);
+        chat_md.push_str("\n\n---\n\n");
+    }
+
+    let sessions_json = serde_json::to_string_pretty(&sessions)
         .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    Ok(json_response(
-        json_str,
-        format!("ring_{}_backup.json", ring_id),
+    let archives_json = serde_json::to_string_pretty(&archives)
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    let mut buf = Vec::new();
+    {
+        let enc = GzEncoder::new(&mut buf, Compression::default());
+        let mut tar = Builder::new(enc);
+        tar_append(&mut tar, "metadata.json", &serde_json::to_string_pretty(&metadata).unwrap())?;
+        tar_append(&mut tar, "graph.json", &serde_json::to_string_pretty(&graph_json).unwrap())?;
+        tar_append(&mut tar, "chat.md", &chat_md)?;
+        tar_append(&mut tar, "sessions.json", &sessions_json)?;
+        tar_append(&mut tar, "archives.json", &archives_json)?;
+        tar.finish().map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    }
+
+    Ok((
+        [
+            (header::CONTENT_TYPE, "application/gzip".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!(r#"attachment; filename="ring_{}_backup.tar.gz""#, ring_id),
+            ),
+        ],
+        buf,
     ))
+}
+
+fn tar_append(tar: &mut Builder<GzEncoder<&mut Vec<u8>>>, path: &str, content: &str) -> Result<()> {
+    let data = content.as_bytes();
+    let mut header = tar::Header::new_gnu();
+    header.set_size(data.len() as u64);
+    header.set_mode(0o644);
+    header.set_cksum();
+    tar.append_data(&mut header, path, data)
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))
 }
 
 pub async fn export_session_messages(
@@ -230,4 +273,54 @@ pub async fn export_session_messages(
     }
 
     Ok(markdown_response(md, format!("session_{}.md", session_id)))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReportQuery {
+    pub node_ids: Option<String>,
+    pub topic: Option<String>,
+}
+
+pub async fn export_ai_report(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Query(query): Query<ReportQuery>,
+) -> Result<impl IntoResponse> {
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+
+    let graph = graph::ensure_default_graph(&state.db, &ring_id).await?;
+    let all_nodes = graph::list_nodes(&state.db, &graph.id).await?;
+
+    let selected_nodes: Vec<_> = if let Some(ids_str) = &query.node_ids {
+        let ids: Vec<&str> = ids_str.split(',').collect();
+        all_nodes.into_iter().filter(|n| ids.contains(&n.id.as_str())).collect()
+    } else {
+        all_nodes
+    };
+
+    if selected_nodes.is_empty() {
+        return Err(crate::error::RingError::BadRequest("No nodes selected".into()));
+    }
+
+    let topic = query.topic.as_deref().unwrap_or("综合分析");
+    let mut nodes_info = String::new();
+    for n in &selected_nodes {
+        nodes_info.push_str(&format!(
+            "### {} [{}]\n标签: {}\n路径: {}\n\n",
+            n.label,
+            n.node_type,
+            n.tags,
+            n.markdown_path.as_deref().unwrap_or("N/A"),
+        ));
+    }
+
+    let system_prompt = "你是一个知识分析助手。基于用户提供的图谱节点信息，生成一份结构化的分析报告。报告应包含：概述、关键发现、节点关系分析、建议。使用 Markdown 格式。".to_string();
+    let user_message = format!("主题：{}\n\n以下是选中的图谱节点：\n\n{}", topic, nodes_info);
+
+    let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
+    let report = llm.chat_complete(system_prompt, user_message).await?;
+
+    Ok(markdown_response(report, format!("ring_{}_report.md", ring_id)))
 }

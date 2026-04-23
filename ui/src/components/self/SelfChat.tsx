@@ -68,7 +68,6 @@ export function SelfChat() {
               send()
             }
           }}
-          disabled={sending}
           placeholder="Chat with Self..."
           style={{
             flex: 1,
@@ -80,7 +79,6 @@ export function SelfChat() {
             fontSize: 12,
             fontFamily: 'inherit',
             outline: 'none',
-            opacity: sending ? 0.6 : 1,
           }}
         />
         <button

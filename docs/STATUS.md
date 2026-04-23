@@ -1,198 +1,177 @@
-# Ring 项目现状
+# Ring 项目状态
 
 > 最后更新：2026-04-23
 
-## 技术栈
+## 开发概况
 
-| 层 | 技术 |
-|---|------|
-| 后端 | Rust + Axum 0.8 + SQLite (sqlx) |
-| 前端 | React 19 + TypeScript + Zustand 5 + Vite 8 |
-| LLM | async-openai（OpenAI + Anthropic + Ollama）+ 自建 Anthropic 适配层 |
-| 实时通信 | WebSocket (axum ws) + SSE 流式输出 |
-| 分发 | 单一二进制，前端嵌入后端 serve |
+- 后端 64 个 Rust 源文件，~11,700 行
+- 前端 84 个 TS/TSX 文件，~9,100 行
+- 12 个数据库迁移
+- 56/56 集成测试通过
+- 313 个 Git commits
 
-## 架构
+## 功能完成状态
 
-```
-Ring Hub（用户入口）
-├── Super Ring    — 全局助手，Ring 管理引导，跨 Ring 分析
-├── Group Ring    — 群组专属 AI，读写本 Ring 图谱和归档
-├── Session Ring  — 多人实时讨论，加载 Skill 决定行为
-└── Self          — 用户私有 AI 宠物，完全私有，不进 Git
-```
+### 基础设施
 
-## 已完成的功能
+| 功能 | 状态 |
+|---|---|
+| 三栏布局 (Sidebar + Chat + PanelStack) | done |
+| IceChat 深色主题 (Cascadia Code + Space Grotesk) | done |
+| Handler → Service → Model 三层分离 | done |
+| Auth (X-Ring-Token) + Token 恢复 | done |
+| Setup 向导 (5 步) + Skip GitLab | done |
+| Setup Done 命令速查表 | done |
+| API Key / Git 凭证 AES-256 加密 | done |
 
-### 基础架构
-- 三栏布局（Sidebar + ChatArea + PanelStack）
-- IceChat 深色主题（Cascadia Code + Space Grotesk）
-- Handler → Service → Model 三层分离
-- Auth: X-Ring-Token header
-- Token 恢复机制（写入 ~/.ring/hub/token，前端自动恢复）
+### 聊天系统
 
-### Setup 向导
-- 5 步：Welcome → Identity → LLM Config → GitLab → Done
-- LLM Model 输入框（按 provider 默认值：openai→gpt-4o, anthropic→claude-sonnet-4, ollama→qwen2.5）
-- TEST CONNECTION 按钮（LLM + GitLab，15s 超时，返回具体错误信息）
-- JOIN EXISTING 分支（token + creator_ip URL 参数自动进入 join 流程）
+| 功能 | 状态 |
+|---|---|
+| Group Ring / Super Ring / Self 三层聊天 | done |
+| SSE 流式输出 + tool_calls 支持 | done |
+| 聊天历史分页加载 | done |
+| Markdown 渲染 (react-markdown + remark-gfm) | done |
+| 命令补全弹出框 (/ @ ! % 前缀触发) | done |
+| 命令历史 (上下箭头) | done |
+| Token 用量显示 (每条消息) | done |
+| Auto compact (上下文超限自动压缩) | done |
+| Ephemeral 模式 (临时消息不保存) | done |
+| 隐私过滤 (手机号/身份证/邮箱/银行卡脱敏) | done |
 
-### Chat 系统
-- Group Ring / Super Ring / Self 三层聊天
-- SSE 流式输出（Super Ring 始终流式，支持 tool_calls 中途执行工具再流式）
-- 聊天历史加载
-- Markdown 渲染（react-markdown + remark-gfm，表格/代码/标题/列表/引用全部适配 IceChat 主题）
+### 图谱系统
 
-### CLI 命令系统
-- 四前缀：`@` (addressing) / `#` (reference) / `!` (action) / `%` (meta)
-- `/` 统一命令前缀（`/graph` = `!graph`，`/prefs` = `%prefs`，等）
-- `/help` 显示完整命令表
-- 命令自动补全弹出框（输入 `/`、`!`、`%`、`@` 触发，上下键选择 + 回车确认）
-- 上下文感知命令提示栏（Super Ring / Ring / Session 显示不同命令）
-- UI 命令不发送给 AI（只切换面板）
-
-### 图谱可视化
-- D3.js force-directed graph（缩放、拖拽、节点选中）
-- Graph CRUD backend（nodes + edges）
-- 节点类型颜色区分 + 边标签
+| 功能 | 状态 |
+|---|---|
+| D3.js 力导向图可视化 | done |
+| Node / Edge CRUD | done |
+| 节点类型 (category/leaf) + metadata | done |
+| 多图谱支持 (每 Ring 最多 3 个) | done |
+| 图谱选择器 UI | done |
+| 标签过滤 | done |
+| 展开/折叠子节点 | done |
+| Graph 对话修正 (自然语言操作图谱) | done |
+| 导出 graph.json / SVG | done |
 
 ### 归档系统
-- 对话 → 图谱节点 + Markdown + Git commit
-- Creator 直接 commit，Member 提交 MR
-- Archive queue + PR review（merge/reject）
-- 自动归档
 
-### Session 全生命周期
-- 4 张表：sessions, session_participants, session_messages, session_materials
-- WebSocket 实时聊天（WsHub + DashMap）
-- Owner 离线暂停 / 重连恢复
-- Catch-up（基于 seq_num）
-- Session pause/resume
-- AI 总结（SSE 流式）
-- 材料准备 + 高亮
-- Skill 系统（5 个内置 + 从 URL 安装 + 卸载）
+| 功能 | 状态 |
+|---|---|
+| 对话 → 图谱节点 + Markdown + Git commit | done |
+| Creator 直接 commit, Member 提交 MR | done |
+| Archive queue + PR Review (merge/reject) | done |
+| PR Diff 视图 | done |
+| 归档触发多样化 (命令/按钮/自然语言/AI 推荐) | done |
+| Auto 模式 (AI 自动判断归档) | done |
+| Ring Git 初始化 (自动 git init + 初始 commit) | done |
+
+### Session 系统
+
+| 功能 | 状态 |
+|---|---|
+| Session CRUD + 全生命周期管理 | done |
+| WebSocket 实时多人聊天 | done |
+| Owner 离线暂停 / 重连恢复 / Catch-up | done |
+| 材料准备 + 高亮标记 | done |
+| AI 总结 (SSE 流式) | done |
+| Skill 集成 (加载 Skill system_prompt) | done |
+| 5 个内置 Skill (decision/research/review/retrospective/knowledge_sharing) | done |
+| Skill 安装/卸载 (从 URL) | done |
 
 ### Super Ring
-- 始终流式输出 + tool_calls 支持（跨 Ring 查询、偏好管理、Skill 管理）
-- HeaderTabBar：Chat / Skills / Settings
-- Skills 面板：已安装列表 + 安装/卸载
-- Settings 面板：LLM Config + GitLab Config (Optional) + System Prompt + Preferences
-- System Prompt 编辑 + 用户偏好编辑
-- ModeIndicator 显示 `[super]` / `[ring]` / `[session]`
 
-### 邀请/加入流程
-- Invite Token CRUD（open / audit 两种类型）
-- 开放链接加入（3 个端点：验证、加入、本地加入）
-- 审核链接 + 审批流程（5 个端点：申请、查状态、列表、批准、拒绝）
-- 安装导航页（检测 OS，显示下载链接）
-- 前端 CreateInviteModal（ConfigPanel 内触发）
-- 前端 StepJoin（验证 token → join/poll）
+| 功能 | 状态 |
+|---|---|
+| 始终流式 + tool_calls (跨 Ring 查询/偏好/Skill 管理) | done |
+| System Prompt 编辑 | done |
+| 用户偏好编辑 | done |
+| 跨 Ring 问答/分析 | done |
 
-### 成员管理
-- 成员列表 + 角色变更 + 移除
-- 侧栏 + new ring 按钮（可点击创建）
+### Self 系统
 
-## 后端 API 端点（完整）
+| 功能 | 状态 |
+|---|---|
+| Memory / Personality / Privacy / Export / Reset | done |
+| @self 转发 (从 Group Ring) | done |
+| 主动建议 | done |
+| 数据导出/重置 | done |
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/ws` | WebSocket 连接 |
-| GET | `/api/setup/status` | Setup 状态 |
-| GET | `/api/setup/recover` | 恢复 token（无 auth） |
-| POST | `/api/setup` | 提交 Setup |
-| PUT | `/api/setup` | 更新 Setup |
-| GET | `/api/rings` | Ring 列表 |
-| POST | `/api/rings` | 创建 Ring |
-| GET | `/api/rings/{id}` | Ring 详情 |
-| GET | `/api/rings/{id}/members` | 成员列表 |
-| POST | `/api/rings/{id}/members` | 添加成员 |
-| PUT | `/api/rings/{id}/members/{tid}/role` | 角色变更 |
-| DELETE | `/api/rings/{id}/members/{tid}` | 移除成员 |
-| GET/PUT | `/api/config/llm` | LLM 配置 |
-| POST | `/api/config/llm/test` | 测试 LLM 连接（无 auth） |
-| POST | `/api/config/gitlab/test` | 测试 GitLab 连接（无 auth） |
-| GET/PUT | `/api/rings/{id}/mode` | 交互模式 |
-| GET/PUT | `/api/rings/{id}/group-docs/{name}` | Group 文档 |
-| POST | `/api/rings/{id}/chat` | Group Ring 聊天 (SSE) |
-| GET | `/api/rings/{id}/chat/history` | 聊天历史 |
-| POST | `/api/self/chat` | Self 聊天 (SSE) |
-| GET | `/api/self/chat/history` | Self 聊天历史 |
-| POST | `/api/super/chat` | Super Ring 聊天 (SSE) |
-| GET | `/api/super/chat/history` | Super Ring 聊天历史 |
-| GET/PUT | `/api/super/system-prompt` | 系统提示词 |
-| GET/PUT | `/api/super/preferences` | 用户偏好 |
-| GET | `/api/skills` | Skill 列表 |
-| POST | `/api/skills/install` | 安装 Skill |
-| GET/DELETE | `/api/skills/{name}` | Skill 详情/删除 |
-| GET/POST/DELETE | `/api/rings/{id}/graph` | 图谱 CRUD |
-| PUT/DELETE | `/api/rings/{id}/graph/nodes/{nid}` | 节点更新/删除 |
-| POST/DELETE | `/api/rings/{id}/graph/edges` | 边 CRUD |
-| GET/POST | `/api/rings/{id}/sessions` | Session 列表/创建 |
-| GET/DELETE | `/api/rings/{id}/sessions/{sid}` | Session 详情/删除 |
-| POST | `/api/rings/{id}/sessions/{sid}/close` | 关闭 |
-| POST | `/api/rings/{id}/sessions/{sid}/reopen` | 重开 |
-| POST | `/api/rings/{id}/sessions/{sid}/start` | 开始讨论 |
-| POST | `/api/rings/{id}/sessions/{sid}/summarize` | AI 总结 |
-| GET | `/api/rings/{id}/sessions/{sid}/messages` | 消息历史 |
-| GET | `/api/rings/{id}/sessions/{sid}/material-prep` | 材料准备 |
-| POST | `/api/rings/{id}/sessions/{sid}/material-prep/highlights` | 标记高亮 |
-| POST/DELETE | `/api/rings/{id}/sessions/{sid}/participants` | 参与者管理 |
-| PUT | `/api/rings/{id}/sessions/{sid}/archive-toggle` | 归档开关 |
-| POST | `/api/rings/{id}/archive` | 触发归档 |
-| GET | `/api/rings/{id}/archives` | 归档列表 |
-| GET | `/api/rings/{id}/archives/{aid}` | 归档详情 |
-| POST | `/api/rings/{id}/archives/{aid}/review` | 审核 MR |
-| GET | `/api/rings/{id}/archive-queue` | 归档队列 |
-| GET | `/api/rings/{id}/repo/status` | Git 仓库状态 |
-| POST | `/api/rings/{id}/repo/init` | 初始化仓库 |
-| POST | `/api/rings/{id}/invite-tokens` | 创建邀请 token |
-| GET | `/api/rings/{id}/invite-tokens` | 列出邀请 token |
-| DELETE | `/api/rings/{id}/invite-tokens/{token}` | 撤销 token |
-| GET | `/api/rings/{id}/join-requests` | 审批请求列表 |
-| POST | `/api/rings/{id}/join-requests/{rid}/approve` | 批准 |
-| POST | `/api/rings/{id}/join-requests/{rid}/reject` | 拒绝 |
-| GET | `/api/join/info` | 验证邀请 token |
-| POST | `/api/join` | 开放链接加入 |
-| POST | `/api/join/local` | 本地加入 |
-| POST | `/api/join/apply` | 申请加入 |
-| GET | `/api/join/apply/status` | 查询申请状态 |
-| GET | `/ring/join` | 安装导航页（HTML） |
+### 协作
 
-## PRD 缺失功能补充（2026-04-23 完成）
+| 功能 | 状态 |
+|---|---|
+| 邀请 Token CRUD (open/audit) | done |
+| 开放链接加入 + 审核链接 + 审批流程 | done |
+| 安装导航页 (OS 检测) | done |
+| 成员列表 + 角色变更 + 移除 | done |
+| 通知系统 (bell + 未读数) | done |
 
-### 复杂功能
+### 导出 / 配置
 
-| # | 功能 | PRD 章节 | 说明 |
-|---|------|----------|------|
-| 15 | **多图谱支持** | 2.3 | 每个 Ring 最多 3 个独立图谱，GraphPanel 带选择器 |
-| 16 | **Super Ring 跨 Ring 能力** | 2.6 | 跨 Ring 问答/分析/汇总，Skill 管理 |
-| 17 | **Auto 模式** | 4.3.3 | AI 自动判断内容价值并归档，无需用户确认 |
-| 18 | **预设工作流工具** | 2.7 | 文件解析/知识提取/深度调研 |
+| 功能 | 状态 |
+|---|---|
+| 聊天/会话/图谱/全 Ring 备份导出 | done |
+| 图谱 SVG + AI 结构化报告 + tar.gz | done |
+| .group/ 文档体系 (role.md + conventions.md) | done |
+| .group/ AI 自动维护 (active-context/archive-patterns/corrections/knowledge-summary) | done |
+| Blueprint / 模板系统 (5 个内置模板) | done |
+| Token 阈值管理 (100k limit, 80% warning) | done |
+| Config 面板 (LLM / GitLab / Privacy / auto_compact) | done |
 
-### 中等功能
+## 后端 API
 
-| # | 功能 | PRD 章节 | 说明 |
-|---|------|----------|------|
-| 19 | **归档触发多样化** | 2.4 | 自然语言触发/AI 主动推荐/命令/按钮 |
-| 20 | **Token 阈值管理** | 2.9 | Token 追踪/提醒/自动 compact 开关 |
-| 21 | **.group/ 文档体系** | 2.6 | role.md + conventions.md 手动编辑 |
-| 22 | **Ring 初始化流程** | 6.1.1 | 自动 Git 仓库 + 初始 commit + 目录结构 |
-| 23 | **Session Skill 集成** | 2.6 | 加载 Skill system prompt 驱动行为 |
+共 60+ 端点。完整列表见 [api-design.md](technical/api-design.md)。
 
-### 快速功能
+核心路由：
 
-| # | 功能 | PRD 章节 | 说明 |
-|---|------|----------|------|
-| 24 | **节点数据结构** | 2.3 | markdown_path/ category/ leaf/ metadata |
-| 25 | **隐私过滤** | 3.2 | 手机号/身份证/邮箱/银行卡脱敏 |
-| 26 | **导出中心完善** | 2.8 | 图谱 SVG/AI 结构化报告/全 Ring tar.gz 备份 |
+| 域 | 路径前缀 |
+|---|---|
+| Setup | `/api/setup` |
+| Ring | `/api/rings` |
+| Chat | `/api/rings/{id}/chat`, `/api/self/chat`, `/api/super/chat` |
+| Graph | `/api/rings/{id}/graph` |
+| Session | `/api/rings/{id}/sessions` |
+| Archive | `/api/rings/{id}/archive`, `/api/rings/{id}/archives` |
+| Export | `/api/rings/{id}/export` |
+| Super | `/api/super/*` |
+| Skill | `/api/skills` |
+| Config | `/api/config/*` |
+| Notification | `/api/notifications` |
+| Invite/Join | `/api/rings/{id}/invite-tokens`, `/api/join/*` |
 
-## 测试
+## PRD 缺失项（代码实况核查）
 
-```bash
-cd server && cargo test          # 56/56 集成测试通过
-cd ui && npm test                # 22/23 前端测试通过（1 个 pre-existing failure）
-cd ui && npx tsc --noEmit        # TypeScript 检查通过
-cargo clippy -- -D warnings      # 无警告
-```
+> 以下通过逐项对比 PRD 和代码确认。
+
+| PRD 要求 | 状态 | 说明 |
+|---|---|---|
+| 图谱 SVG/PNG/PDF 图片导出 | **done** | `GraphCanvas.tsx` 前端 SVG 导出，D3 SVG 克隆 + XMLSerializer |
+| AI 结构化报告导出 | **done** | `GET /rings/{id}/export/report?node_ids=...&topic=...`，SSE 流式生成 |
+| 全 Ring tar.gz 备份 | **done** | `export_ring_backup` 返回 `.tar.gz`（metadata + graph + chat + sessions + archives） |
+| 预设工作流工具（文件解析/知识提取/深度调研） | **缺失** | 后端无对应 service，PRD 2.7，优先级低 |
+| 多图谱前端 UI（选择器/切换/创建/删除） | **done** | `GraphPanel.tsx` 图谱选择器标签页 + 创建/删除 |
+| 成员创建 Session 需授权（grant-session） | **done** | `POST /members/{tid}/grant-session` + `revoke-session`，仅 creator/admin |
+| 成员移除时 Session ownership 转移 | **done** | 移除成员时检查 session ownership，有活动 session 则拒绝并报错 |
+| Session 所有权转移 | **done** | `POST /sessions/{sid}/transfer-ownership`，仅 creator，新 owner 必须是参与者 |
+| Super Ring `cross_ring_cache/` 缓存 | **缺失** | PRD 2.6 存储结构，代码未实现缓存目录，优先级低 |
+| Self 完整数据文件（identity/style/knowledge/goals/growth/*.json） | 部分 | 有 DB 字段，但非 PRD 定义的 `.self/` 文件体系 |
+| Self metrics 四项统计（session_stats/tool_usage/dwell_time/archive_patterns） | 部分 | `self_data::get_metrics` 有基础统计，但非 PRD 定义的独立 JSON |
+
+## 已知体验问题
+
+| 问题 | 优先级 | 状态 |
+|---|---|---|
+| ~~消息气泡未左右分布~~ | ~~P1~~ | **fixed** — 用户右对齐 + AI 左对齐 |
+| ~~Self 流式输出时阻塞 UI~~ | ~~P1~~ | **fixed** — 移除 input disabled={sending} |
+| 缺少全文搜索（跨 Ring/节点/消息） | P1 | |
+| 缺少文件上传（只支持文本） | P1 | |
+| 长消息不可折叠 | P2 | |
+| 缺少 /clear /new 命令 | P2 | |
+| Settings 缺少个人信息展示 | P2 | |
+| 前端 chunk 过大 (556KB) | P2 | |
+
+## 优化方向
+
+**短期**：实现全文搜索 + 文件上传
+**中期**：移动端适配，性能优化，前端 chunk 优化
+**长期**：插件系统，预设工作流工具

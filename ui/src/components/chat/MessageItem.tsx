@@ -70,46 +70,59 @@ export function MessageItem({ message }: MessageItemProps) {
   const isStreaming = message.id === streaming_message_id
   const labelColor = ROLE_COLORS[message.role] ?? 'var(--text-muted)'
   const label = message.role === 'user' ? 'YOU' : message.sender_name.toUpperCase()
+  const isUser = message.role === 'user'
 
   return (
-    <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, letterSpacing: '0.1em' }}>
-          {label}
-        </span>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-          {new Date(message.created_at).toLocaleTimeString()}
-        </span>
-      </div>
-      <div style={{ color: 'var(--text-primary)', lineHeight: 1.6, fontSize: 13 }}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-          {message.content}
-        </ReactMarkdown>
-        {isStreaming && (
-          <span style={{
-            display: 'inline-block',
-            width: 6,
-            height: 14,
-            background: 'var(--accent-cyan)',
-            marginLeft: 2,
-            verticalAlign: 'middle',
-            animation: 'blink 1s step-end infinite',
-          }} />
-        )}
-      </div>
-      {message.token_usage && message.role !== 'user' && (
-        <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
-          {message.token_usage.prompt_tokens !== undefined && (
-            <span>prompt: {message.token_usage.prompt_tokens}</span>
-          )}
-          {message.token_usage.completion_tokens !== undefined && (
-            <span>completion: {message.token_usage.completion_tokens}</span>
-          )}
-          {message.token_usage.total_tokens !== undefined && (
-            <span>total: {message.token_usage.total_tokens}</span>
+    <div style={{
+      padding: '8px 16px',
+      borderBottom: '1px solid var(--border)',
+      display: 'flex',
+      justifyContent: isUser ? 'flex-end' : 'flex-start',
+    }}>
+      <div style={{
+        maxWidth: '85%',
+        background: isUser ? 'var(--bg-active)' : 'transparent',
+        borderRadius: isUser ? '6px 6px 2px 6px' : 0,
+        padding: isUser ? '8px 12px' : 0,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: labelColor, letterSpacing: '0.1em' }}>
+            {label}
+          </span>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+            {new Date(message.created_at).toLocaleTimeString()}
+          </span>
+        </div>
+        <div style={{ color: 'var(--text-primary)', lineHeight: 1.6, fontSize: 13 }}>
+          <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+            {message.content}
+          </ReactMarkdown>
+          {isStreaming && (
+            <span style={{
+              display: 'inline-block',
+              width: 6,
+              height: 14,
+              background: 'var(--accent-cyan)',
+              marginLeft: 2,
+              verticalAlign: 'middle',
+              animation: 'blink 1s step-end infinite',
+            }} />
           )}
         </div>
-      )}
+        {message.token_usage && message.role !== 'user' && (
+          <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
+            {message.token_usage.prompt_tokens !== undefined && (
+              <span>prompt: {message.token_usage.prompt_tokens}</span>
+            )}
+            {message.token_usage.completion_tokens !== undefined && (
+              <span>completion: {message.token_usage.completion_tokens}</span>
+            )}
+            {message.token_usage.total_tokens !== undefined && (
+              <span>total: {message.token_usage.total_tokens}</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

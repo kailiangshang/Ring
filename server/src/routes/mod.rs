@@ -50,6 +50,14 @@ pub fn build_router(state: AppState) -> Router {
             put(members::update_role),
         )
         .route(
+            "/rings/{ring_id}/members/{target_id}/grant-session",
+            post(members::grant_session),
+        )
+        .route(
+            "/rings/{ring_id}/members/{target_id}/revoke-session",
+            post(members::revoke_session),
+        )
+        .route(
             "/rings/{ring_id}/members/{target_id}",
             delete(members::remove_member),
         )
@@ -99,6 +107,14 @@ pub fn build_router(state: AppState) -> Router {
             get(graph::get_graph).post(graph::create_node_handler),
         )
         .route(
+            "/rings/{ring_id}/graphs",
+            get(graph::list_graphs_handler).post(graph::create_graph_handler),
+        )
+        .route(
+            "/rings/{ring_id}/graphs/{graph_id}",
+            delete(graph::delete_graph_handler),
+        )
+        .route(
             "/rings/{ring_id}/graph/nodes/{node_id}",
             put(graph::update_node).delete(graph::delete_node),
         )
@@ -137,6 +153,10 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/rings/{ring_id}/sessions/{session_id}/archive-toggle",
             put(session::archive_toggle),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/transfer-ownership",
+            post(session::transfer_ownership),
         )
         .route(
             "/rings/{ring_id}/sessions/{session_id}/messages",
@@ -267,6 +287,18 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/self/export/chat", get(export::export_self_chat))
         .route("/super/export/chat", get(export::export_super_chat))
+        .route(
+            "/rings/{ring_id}/export/report",
+            get(export::export_ai_report),
+        )
+        .route(
+            "/super/cross-ring/query",
+            post(super_chat::cross_ring_query_handler),
+        )
+        .route(
+            "/super/cross-ring/analysis",
+            post(super_chat::cross_ring_analysis_handler),
+        )
         .with_state(state.clone());
 
     let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());

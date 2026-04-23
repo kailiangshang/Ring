@@ -176,7 +176,6 @@ export function InputArea() {
           value={input}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={sending}
           placeholder="Type / for commands, @ to address..."
           style={{
             flex: 1,
@@ -188,7 +187,6 @@ export function InputArea() {
             fontSize: 13,
             fontFamily: 'inherit',
             outline: 'none',
-            opacity: sending ? 0.6 : 1,
           }}
         />
         {sending ? (

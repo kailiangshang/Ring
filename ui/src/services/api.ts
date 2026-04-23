@@ -242,7 +242,14 @@ export async function exportRingGraph(ringId: string) {
 }
 
 export async function exportRingBackup(ringId: string) {
-  return exportFile(`/rings/${ringId}/export/backup`, `ring_${ringId}_backup.json`)
+  return exportFile(`/rings/${ringId}/export/backup`, `ring_${ringId}_backup.tar.gz`)
+}
+
+export async function exportAIReport(ringId: string, nodeIds: string[], topic?: string) {
+  const params = new URLSearchParams()
+  params.set('node_ids', nodeIds.join(','))
+  if (topic) params.set('topic', topic)
+  return exportFile(`/rings/${ringId}/export/report?${params.toString()}`, `ring_${ringId}_report.md`)
 }
 
 export async function exportSessionMessages(ringId: string, sessionId: string) {

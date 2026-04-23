@@ -292,6 +292,41 @@ GET /api/rings/{ring_id}/graphs
 }
 ```
 
+### 4.1a 创建图谱
+
+```
+POST /api/rings/{ring_id}/graphs
+```
+
+**Request**:
+```json
+{
+  "name": "第二图谱"
+}
+```
+
+**限制**: 每 Ring 最多 3 个图谱。
+
+**Response**: `201`
+```json
+{
+  "id": "01JTYG2",
+  "name": "第二图谱",
+  "node_count": 0,
+  "edge_count": 0
+}
+```
+
+### 4.1b 删除图谱
+
+```
+DELETE /api/rings/{ring_id}/graphs/{graph_id}
+```
+
+**限制**: 不能删除 Ring 的最后一个图谱。删除时级联删除所有节点和边。
+
+**Response**: `204`
+
 ### 4.2 获取完整图谱
 
 ```
@@ -641,7 +676,56 @@ DELETE /api/rings/{ring_id}/members/{token_id}
 
 ```
 POST /api/rings/{ring_id}/members/{token_id}/grant-session
-DELETE /api/rings/{ring_id}/members/{token_id}/grant-session
+POST /api/rings/{ring_id}/members/{token_id}/revoke-session
+```
+
+**权限**: 仅 creator/admin 可授予，仅 creator 可撤销。
+
+**Response**: `200`
+```json
+{
+  "status": "granted"
+}
+```
+
+### 7.5 Session 所有权转移
+
+```
+POST /api/rings/{ring_id}/sessions/{session_id}/transfer-ownership
+```
+
+**Request**:
+```json
+{
+  "new_owner_id": "user-003"
+}
+```
+
+**权限**: 仅 creator。新 owner 必须是该 session 的参与者。
+
+**Response**: `200`
+```json
+{
+  "status": "transferred",
+  "session_id": "01JTYSESS",
+  "new_owner": "user-003"
+}
+```
+
+### 7.6 移除成员（Session ownership 保护）
+
+```
+DELETE /api/rings/{ring_id}/members/{token_id}
+```
+
+如果目标成员拥有活动的 session，返回 `409`：
+```json
+{
+  "error": {
+    "code": "has_active_sessions",
+    "message": "Cannot remove member: owns sessions [ses_xxx, ses_yyy]"
+  }
+}
 ```
 
 ---
@@ -1123,6 +1207,38 @@ POST /api/super/chat
 GET /api/super/chat/history?before={message_id}&limit=50
 ```
 
+### 13.3 跨 Ring 查询
+
+```
+POST /api/super/cross-ring-query
+```
+
+**Request**:
+```json
+{
+  "query": "AI 相关讨论",
+  "ring_ids": ["01JTYR1", "01JTYR2"]
+}
+```
+
+**Response**: `200` 查询结果。
+
+### 13.4 跨 Ring 分析
+
+```
+POST /api/super/cross-ring-analysis
+```
+
+**Request**:
+```json
+{
+  "analysis_type": "compare",
+  "ring_ids": ["01JTYR1", "01JTYR2", "01JTYR3"]
+}
+```
+
+**Response**: `200` 分析报告。
+
 ---
 
 ## 14. Skills
@@ -1222,18 +1338,17 @@ GET /api/rings/{ring_id}/export/{export_id}/download
 ### 15.3 生成 AI 报告（流式）
 
 ```
-POST /api/rings/{ring_id}/export/report
+GET /api/rings/{ring_id}/export/report?node_ids={id1,id2}&topic={topic}
 ```
 
-**Request**:
-```json
-{
-  "node_ids": ["01JTYN1", "01JTYN2"],
-  "topic": "竞品分析总结"
-}
-```
+**Query params**:
 
-**Response**: SSE 流式生成报告，完成后可下载。
+| 参数 | 说明 |
+|------|------|
+| `node_ids` | 逗号分隔的节点 ID 列表 |
+| `topic` | 报告主题 |
+
+**Response**: SSE 流式生成 Markdown 报告。
 
 ---
 

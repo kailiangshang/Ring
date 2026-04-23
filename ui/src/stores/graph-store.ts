@@ -2,14 +2,27 @@ import { create } from 'zustand'
 import type { GraphNode, GraphEdge } from '../types/graph'
 import { api } from '../services/api'
 
+interface GraphInfo {
+  id: string
+  name: string
+  ring_id: string
+  created_at: string
+  updated_at: string
+}
+
 interface GraphState {
   nodes: GraphNode[]
   edges: GraphEdge[]
   graph_id: string | null
+  graphs: GraphInfo[]
   loading: boolean
   selected_node_id: string | null
   collapsed_nodes: Set<string>
-  fetchGraph: (ringId: string) => Promise<void>
+  fetchGraph: (ringId: string, graphId?: string) => Promise<void>
+  fetchGraphs: (ringId: string) => Promise<void>
+  createGraph: (ringId: string, name: string) => Promise<void>
+  deleteGraph: (ringId: string, graphId: string) => Promise<void>
+  switchGraph: (ringId: string, graphId: string) => Promise<void>
   createNode: (ringId: string, label: string, nodeType?: string) => Promise<void>
   deleteNode: (ringId: string, nodeId: string) => Promise<void>
   createEdge: (ringId: string, sourceId: string, targetId: string, relation?: string) => Promise<void>
@@ -82,13 +95,54 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   nodes: [],
   edges: [],
   graph_id: null,
+  graphs: [],
   loading: false,
   selected_node_id: null,
   collapsed_nodes: new Set<string>(),
 
+  fetchGraphs: async (ringId: string) => {
+    try {
+      const res = await api.get<{ graphs: GraphInfo[] }>(`/rings/${ringId}/graphs`)
+      set({ graphs: res.graphs })
+    } catch {}
+  },
+
+  createGraph: async (ringId, name) => {
+    const res = await api.post<GraphInfo>(`/rings/${ringId}/graphs`, { name })
+    set((s) => ({ graphs: [...s.graphs, res] }))
+  },
+
+  deleteGraph: async (ringId, graphId) => {
+    await api.delete(`/rings/${ringId}/graphs/${graphId}`)
+    const { graphs, graph_id } = get()
+    const remaining = graphs.filter((g) => g.id !== graphId)
+    set({ graphs: remaining })
+    if (graph_id === graphId && remaining.length > 0) {
+      get().switchGraph(ringId, remaining[0].id)
+    }
+  },
+
+  switchGraph: async (ringId, graphId) => {
+    set({ loading: true })
+    try {
+      const res = await api.get<GraphResponse>(`/rings/${ringId}/graph?graph_id=${graphId}`)
+      set({
+        graph_id: res.id,
+        nodes: (res.nodes as unknown as NodeResponse[]).map(toGraphNode),
+        edges: (res.edges as unknown as EdgeResponse[]).map(toGraphEdge),
+        loading: false,
+        collapsed_nodes: new Set(),
+        selected_node_id: null,
+      })
+    } catch {
+      set({ loading: false })
+    }
+  },
+
   fetchGraph: async (ringId: string) => {
     set({ loading: true })
     try {
+      await get().fetchGraphs(ringId)
       const res = await api.get<GraphResponse>(`/rings/${ringId}/graph`)
       set({
         graph_id: res.id,
