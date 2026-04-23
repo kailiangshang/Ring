@@ -9,7 +9,9 @@ interface SelfChatState {
   streaming_message_id: string | null
   setInput: (val: string) => void
   send: () => void
+  stopStreaming: () => void
   loadHistory: () => Promise<void>
+  _abortController: AbortController | null
 }
 
 export const useSelfChatStore = create<SelfChatState>((set, get) => ({
@@ -17,6 +19,7 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
   input: '',
   sending: false,
   streaming_message_id: null,
+  _abortController: null,
 
   setInput: (val) => set({ input: val }),
 
@@ -25,10 +28,17 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
     if (!input.trim() || sending) return
 
     const user_content = input
+    const userMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: 'user',
+      sender_name: 'You',
+      content: user_content,
+      created_at: new Date().toISOString(),
+    }
 
-    set({ input: '', sending: true })
+    set((s) => ({ input: '', sending: true, messages: [...s.messages, userMsg] }))
 
-    streamChat('/api/self/chat', { content: user_content, node_refs: [], tag_refs: [] }, {
+    const controller = streamChat('/api/self/chat', { content: user_content, node_refs: [], tag_refs: [] }, {
       onStart: (data) => {
         const aiMsg: ChatMessage = {
           id: data.message_id,
@@ -38,13 +48,7 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
           created_at: new Date().toISOString(),
         }
         set((s) => ({
-          messages: [...s.messages, {
-            id: `msg-${Date.now()}`,
-            role: 'user',
-            sender_name: 'You',
-            content: user_content,
-            created_at: new Date().toISOString(),
-          }, aiMsg],
+          messages: [...s.messages, aiMsg],
           streaming_message_id: data.message_id,
         }))
       },
@@ -81,10 +85,24 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
             streaming_message_id: null,
           })
         } else {
-          set({ sending: false })
+          const errMsg: ChatMessage = {
+            id: `err-${Date.now()}`,
+            role: 'self' as ChatMessage['role'],
+            sender_name: 'SELF',
+            content: 'Connection failed. Please try again.',
+            created_at: new Date().toISOString(),
+          }
+          set((s) => ({ messages: [...s.messages, errMsg], sending: false }))
         }
       },
     })
+
+    set({ _abortController: controller })
+  },
+
+  stopStreaming: () => {
+    get()._abortController?.abort()
+    set({ sending: false, streaming_message_id: null, _abortController: null })
   },
 
   loadHistory: async () => {

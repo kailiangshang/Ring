@@ -6,6 +6,7 @@ import { useAppStore } from '../../stores/app-store'
 
 export function RingList() {
   const rings = useRingStore((s) => s.rings)
+  const loading = useRingStore((s) => s.loading)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const createRing = useRingStore((s) => s.createRing)
   const setActiveRing = useAppStore((s) => s.setActiveRing)
@@ -22,6 +23,14 @@ export function RingList() {
 
   return (
     <div style={{ padding: '8px 0' }}>
+      {loading && rings.length === 0 && (
+        <div style={{ padding: '12px', color: 'var(--text-dim)', fontSize: 11 }}>Loading rings...</div>
+      )}
+      {!loading && rings.length === 0 && (
+        <div style={{ padding: '12px', color: 'var(--text-dim)', fontSize: 11, textAlign: 'center' }}>
+          No rings yet. Create one below.
+        </div>
+      )}
       {rings.map((ring) => (
         <div key={ring.id}>
           <div onClick={() => { selectRing(ring.id); setActiveRing(ring.id) }}>

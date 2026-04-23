@@ -1,9 +1,14 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNotificationStore, type Notification } from '../stores/notification-store'
+import { useRingStore } from '../stores/ring-store'
+import { useAppStore } from '../stores/app-store'
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const { notifications, unreadCount, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
+  const setActiveRing = useAppStore((s) => s.setActiveRing)
 
   useEffect(() => {
     fetchUnreadCount()
@@ -17,10 +22,41 @@ export function NotificationBell() {
     }
   }, [isOpen, fetchNotifications])
 
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [isOpen])
+
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.is_read) {
+      markAsRead(n.id)
+    }
+    if (n.ring_id && n.ring_id !== active_ring_id) {
+      setActiveRing(n.ring_id)
+    }
+    setIsOpen(false)
+  }
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={wrapperRef} style={{ position: 'relative' }}>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         style={{
           background: 'none',
           border: 'none',
@@ -30,7 +66,7 @@ export function NotificationBell() {
           position: 'relative',
         }}
       >
-        {"\ud83d\udd14"}
+        {'🔔'}
         {unreadCount > 0 && (
           <span
             style={{
@@ -78,7 +114,7 @@ export function NotificationBell() {
             }}
           >
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {"Notifications"}
+              {'Notifications'}
             </span>
             {unreadCount > 0 && (
               <button
@@ -91,7 +127,7 @@ export function NotificationBell() {
                   cursor: 'pointer',
                 }}
               >
-                {"Mark all read"}
+                {'Mark all read'}
               </button>
             )}
           </div>
@@ -105,7 +141,7 @@ export function NotificationBell() {
                 fontSize: 12,
               }}
             >
-              {"No notifications"}
+              {'No notifications'}
             </div>
           ) : (
             notifications.map((notification: Notification) => (
@@ -117,11 +153,7 @@ export function NotificationBell() {
                   background: notification.is_read ? 'transparent' : 'var(--bg-hover)',
                   cursor: 'pointer',
                 }}
-                onClick={() => {
-                  if (!notification.is_read) {
-                    markAsRead(notification.id)
-                  }
-                }}
+                onClick={() => handleNotificationClick(notification)}
               >
                 <div
                   style={{
@@ -164,7 +196,9 @@ export function NotificationBell() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      deleteNotification(notification.id)
+                      if (window.confirm('Delete this notification?')) {
+                        deleteNotification(notification.id)
+                      }
                     }}
                     style={{
                       background: 'none',
@@ -175,7 +209,7 @@ export function NotificationBell() {
                       padding: '0 4px',
                     }}
                   >
-                    {"\u00d7"}
+                    {'×'}
                   </button>
                 </div>
               </div>

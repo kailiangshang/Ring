@@ -20,16 +20,22 @@ export function SessionIndicator() {
         cursor: 'pointer',
       }}
     >
-      <span
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: '50%',
-          background: 'var(--accent-green)',
-          flexShrink: 0,
-        }}
-      />
-      {session ? `${session.title} · ${participants.length}` : '1 active session'}
+      {session ? (
+        <>
+          <span
+            style={{
+              width: 5,
+              height: 5,
+              borderRadius: '50%',
+              background: 'var(--accent-green)',
+              flexShrink: 0,
+            }}
+          />
+          {session.title} · {participants.length} participant{participants.length !== 1 ? 's' : ''}
+        </>
+      ) : (
+        'No active session'
+      )}
     </div>
   )
 }

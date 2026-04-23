@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { useCommandHistoryStore } from '../../stores/command-history-store'
+import { useArchiveStore } from '../../stores/archive-store'
+import { useRingStore } from '../../stores/ring-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
@@ -58,6 +60,8 @@ export function InputArea() {
 
     // Command history navigation
     if (e.key === 'ArrowUp' && !e.shiftKey) {
+      const target = e.currentTarget as HTMLInputElement
+      if (target.selectionStart !== 0 || target.selectionEnd !== 0) return
       const history = useCommandHistoryStore.getState().getHistory()
       if (historyIndex < history.length - 1) {
         const newIndex = historyIndex + 1
@@ -68,6 +72,9 @@ export function InputArea() {
     }
 
     if (e.key === 'ArrowDown' && !e.shiftKey) {
+      const target = e.currentTarget as HTMLInputElement
+      const len = target.value.length
+      if (target.selectionStart !== len || target.selectionEnd !== len) return
       if (historyIndex > 0) {
         const newIndex = historyIndex - 1
         setHistoryIndex(newIndex)
@@ -103,6 +110,10 @@ export function InputArea() {
   }
 
   const handleArchiveConfirm = () => {
+    const ring_id = useRingStore.getState().active_ring_id
+    if (ring_id && lastMessage) {
+      useArchiveStore.getState().triggerArchive(ring_id, lastMessage.content, 'Archive')
+    }
     setShowArchiveBanner(false)
   }
 
@@ -208,15 +219,16 @@ export function InputArea() {
         ) : (
           <button
             onClick={send}
+            disabled={!input.trim()}
             style={{
-              background: 'var(--accent-cyan)',
-              color: 'var(--bg-base)',
+              background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
               border: 'none',
               borderRadius: 4,
               padding: '8px 16px',
               fontSize: 12,
               fontWeight: 700,
-              cursor: 'pointer',
+              cursor: input.trim() ? 'pointer' : 'default',
               letterSpacing: '0.05em',
             }}
           >

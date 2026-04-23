@@ -5,6 +5,13 @@ import { useWsStore } from '../../stores/ws-store'
 import { exportSessionMessages } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill } from '../../types/session'
+const PHASE_LABELS: Record<string, string> = {
+  material_prep: 'Preparing Materials',
+  discussion: 'In Discussion',
+  summary: 'Generating Summary',
+  closed: 'Closed',
+}
+
 const SKILLS: { value: SessionSkill; label: string }[] = [
   { value: 'discussion', label: 'Discussion' },
   { value: 'decision', label: 'Decision' },
@@ -175,7 +182,7 @@ function MaterialPrepView() {
         </div>
         <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
           <span>Skill: {session.skill}</span>
-          <span style={{ color: 'var(--accent-cyan)' }}>Phase: material_prep</span>
+          <span style={{ color: 'var(--accent-cyan)' }}>Phase: {PHASE_LABELS[session.phase] ?? session.phase}</span>
         </div>
       </div>
 
@@ -273,9 +280,11 @@ function SummarizeView() {
   const fetchActiveSession = useSessionStore((s) => s.fetchActiveSession)
   const [summary, setSummary] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [started, setStarted] = useState(false)
 
-  useEffect(() => {
+  const triggerSummarize = () => {
     if (!session) return
+    setStarted(true)
 
     const token = localStorage.getItem('ring_token')
     const ring_id = useRingStore.getState().active_ring_id
@@ -327,7 +336,6 @@ function SummarizeView() {
                   fetchActiveSession(ring_id)
                 }
               } catch {
-                // skip
               }
               currentEvent = ''
             }
@@ -335,7 +343,7 @@ function SummarizeView() {
         }
       })
       .catch((e) => setError(e.message))
-  }, [session, fetchActiveSession])
+  }
 
   if (!session) return null
 
@@ -346,12 +354,30 @@ function SummarizeView() {
           {session.title}
         </div>
         <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-          Generating summary...
+          {started ? 'Generating summary...' : 'Ready to summarize'}
         </div>
       </div>
 
       <ScrollContainer>
-        {error ? (
+        {!started ? (
+          <div style={{ padding: 16, textAlign: 'center' }}>
+            <button
+              onClick={triggerSummarize}
+              style={{
+                background: 'var(--accent-cyan)',
+                color: 'var(--bg-base)',
+                border: 'none',
+                borderRadius: 4,
+                padding: '8px 16px',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              Generate Summary
+            </button>
+          </div>
+        ) : error ? (
           <div style={{ padding: 16, color: 'var(--accent-amber)', fontSize: 12 }}>
             Error: {error}
           </div>
@@ -407,6 +433,7 @@ function SessionChat() {
 
   const handleClose = async () => {
     if (!active_ring_id) return
+    if (!window.confirm('Close this session? Participants will no longer be able to send messages.')) return
     await closeSession(active_ring_id, session.id)
   }
 
@@ -417,6 +444,7 @@ function SessionChat() {
 
   const handleDelete = async () => {
     if (!active_ring_id) return
+    if (!window.confirm('Delete this session permanently? All messages and materials will be lost.')) return
     await deleteSession(active_ring_id, session.id)
   }
 
@@ -434,14 +462,14 @@ function SessionChat() {
         <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <span>Skill: {session.skill}</span>
           <span style={{ color: is_closed ? 'var(--accent-amber)' : 'var(--accent-green)' }}>
-            Phase: {session.phase}
+            Phase: {PHASE_LABELS[session.phase] ?? session.phase}
           </span>
           <span>{participants.length} participants</span>
           {!connected && <span style={{ color: 'var(--accent-amber)' }}>disconnected</span>}
         </div>
       </div>
 
-      <ScrollContainer>
+      <ScrollContainer autoScroll>
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -630,7 +658,7 @@ function SessionChat() {
               marginLeft: 'auto',
             }}
           >
-            Back to list
+            Leave session
           </button>
         </div>
       </div>
@@ -641,6 +669,7 @@ function SessionChat() {
 export function SessionPanel() {
   const active_session = useSessionStore((s) => s.active_session)
   const loading = useSessionStore((s) => s.loading)
+  const error = useSessionStore((s) => s.error)
   const fetchActiveSession = useSessionStore((s) => s.fetchActiveSession)
   const handleWsMessage = useSessionStore((s) => s.handleWsMessage)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
@@ -680,6 +709,19 @@ export function SessionPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {error && (
+        <div style={{
+          padding: '6px 8px',
+          marginBottom: 4,
+          fontSize: 10,
+          borderRadius: 3,
+          background: 'rgba(239,68,68,0.1)',
+          color: '#ef4444',
+          border: '1px solid #ef4444',
+        }}>
+          {error}
+        </div>
+      )}
       <CreateSessionForm />
       {!connected && (
         <div style={{ marginTop: 8, fontSize: 10, color: 'var(--accent-amber)' }}>

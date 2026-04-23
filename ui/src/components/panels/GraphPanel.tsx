@@ -26,6 +26,7 @@ export function GraphPanel() {
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set())
   const [newGraphName, setNewGraphName] = useState('')
   const [showNewGraph, setShowNewGraph] = useState(false)
+  const [exportMsg, setExportMsg] = useState<string | null>(null)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -135,7 +136,14 @@ export function GraphPanel() {
             +Node
           </button>
           <button
-            onClick={() => active_ring_id && exportRingGraph(active_ring_id)}
+            onClick={async () => {
+              if (!active_ring_id) return
+              try {
+                await exportRingGraph(active_ring_id)
+                setExportMsg('Exported!')
+              } catch { setExportMsg('Export failed') }
+              setTimeout(() => setExportMsg(null), 2000)
+            }}
             style={{
               background: 'var(--bg-hover)',
               color: 'var(--text-secondary)',
@@ -146,7 +154,7 @@ export function GraphPanel() {
               cursor: 'pointer',
             }}
           >
-            Export
+            {exportMsg ?? 'Export'}
           </button>
           {graphs.length < 3 && (
             <button
@@ -260,14 +268,29 @@ export function GraphPanel() {
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
-        <GraphCanvas
-          nodes={filteredNodes}
-          edges={edges}
-          selectedNodeId={selected_node_id}
-          collapsedNodes={collapsed_nodes}
-          onSelectNode={selectNode}
-          onToggleCollapse={toggleCollapse}
-        />
+        {filteredNodes.length === 0 && nodes.length === 0 ? (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100%',
+            color: 'var(--text-dim)',
+            fontSize: 12,
+            textAlign: 'center',
+            padding: 24,
+          }}>
+            No nodes yet. Type a label above and click +Node to get started.
+          </div>
+        ) : (
+          <GraphCanvas
+            nodes={filteredNodes}
+            edges={edges}
+            selectedNodeId={selected_node_id}
+            collapsedNodes={collapsed_nodes}
+            onSelectNode={selectNode}
+            onToggleCollapse={toggleCollapse}
+          />
+        )}
       </div>
 
       {selectedNode && (
@@ -297,7 +320,9 @@ export function GraphPanel() {
               </span>
               <button
                 onClick={() => {
-                  if (active_ring_id) deleteNode(active_ring_id, selectedNode.id)
+                  if (active_ring_id && window.confirm(`Delete node "${selectedNode.label}"? This cannot be undone.`)) {
+                    deleteNode(active_ring_id, selectedNode.id)
+                  }
                 }}
                 style={{
                   background: 'none',

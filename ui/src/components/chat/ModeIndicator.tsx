@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useModeStore } from '../../stores/mode-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useAppStore } from '../../stores/app-store'
@@ -12,6 +12,7 @@ export function ModeIndicator() {
   const fetchFromServer = useModeStore((s) => s.fetchFromServer)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const [showSelector, setShowSelector] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
   const label = context === 'super' ? 'super' : context === 'session' ? 'session' : 'ring'
 
@@ -21,8 +22,28 @@ export function ModeIndicator() {
     }
   }, [active_ring_id, fetchFromServer, context])
 
+  useEffect(() => {
+    if (!showSelector) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowSelector(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showSelector])
+
+  useEffect(() => {
+    if (!showSelector) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSelector(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [showSelector])
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={wrapperRef} style={{ position: 'relative' }}>
       <button
         onClick={() => setShowSelector(!showSelector)}
         style={{

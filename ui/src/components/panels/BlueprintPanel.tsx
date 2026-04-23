@@ -119,6 +119,7 @@ export function BlueprintPanel() {
   const [preview, setPreview] = useState<BlueprintPreview | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
   const createNode = useGraphStore((s) => s.createNode)
 
   useEffect(() => {
@@ -157,20 +158,32 @@ export function BlueprintPanel() {
   const handleConfirm = async () => {
     if (!active_ring_id || !selectedTemplate) return
     setLoading(true)
+    setConfirmError(null)
     try {
       await api.post(`/rings/${active_ring_id}/blueprint/confirm`, {})
       
       if (preview) {
+        const failed: string[] = []
         for (const node of preview.nodes) {
-          await createNode(active_ring_id, node.label, node.node_type)
+          try {
+            await createNode(active_ring_id, node.label, node.node_type)
+          } catch {
+            failed.push(node.label)
+          }
         }
         
         useGraphStore.getState().fetchGraph(active_ring_id)
+
+        if (failed.length > 0) {
+          setConfirmError(`Created ${preview.nodes.length - failed.length}/${preview.nodes.length} nodes. Failed: ${failed.join(', ')}`)
+        } else {
+          setConfirmed(true)
+        }
+      } else {
+        setConfirmed(true)
       }
-      
-      setConfirmed(true)
     } catch (e) {
-      console.error('Failed to confirm blueprint:', e)
+      setConfirmError(e instanceof Error ? e.message : 'Failed to confirm blueprint')
     }
     setLoading(false)
   }
@@ -269,24 +282,39 @@ export function BlueprintPanel() {
       )}
 
       {selectedTemplate && (
-        <button
-          onClick={handleConfirm}
-          disabled={loading}
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            background: 'var(--accent-cyan)',
-            color: 'var(--bg-base)',
-            border: 'none',
-            borderRadius: 4,
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: loading ? 'default' : 'pointer',
-            opacity: loading ? 0.6 : 1,
-          }}
-        >
-          {loading ? 'Setting up...' : 'Confirm & Apply Blueprint'}
-        </button>
+        <>
+          <button
+            onClick={handleConfirm}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              background: 'var(--accent-cyan)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 4,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: loading ? 'default' : 'pointer',
+              opacity: loading ? 0.6 : 1,
+            }}
+          >
+            {loading ? 'Setting up...' : 'Confirm & Apply Blueprint'}
+          </button>
+          {confirmError && (
+            <div style={{
+              marginTop: 8,
+              fontSize: 10,
+              padding: '6px 8px',
+              borderRadius: 3,
+              background: 'rgba(239,68,68,0.1)',
+              color: '#ef4444',
+              border: '1px solid #ef4444',
+            }}>
+              {confirmError}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

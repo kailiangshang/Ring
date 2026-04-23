@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 interface PanelWrapperProps {
   title: string
@@ -10,6 +10,14 @@ interface PanelWrapperProps {
 export function PanelWrapper({ title, depth, onClose, children }: PanelWrapperProps) {
   const bgColors = ['var(--bg-panel)', '#0b1018', '#0c1220']
   const bg = bgColors[Math.min(depth - 1, 2)]
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   return (
     <div
@@ -37,6 +45,7 @@ export function PanelWrapper({ title, depth, onClose, children }: PanelWrapperPr
         </span>
         <button
           onClick={onClose}
+          aria-label="Close panel"
           style={{
             background: 'none',
             border: 'none',

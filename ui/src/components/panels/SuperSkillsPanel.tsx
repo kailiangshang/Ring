@@ -43,10 +43,13 @@ export function SuperSkillsPanel() {
   }
 
   const handleRemove = async (name: string) => {
+    if (!window.confirm(`Remove skill "${name}"?`)) return
     try {
       await removeSkill(name)
       load()
-    } catch {}
+    } catch (e) {
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Failed to remove' })
+    }
   }
 
   return (

@@ -44,6 +44,7 @@ export function ConfigPanel() {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [autoCompact, setAutoCompact] = useState<boolean | null>(null)
+  const [autoCompactError, setAutoCompactError] = useState<string | null>(null)
 
   const tokens = useInviteStore((s) => s.tokens)
   const join_requests = useInviteStore((s) => s.join_requests)
@@ -171,10 +172,15 @@ export function ConfigPanel() {
           <span style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>Auto Compact</span>
           <button
             onClick={() => {
-              const next = !autoCompact
+              const prev = autoCompact
+              const next = !prev
+              setAutoCompact(next)
+              setAutoCompactError(null)
               api.put('/config/auto_compact', { auto_compact: next })
-                .then(() => setAutoCompact(next))
-                .catch(() => {})
+                .catch(() => {
+                  setAutoCompact(prev)
+                  setAutoCompactError('Failed to update. Please try again.')
+                })
             }}
             style={{
               background: autoCompact ? 'var(--accent-cyan)' : 'var(--bg-hover)',
@@ -190,6 +196,11 @@ export function ConfigPanel() {
             {autoCompact === null ? '...' : autoCompact ? 'ON' : 'OFF'}
           </button>
         </div>
+        {autoCompactError && (
+          <div style={{ fontSize: 10, color: 'var(--accent-amber)', marginTop: 4 }}>
+            {autoCompactError}
+          </div>
+        )}
         <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
           Automatically compact history when token threshold is reached
         </div>
@@ -218,11 +229,12 @@ export function ConfigPanel() {
             ))}
           </div>
 
-          <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>Model</label>
-          <input value={editModel} onChange={(e) => setEditModel(e.target.value)} style={inputStyle} />
+          <label htmlFor="cfg-model" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Model</label>
+          <input id="cfg-model" value={editModel} onChange={(e) => setEditModel(e.target.value)} style={inputStyle} />
 
-          <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>API Key</label>
+          <label htmlFor="cfg-apikey" style={{ fontSize: 10, color: 'var(--text-dim)' }}>API Key</label>
           <input
+            id="cfg-apikey"
             type="password"
             value={editApiKey}
             onChange={(e) => setEditApiKey(e.target.value)}
@@ -230,8 +242,8 @@ export function ConfigPanel() {
             style={inputStyle}
           />
 
-          <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>Base URL</label>
-          <input value={editBaseUrl} onChange={(e) => setEditBaseUrl(e.target.value)} style={inputStyle} />
+          <label htmlFor="cfg-baseurl" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Base URL</label>
+          <input id="cfg-baseurl" value={editBaseUrl} onChange={(e) => setEditBaseUrl(e.target.value)} style={inputStyle} />
 
           <button
             onClick={handleTest}
@@ -315,7 +327,11 @@ export function ConfigPanel() {
             <div key={t.token} style={{ padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 3, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 6, fontSize: 10 }}>
               <span style={{ color: t.type === 'open' ? 'var(--accent-cyan)' : 'var(--accent-amber)', fontSize: 9 }}>{t.type}</span>
               <span style={{ flex: 1, color: 'var(--text-muted)', fontSize: 9 }}>{t.use_count}/{t.max_uses} uses · {time_remaining(t.expires_at)}</span>
-              <span style={{ color: 'var(--text-dim)', fontSize: 9, cursor: 'pointer' }} onClick={() => revoke_token(active_ring_id!, t.token)}>revoke</span>
+               <span style={{ color: 'var(--text-dim)', fontSize: 9, cursor: 'pointer' }} onClick={() => {
+                 if (window.confirm('Revoke this invite? Anyone with the link will lose access.')) {
+                   revoke_token(active_ring_id!, t.token)
+                 }
+               }}>revoke</span>
             </div>
           ))}
         </>

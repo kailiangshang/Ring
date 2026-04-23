@@ -712,6 +712,7 @@ async fn test_super_chat_history_empty() {
 
 #[tokio::test]
 async fn test_super_system_prompt_default() {
+    let _ = std::fs::remove_file("/tmp/ring-test-hub/system_prompt.md");
     let state = setup_app().await;
     let app = build_router(state);
 

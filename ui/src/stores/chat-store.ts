@@ -414,6 +414,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } else if (context === 'super') {
       url = '/api/super/chat'
     } else {
+      addMessage({
+        id: `sys-${Date.now()}`,
+        role: 'system',
+        sender_name: 'SYSTEM',
+        content: 'Chat is not available in this context.',
+        created_at: new Date().toISOString(),
+      })
       set({ sending: false })
       return
     }

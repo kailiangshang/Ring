@@ -43,6 +43,7 @@ interface SessionState {
   messages: SessionMessage[]
   materials: SessionMaterial[]
   loading: boolean
+  error: string | null
   list: Session[]
   createSession: (input: CreateSessionInput) => Promise<Session | null>
   fetchActiveSession: (ring_id: string) => Promise<void>
@@ -68,12 +69,14 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   messages: [],
   materials: [],
   loading: false,
+  error: null,
   list: [],
 
   createSession: async (input) => {
     const ring_id = useRingStore.getState().active_ring_id
     if (!ring_id) return null
     try {
+      set({ error: null })
       const res = await api.post<FlatSessionResponse>(`/rings/${ring_id}/sessions`, input)
       const session = toSession(res)
       set({
@@ -82,7 +85,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         messages: [],
       })
       return session
-    } catch {
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to create session' })
       return null
     }
   },
@@ -119,29 +123,32 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   closeSession: async (ring_id, session_id) => {
     try {
+      set({ error: null })
       const res = await api.post<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/close`, {})
       set({ active_session: toSession(res) })
-    } catch {
-      // keep state
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to close session' })
     }
   },
 
   reopenSession: async (ring_id, session_id) => {
     try {
+      set({ error: null })
       const res = await api.post<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/reopen`, {})
       set({ active_session: toSession(res), messages: [] })
       get().fetchMessages(ring_id, session_id)
-    } catch {
-      // keep state
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to reopen session' })
     }
   },
 
   deleteSession: async (ring_id, session_id) => {
     try {
+      set({ error: null })
       await api.delete(`/rings/${ring_id}/sessions/${session_id}`)
       set({ active_session: null, participants: [], messages: [] })
-    } catch {
-      // keep state
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'Failed to delete session' })
     }
   },
 

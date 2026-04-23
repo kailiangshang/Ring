@@ -69,9 +69,11 @@ export function SuperSettingsPanel() {
 
   const [sysPrompt, setSysPrompt] = useState('')
   const [sysPromptSaving, setSysPromptSaving] = useState(false)
+  const [sysPromptMsg, setSysPromptMsg] = useState<{ ok: boolean; message: string } | null>(null)
 
   const [prefs, setPrefs] = useState('')
   const [prefsSaving, setPrefsSaving] = useState(false)
+  const [prefsMsg, setPrefsMsg] = useState<{ ok: boolean; message: string } | null>(null)
 
   useEffect(() => {
     api.get<{ provider: string; model: string; api_key_set: boolean; base_url: string | null }>('/config/llm')
@@ -148,17 +150,25 @@ export function SuperSettingsPanel() {
 
   const handleSysPromptSave = async () => {
     setSysPromptSaving(true)
+    setSysPromptMsg(null)
     try {
       await api.put('/super/system-prompt', { prompt: sysPrompt })
-    } catch {}
+      setSysPromptMsg({ ok: true, message: 'Saved!' })
+    } catch (e) {
+      setSysPromptMsg({ ok: false, message: e instanceof Error ? e.message : 'Save failed' })
+    }
     setSysPromptSaving(false)
   }
 
   const handlePrefsSave = async () => {
     setPrefsSaving(true)
+    setPrefsMsg(null)
     try {
       await api.put('/super/preferences', { content: prefs })
-    } catch {}
+      setPrefsMsg({ ok: true, message: 'Saved!' })
+    } catch (e) {
+      setPrefsMsg({ ok: false, message: e instanceof Error ? e.message : 'Save failed' })
+    }
     setPrefsSaving(false)
   }
 
@@ -185,12 +195,12 @@ export function SuperSettingsPanel() {
           </button>
         ))}
       </div>
-      <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>Model</label>
-      <input value={llmModel} onChange={(e) => setLlmModel(e.target.value)} style={inputStyle} />
-      <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>API Key</label>
-      <input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder="Leave blank to keep current" style={inputStyle} />
-      <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>Base URL</label>
-      <input value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)} style={inputStyle} />
+      <label htmlFor="ss-model" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Model</label>
+      <input id="ss-model" value={llmModel} onChange={(e) => setLlmModel(e.target.value)} style={inputStyle} />
+      <label htmlFor="ss-apikey" style={{ fontSize: 10, color: 'var(--text-dim)' }}>API Key</label>
+      <input id="ss-apikey" type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder="Leave blank to keep current" style={inputStyle} />
+      <label htmlFor="ss-baseurl" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Base URL</label>
+      <input id="ss-baseurl" value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)} style={inputStyle} />
       <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
         <button onClick={handleLlmTest} disabled={llmTesting} style={{ ...smallBtn, border: '1px solid var(--accent-cyan)', color: 'var(--accent-cyan)', background: 'transparent', opacity: llmTesting ? 0.5 : 1 }}>
           {llmTesting ? 'TESTING...' : 'TEST'}
@@ -202,10 +212,10 @@ export function SuperSettingsPanel() {
       <ResultMsg result={llmResult} />
 
       <p style={sectionTitle}>GitLab Config <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(Optional)</span></p>
-      <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>GitLab URL</label>
-      <input value={gitlabUrl} onChange={(e) => setGitlabUrl(e.target.value)} placeholder="https://gitlab.example.com" style={inputStyle} />
-      <label style={{ fontSize: 10, color: 'var(--text-dim)' }}>Personal Access Token</label>
-      <input type="password" value={gitlabToken} onChange={(e) => setGitlabToken(e.target.value)} placeholder="glpat-xxx" style={inputStyle} />
+      <label htmlFor="ss-gitlab-url" style={{ fontSize: 10, color: 'var(--text-dim)' }}>GitLab URL</label>
+      <input id="ss-gitlab-url" value={gitlabUrl} onChange={(e) => setGitlabUrl(e.target.value)} placeholder="https://gitlab.example.com" style={inputStyle} />
+      <label htmlFor="ss-gitlab-token" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Personal Access Token</label>
+      <input id="ss-gitlab-token" type="password" value={gitlabToken} onChange={(e) => setGitlabToken(e.target.value)} placeholder="glpat-xxx" style={inputStyle} />
       <button onClick={handleGitlabTest} disabled={gitlabTesting} style={{ ...smallBtn, border: '1px solid var(--accent-cyan)', color: 'var(--accent-cyan)', background: 'transparent', marginBottom: 8, opacity: gitlabTesting ? 0.5 : 1 }}>
         {gitlabTesting ? 'TESTING...' : 'TEST CONNECTION'}
       </button>
@@ -225,6 +235,7 @@ export function SuperSettingsPanel() {
       <button onClick={handleSysPromptSave} disabled={sysPromptSaving} style={{ ...smallBtn, background: 'var(--accent-cyan)', color: 'var(--bg-base)', borderColor: 'var(--accent-cyan)', marginBottom: 16, opacity: sysPromptSaving ? 0.5 : 1 }}>
         SAVE PROMPT
       </button>
+      <ResultMsg result={sysPromptMsg} />
 
       <p style={sectionTitle}>Preferences</p>
       <textarea
@@ -240,6 +251,7 @@ export function SuperSettingsPanel() {
       <button onClick={handlePrefsSave} disabled={prefsSaving} style={{ ...smallBtn, background: 'var(--accent-cyan)', color: 'var(--bg-base)', borderColor: 'var(--accent-cyan)', opacity: prefsSaving ? 0.5 : 1 }}>
         SAVE PREFERENCES
       </button>
+      <ResultMsg result={prefsMsg} />
     </div>
   )
 }

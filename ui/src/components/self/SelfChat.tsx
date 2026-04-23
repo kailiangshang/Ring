@@ -25,7 +25,7 @@ const md: Record<string, any> = {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 export function SelfChat() {
-  const { messages, input, setInput, send, sending, streaming_message_id, loadHistory } = useSelfChatStore()
+  const { messages, input, setInput, send, sending, streaming_message_id, stopStreaming, loadHistory } = useSelfChatStore()
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => { loadHistory() }, [loadHistory])
@@ -59,7 +59,7 @@ export function SelfChat() {
         )}
       </div>
       <div style={{ display: 'flex', gap: 6, padding: '6px 8px', borderTop: '1px solid var(--border)' }}>
-        <input
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -69,6 +69,7 @@ export function SelfChat() {
             }
           }}
           placeholder="Chat with Self..."
+          rows={1}
           style={{
             flex: 1,
             background: 'var(--bg-input)',
@@ -79,25 +80,42 @@ export function SelfChat() {
             fontSize: 12,
             fontFamily: 'inherit',
             outline: 'none',
+            resize: 'none',
           }}
         />
-        <button
-          onClick={send}
-          disabled={sending}
-          style={{
-            background: 'var(--accent-amber)',
-            color: 'var(--bg-base)',
-            border: 'none',
-            borderRadius: 4,
-            padding: '5px 10px',
-            fontSize: 10,
-            fontWeight: 700,
-            cursor: 'pointer',
-            opacity: sending ? 0.5 : 1,
-          }}
-        >
-          {sending ? '...' : '↑'}
-        </button>
+        {sending ? (
+          <button
+            onClick={stopStreaming}
+            style={{
+              background: 'var(--accent-amber)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '5px 10px',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            STOP
+          </button>
+        ) : (
+          <button
+            onClick={send}
+            style={{
+              background: 'var(--accent-amber)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 4,
+              padding: '5px 10px',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {'\u2191'}
+          </button>
+        )}
       </div>
     </div>
   )

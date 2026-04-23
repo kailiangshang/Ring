@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 
 interface ModalProps {
   open: boolean
@@ -7,10 +7,41 @@ interface ModalProps {
 }
 
 export function Modal({ open, on_close, children }: ModalProps) {
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        on_close()
+        return
+      }
+      if (e.key === 'Tab' && contentRef.current) {
+        const focusable = contentRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        )
+        if (focusable.length === 0) return
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault()
+          last.focus()
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault()
+          first.focus()
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, on_close])
+
   if (!open) return null
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       style={{
         position: 'fixed',
         inset: 0,
@@ -29,6 +60,7 @@ export function Modal({ open, on_close, children }: ModalProps) {
         onClick={on_close}
       />
       <div
+        ref={contentRef}
         style={{
           position: 'relative',
           zIndex: 1,

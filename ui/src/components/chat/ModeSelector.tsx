@@ -4,6 +4,12 @@ interface ModeSelectorProps {
   onClose: () => void
 }
 
+const SKILL_DESCRIPTIONS: Record<string, string> = {
+  auto: 'AI executes skills automatically',
+  plan: 'AI plans first, you approve',
+  edit: 'AI can edit files directly',
+}
+
 export function ModeSelector({ onClose }: ModeSelectorProps) {
   const { interaction_mode, setInteractionMode, skill_permission_mode, setSkillMode } =
     useModeStore()
@@ -19,7 +25,7 @@ export function ModeSelector({ onClose }: ModeSelectorProps) {
         border: '1px solid var(--border)',
         borderRadius: 4,
         padding: 8,
-        minWidth: 200,
+        minWidth: 240,
         zIndex: 100,
       }}
     >
@@ -63,6 +69,7 @@ export function ModeSelector({ onClose }: ModeSelectorProps) {
               setSkillMode(mode)
               onClose()
             }}
+            title={SKILL_DESCRIPTIONS[mode]}
             style={{
               background: skill_permission_mode === mode ? 'var(--accent-cyan)' : 'var(--bg-hover)',
               color: skill_permission_mode === mode ? 'var(--bg-base)' : 'var(--text-secondary)',

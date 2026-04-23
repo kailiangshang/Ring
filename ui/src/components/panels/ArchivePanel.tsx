@@ -36,6 +36,7 @@ export function ArchivePanel() {
   const [selected, setSelected] = useState<ArchiveRecord | null>(null)
   const [diffData, setDiffData] = useState<Array<{ old_path: string; new_path: string; diff: string }> | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
+  const [initLoading, setInitLoading] = useState(false)
 
   const ringId = active_ring_id ?? ''
 
@@ -53,7 +54,8 @@ export function ArchivePanel() {
           Git repo not initialized
         </p>
         <button
-          onClick={() => initRepo(ringId)}
+          onClick={async () => { setInitLoading(true); await initRepo(ringId); setInitLoading(false) }}
+          disabled={initLoading}
           style={{
             background: 'var(--accent-ice)',
             color: '#000',
@@ -62,10 +64,11 @@ export function ArchivePanel() {
             padding: '6px 14px',
             fontSize: 12,
             fontWeight: 600,
-            cursor: 'pointer',
+            cursor: initLoading ? 'default' : 'pointer',
+            opacity: initLoading ? 0.5 : 1,
           }}
         >
-          Initialize repo
+          {initLoading ? 'Initializing...' : 'Initialize repo'}
         </button>
       </div>
     )
@@ -280,7 +283,11 @@ export function ArchivePanel() {
               <span style={{ color: 'var(--text-primary)' }}>{mr.file_name}</span>
               <div style={{ ...row, gap: 6 }}>
                 <button
-                  onClick={() => reviewArchive(ringId, mr.id, 'merge')}
+                  onClick={() => {
+                    if (window.confirm(`Merge "${mr.file_name}"? This cannot be undone.`)) {
+                      reviewArchive(ringId, mr.id, 'merge')
+                    }
+                  }}
                   style={{
                     background: 'var(--accent-green, #2ea043)',
                     color: '#fff',
@@ -295,7 +302,11 @@ export function ArchivePanel() {
                   Merge
                 </button>
                 <button
-                  onClick={() => reviewArchive(ringId, mr.id, 'reject')}
+                  onClick={() => {
+                    if (window.confirm(`Reject "${mr.file_name}"?`)) {
+                      reviewArchive(ringId, mr.id, 'reject')
+                    }
+                  }}
                   style={{
                     background: 'var(--accent-red, #da3633)',
                     color: '#fff',
