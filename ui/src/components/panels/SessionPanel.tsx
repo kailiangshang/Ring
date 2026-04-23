@@ -27,23 +27,36 @@ function CreateSessionForm() {
   const [description, setDescription] = useState('')
   const [skill, setSkill] = useState<SessionSkill>('discussion')
   const [archivable, setArchivable] = useState(false)
+  const [creating, setCreating] = useState(false)
 
   const handleCreate = async () => {
     if (!title.trim()) return
+    setCreating(true)
     await createSession({
       title: title.trim(),
       description: description.trim() || undefined,
       skill,
       archivable: archivable || undefined,
     })
-    setTitle('')
-    setDescription('')
-    setSkill('discussion')
-    setArchivable(false)
+    setCreating(false)
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{
+        padding: '10px 12px',
+        background: 'var(--bg-hover)',
+        borderRadius: 4,
+        borderLeft: '3px solid var(--accent-teal)',
+      }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+          Start a Session
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+          Sessions are structured group discussions. Pick a Skill to set the format, add materials, then discuss and get an AI summary.
+        </div>
+      </div>
+
       <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', letterSpacing: '0.05em' }}>
         New Session
       </div>
@@ -126,7 +139,7 @@ function CreateSessionForm() {
 
       <button
         onClick={handleCreate}
-        disabled={!title.trim()}
+        disabled={!title.trim() || creating}
         style={{
           background: title.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
           color: title.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
@@ -135,11 +148,12 @@ function CreateSessionForm() {
           padding: '8px 16px',
           fontSize: 12,
           fontWeight: 700,
-          cursor: title.trim() ? 'pointer' : 'default',
+          cursor: title.trim() && !creating ? 'pointer' : 'default',
           letterSpacing: '0.05em',
+          opacity: creating ? 0.6 : 1,
         }}
       >
-        CREATE
+        {creating ? 'Creating...' : 'CREATE'}
       </button>
     </div>
   )
@@ -187,9 +201,29 @@ function MaterialPrepView() {
       </div>
 
       <ScrollContainer>
+        <div style={{
+          padding: '12px',
+          marginBottom: 8,
+          background: 'var(--bg-hover)',
+          borderRadius: 4,
+          borderLeft: '3px solid var(--accent-cyan)',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 4 }}>
+            Session created!
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            This is the material preparation phase. Gather relevant documents, graph nodes, and context before starting the discussion. You can add highlight notes to materials, or skip directly to discussion.
+          </div>
+        </div>
+
         {materials.length === 0 ? (
-          <div style={{ padding: '16px 0', color: 'var(--text-dim)', fontSize: 11, textAlign: 'center' }}>
-            No materials yet
+          <div style={{ padding: '16px 0', textAlign: 'center' }}>
+            <div style={{ color: 'var(--text-dim)', fontSize: 11, marginBottom: 8 }}>
+              No materials prepared yet.
+            </div>
+            <div style={{ color: 'var(--text-dim)', fontSize: 10 }}>
+              Materials can be suggested by AI based on your session topic, or added manually during discussion.
+            </div>
           </div>
         ) : (
           materials.map((mat) => (
