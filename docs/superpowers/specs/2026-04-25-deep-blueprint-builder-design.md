@@ -63,7 +63,7 @@ If `role_description` is provided, append it as additional context about the Rin
 
 ```
 POST /rings/{ring_id}/blueprint/chat
-Body: { content: string }
+Body: { content: string, current_blueprint: { graphs: [...] } | null }
 Response: SSE stream (same format as ring_chat)
 ```
 
@@ -71,9 +71,26 @@ Handler:
 - Auth: creator/admin only
 - Check `blueprint_status != "confirmed"` (can't modify confirmed blueprint)
 - Build system prompt using `prompts::blueprint::system(ring_name, role_description)`
-- Load blueprint chat history (messages with role="blueprint") as context
+- If `current_blueprint` is provided, inject it into system prompt:
+
+```
+## 当前蓝图状态
+<current_blueprint>
+{current_blueprint JSON}
+</current_blueprint>
+
+你必须在每次调整时输出完整的 <blueprint> JSON，不是增量。
+```
+
+- Load last 15 blueprint chat messages (role="blueprint") as context — sliding window, NO auto_compact
 - Stream via LLM, save messages to `messages` table with `role="blueprint"`
 - Return SSE events
+
+**Context management strategy:**
+- Blueprint chat uses a **sliding window** (15 messages) instead of auto_compact
+- Auto_compact is NOT used because LLM summarization destroys `<blueprint>` JSON structure
+- State is preserved through `current_blueprint` injection into system prompt — even if old messages are discarded, AI always sees the latest complete graph structure
+- Frontend sends the latest parsed `current_blueprint` with every message
 
 ### 3. Blueprint History Route
 
