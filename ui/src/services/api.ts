@@ -256,6 +256,26 @@ export async function exportSessionMessages(ringId: string, sessionId: string) {
   return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`)
 }
 
+export async function uploadFile(path: string, file: File): Promise<any> {
+  const token = await getToken()
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: token ? { 'X-Ring-Token': token } : {},
+    body: formData,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(
+      res.status,
+      body?.error?.code ?? 'unknown',
+      body?.error?.message ?? res.statusText,
+    )
+  }
+  return res.json()
+}
+
 export async function crossRingQuery(query: string): Promise<{ content: string }> {
   return api.post('/super/cross-ring-query', { query })
 }
