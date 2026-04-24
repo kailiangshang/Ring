@@ -65,6 +65,7 @@
 - **提示词统一管理** — 12 处提示词收入 `prompts.rs`，围绕知识协作主线重写
 - **用户不可见提示词** — 移除 System Prompt / Preferences 编辑器
 - **UTF-8 安全截断** — 4 处 `&content[..n]` 改为 `chars().take(n)`
+- **文件上传** — 支持在 Group Ring/Super Ring 聊天和 Session 材料准备中上传文本文件（PDF/TXT/MD/CSV/代码），自动提取内容注入对话上下文，📎 按钮上传 + 拖拽 + 粘贴，文件卡片渲染
 
 ### 代码清理
 
@@ -213,7 +214,6 @@
 | Super Ring `cross_ring_cache/` 缓存 | 缺失 | 低 |
 | Self 完整文件体系（knowledge/goals/growth） | 部分 | 中 |
 | Self metrics（dwell_time/tool_usage） | 部分 | 中 |
-| 文件上传 | 缺失 | 高 |
 | 深度蓝图构建器（AI 对话式） | 缺失 | 中 |
 | 图谱 PNG/PDF 导出 | 缺失 | 低 |
 | 移动端适配 | 缺失 | 延后 |
