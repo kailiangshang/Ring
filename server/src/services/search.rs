@@ -29,21 +29,28 @@ pub async fn search_cross_ring(
         return Ok(vec![]);
     }
 
-    let placeholders: Vec<&str> = ring_ids.iter().map(|_| "?").collect();
+    let placeholders: Vec<String> = ring_ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 2))
+        .collect();
+    let limit_idx = ring_ids.len() + 2;
     let sql = format!(
         "SELECT source_type, source_id, ring_id, ring_name, title, content, metadata, rank \
          FROM search_index \
          WHERE search_index MATCH ?1 \
          AND ring_id IN ({}) \
          ORDER BY bm25(search_index) \
-         LIMIT ?2",
-        placeholders.join(",")
+         LIMIT ?{}",
+        placeholders.join(","),
+        limit_idx
     );
 
-    let mut q = sqlx::query_as::<_, SearchRow>(&sql).bind(&fts_query).bind(limit);
+    let mut q = sqlx::query_as::<_, SearchRow>(&sql).bind(&fts_query);
     for id in ring_ids {
         q = q.bind(id);
     }
+    q = q.bind(limit);
 
     q.fetch_all(db)
         .await
@@ -86,22 +93,17 @@ pub async fn delete_search_index(
     source_type: &str,
     source_id: &str,
 ) -> Result<()> {
-    sqlx::query(
-        "DELETE FROM search_index WHERE source_type = ?1 AND source_id = ?2",
-    )
-    .bind(source_type)
-    .bind(source_id)
-    .execute(db)
-    .await
-    .map_err(|e| RingError::Internal(e.to_string()))?;
+    sqlx::query("DELETE FROM search_index WHERE source_type = ?1 AND source_id = ?2")
+        .bind(source_type)
+        .bind(source_id)
+        .execute(db)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
 
     Ok(())
 }
 
-pub async fn delete_search_index_by_ring(
-    db: &SqlitePool,
-    ring_id: &str,
-) -> Result<()> {
+pub async fn delete_search_index_by_ring(db: &SqlitePool, ring_id: &str) -> Result<()> {
     sqlx::query("DELETE FROM search_index WHERE ring_id = ?1")
         .bind(ring_id)
         .execute(db)
@@ -144,12 +146,11 @@ pub async fn get_user_ring_ids(db: &SqlitePool, user_id: &str) -> Result<Vec<Str
 }
 
 pub async fn get_ring_name(db: &SqlitePool, ring_id: &str) -> Result<String> {
-    let name: Option<String> =
-        sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
-            .bind(ring_id)
-            .fetch_optional(db)
-            .await
-            .map_err(|e| RingError::Internal(e.to_string()))?;
+    let name: Option<String> = sqlx::query_scalar("SELECT name FROM rings WHERE id = ?1")
+        .bind(ring_id)
+        .fetch_optional(db)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
     Ok(name.unwrap_or_default())
 }
 
@@ -157,7 +158,8 @@ pub fn format_search_context(results: &[SearchRow]) -> String {
     if results.is_empty() {
         return String::new();
     }
-    let mut ctx = String::from("<cross_ring_context>\n以下是从用户的所有 Ring 中检索到的相关内容：\n\n");
+    let mut ctx =
+        String::from("<cross_ring_context>\n以下是从用户的所有 Ring 中检索到的相关内容：\n\n");
     for r in results {
         let truncated: String = r.content.chars().take(500).collect();
         let ellipsis = if r.content.len() > 500 { "..." } else { "" };

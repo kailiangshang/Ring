@@ -6,7 +6,6 @@ CREATE VIRTUAL TABLE search_index USING fts5(
     title,
     content,
     metadata,
-    content='',
     tokenize='unicode61'
 );
 

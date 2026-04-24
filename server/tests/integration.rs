@@ -2150,3 +2150,44 @@ async fn test_auto_archive_toggle() {
     let json = read_body(resp).await;
     assert_eq!(json["auto_archive"], false);
 }
+
+#[tokio::test]
+async fn test_search_index_upsert_and_query() {
+    let state = setup_unique_app().await;
+    let db = state.db.clone();
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    ring_server::services::search::upsert_search_index(
+        &db, "graph_node", "node-1", &ring_id, "Test Ring",
+        "API设计", "REST API with JWT authentication",
+        "{}",
+    )
+    .await
+    .unwrap();
+
+    let ring_ids = ring_server::services::search::get_user_ring_ids(&db, &token)
+        .await
+        .unwrap();
+    assert!(!ring_ids.is_empty());
+
+    let results = ring_server::services::search::search_cross_ring(&db, &ring_ids, "API JWT", 10)
+        .await
+        .unwrap();
+    assert!(!results.is_empty());
+    assert_eq!(results[0].source_type, "graph_node");
+    assert_eq!(results[0].title, "API设计");
+    assert_eq!(results[0].ring_name, "Test Ring");
+
+    ring_server::services::search::delete_search_index(&db, "graph_node", "node-1")
+        .await
+        .unwrap();
+
+    let results_after_delete = ring_server::services::search::search_cross_ring(
+        &db, &ring_ids, "API JWT", 10,
+    )
+    .await
+    .unwrap();
+    assert!(results_after_delete.is_empty());
+}
