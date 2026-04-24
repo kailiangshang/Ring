@@ -236,7 +236,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
               : null,
           }))
         }
-        break
+        break;
+      }
+      case 'session_material_added': {
+        const matData = data as Record<string, unknown>
+        if (matData.session_id === get().active_session?.id) {
+          set((state) => ({
+            materials: [...state.materials, matData.material as SessionMaterial],
+          }))
+        }
+        break;
       }
     }
   },

@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../../stores/session-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
-import { exportSessionMessages } from '../../services/api'
+import { exportSessionMessages, uploadFile } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill } from '../../types/session'
 const PHASE_LABELS: Record<string, string> = {
@@ -167,6 +167,9 @@ function MaterialPrepView() {
   const startSession = useSessionStore((s) => s.startSession)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+
   useEffect(() => {
     if (session && active_ring_id) {
       fetchMaterials(active_ring_id, session.id)
@@ -188,15 +191,61 @@ function MaterialPrepView() {
     }
   }
 
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !active_ring_id) return
+    setUploading(true)
+    for (let i = 0; i < files.length; i++) {
+      try {
+        await uploadFile(
+          `/rings/${active_ring_id}/sessions/${session.id}/material-prep/upload`,
+          files[i],
+        )
+        fetchMaterials(active_ring_id, session.id)
+      } catch (e: any) {
+        console.error('upload failed:', e.message)
+      }
+    }
+    setUploading(false)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
-          {session.title}
-        </div>
-        <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
-          <span>Skill: {session.skill}</span>
-          <span style={{ color: 'var(--accent-cyan)' }}>Phase: {PHASE_LABELS[session.phase] ?? session.phase}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+              {session.title}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', display: 'flex', gap: 8 }}>
+              <span>Skill: {session.skill}</span>
+              <span style={{ color: 'var(--accent-cyan)' }}>Phase: {PHASE_LABELS[session.phase] ?? session.phase}</span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".txt,.md,.csv,.json,.py,.js,.ts,.tsx,.rs,.go,.java,.yaml,.yml,.xml,.html,.css,.toml,.sh,.sql,.log,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              style={{
+                background: 'var(--bg-active)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                color: 'var(--text-primary)',
+                fontSize: 12,
+                padding: '6px 12px',
+                cursor: uploading ? 'default' : 'pointer',
+              }}
+            >
+              {uploading ? 'Uploading...' : '📎 Upload Document'}
+            </button>
+          </div>
         </div>
       </div>
 
