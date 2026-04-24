@@ -490,7 +490,33 @@ async fn stream_super_chat_inner(
     let base_prompt = get_system_prompt(&state.hub_dir);
     let ring_summary = build_ring_summary(&state.db, &user.token_id).await;
     let prefs = get_user_preferences(&state.hub_dir);
-    let system_prompt = format!("{base_prompt}\n\n{ring_summary}\n\n## 用户偏好\n{prefs}");
+    let search_ctx = if content.len() >= 5 && !content.starts_with('/') {
+        let ring_ids = crate::services::search::get_user_ring_ids(&state.db, &user.token_id)
+            .await
+            .unwrap_or_default();
+        if !ring_ids.is_empty() {
+            let results =
+                crate::services::search::search_cross_ring(&state.db, &ring_ids, &content, 20)
+                    .await
+                    .unwrap_or_default();
+            let ctx = crate::services::search::format_search_context(&results);
+            if !ctx.is_empty() {
+                format!(
+                    "\n\n{}\n\n{}",
+                    crate::prompts::search::cross_ring_context_instruction(),
+                    ctx
+                )
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+    let system_prompt =
+        format!("{base_prompt}\n\n{ring_summary}\n\n## 用户偏好\n{prefs}{search_ctx}");
 
     let history =
         chat::load_history_context(&state.db, Some(SUPER_RING_ID), &user.token_id, 20).await?;
@@ -708,6 +734,18 @@ async fn stream_super_chat_inner(
     )
     .await;
 
+    let _ = crate::services::search::upsert_search_index(
+        &state.db,
+        "message",
+        &ai_msg_id,
+        "super",
+        "",
+        "SUPER RING",
+        &full_content,
+        &serde_json::json!({"role": "super_ring"}).to_string(),
+    )
+    .await;
+
     Ok(())
 }
 
@@ -801,7 +839,7 @@ async fn stream_cross_ring_query_inner(
         .await;
 
     let ring_summary = build_ring_summary(&state.db, &user.token_id).await;
-    
+
     let mut all_ring_details = String::new();
     let rings = sqlx::query_as::<_, (String, String)>(
         "SELECT r.id, r.name FROM rings r
@@ -814,14 +852,15 @@ async fn stream_cross_ring_query_inner(
     .unwrap_or_default();
 
     for (_ring_id, ring_name) in &rings {
-        if let Ok(detail) = execute_query_ring_detail(
-            &state.db, &state.rings_dir, &user.token_id, ring_name
-        ).await {
+        if let Ok(detail) =
+            execute_query_ring_detail(&state.db, &state.rings_dir, &user.token_id, ring_name).await
+        {
             all_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
         }
     }
 
-    let system_prompt = crate::prompts::super_ring::cross_ring_query(&ring_summary, &all_ring_details);
+    let system_prompt =
+        crate::prompts::super_ring::cross_ring_query(&ring_summary, &all_ring_details);
 
     let api_key = user
         .llm_api_key
@@ -836,18 +875,14 @@ async fn stream_cross_ring_query_inner(
 
     let request = CreateChatCompletionRequest {
         messages: vec![
-            ChatCompletionRequestMessage::System(
-                ChatCompletionRequestSystemMessage {
-                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
-                    name: None,
-                },
-            ),
-            ChatCompletionRequestMessage::User(
-                ChatCompletionRequestUserMessage {
-                    content: ChatCompletionRequestUserMessageContent::Text(query),
-                    name: None,
-                },
-            ),
+            ChatCompletionRequestMessage::System(ChatCompletionRequestSystemMessage {
+                content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+                name: None,
+            }),
+            ChatCompletionRequestMessage::User(ChatCompletionRequestUserMessage {
+                content: ChatCompletionRequestUserMessageContent::Text(query),
+                name: None,
+            }),
         ],
         model,
         stream: Some(true),
@@ -955,16 +990,19 @@ async fn stream_cross_ring_analysis_inner(
         .await;
 
     let mut selected_ring_details = String::new();
-    
+
     for ring_name in &request.ring_names {
-        if let Ok(detail) = execute_query_ring_detail(
-            &state.db, &state.rings_dir, &user.token_id, ring_name
-        ).await {
+        if let Ok(detail) =
+            execute_query_ring_detail(&state.db, &state.rings_dir, &user.token_id, ring_name).await
+        {
             selected_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
         }
     }
 
-    let analysis_prompt = crate::prompts::super_ring::cross_ring_analysis(&request.analysis_type, &selected_ring_details);
+    let analysis_prompt = crate::prompts::super_ring::cross_ring_analysis(
+        &request.analysis_type,
+        &selected_ring_details,
+    );
 
     let api_key = user
         .llm_api_key
