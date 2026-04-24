@@ -488,7 +488,12 @@ async fn stream_super_chat_inner(
     .await?;
 
     let base_prompt = get_system_prompt(&state.hub_dir);
-    let ring_summary = build_ring_summary(&state.db, &user.token_id).await;
+    let ring_summary = crate::services::cross_ring_cache::get_summary(
+        &state.cross_ring_cache,
+        &state.db,
+        &user.token_id,
+    )
+    .await;
     let prefs = get_user_preferences(&state.hub_dir);
     let search_ctx = if content.len() >= 5 && !content.starts_with('/') {
         let ring_ids = crate::services::search::get_user_ring_ids(&state.db, &user.token_id)
@@ -851,12 +856,17 @@ async fn stream_cross_ring_query_inner(
     .await
     .unwrap_or_default();
 
-    for (_ring_id, ring_name) in &rings {
-        if let Ok(detail) =
-            execute_query_ring_detail(&state.db, &state.rings_dir, &user.token_id, ring_name).await
-        {
-            all_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
-        }
+    for (ring_id, ring_name) in &rings {
+        let detail = crate::services::cross_ring_cache::get_detail(
+            &state.cross_ring_cache,
+            &state.db,
+            &state.rings_dir,
+            &user.token_id,
+            ring_id,
+            ring_name,
+        )
+        .await;
+        all_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
     }
 
     let system_prompt =
@@ -992,9 +1002,29 @@ async fn stream_cross_ring_analysis_inner(
     let mut selected_ring_details = String::new();
 
     for ring_name in &request.ring_names {
-        if let Ok(detail) =
-            execute_query_ring_detail(&state.db, &state.rings_dir, &user.token_id, ring_name).await
-        {
+        let ring_id: Option<String> = sqlx::query_scalar(
+            "SELECT r.id FROM rings r
+             JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
+             WHERE r.name LIKE ?2",
+        )
+        .bind(&user.token_id)
+        .bind(format!("%{ring_name}%"))
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten()
+        .flatten();
+
+        if let Some(ring_id) = ring_id {
+            let detail = crate::services::cross_ring_cache::get_detail(
+                &state.cross_ring_cache,
+                &state.db,
+                &state.rings_dir,
+                &user.token_id,
+                &ring_id,
+                ring_name,
+            )
+            .await;
             selected_ring_details.push_str(&format!("\n## Ring: {}\n{}", ring_name, detail));
         }
     }
