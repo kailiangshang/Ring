@@ -2191,3 +2191,53 @@ async fn test_search_index_upsert_and_query() {
     .unwrap();
     assert!(results_after_delete.is_empty());
 }
+
+#[tokio::test]
+async fn test_file_upload_to_chat() {
+    let state = setup_unique_app().await;
+    let app = build_router(state.clone());
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let content = "Hello, this is a test file content.";
+    let filename = "test.txt";
+
+    ring_server::services::upload::validate_file(filename, content.len()).unwrap();
+
+    let msg = ring_server::services::upload::upload_to_chat(
+        &state.db,
+        Some(&ring_id),
+        &token,
+        "TestUser",
+        filename,
+        content.as_bytes(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(msg.role, "system");
+    assert!(msg.content.contains("test.txt"));
+    assert!(msg.content.contains("Hello, this is a test file content."));
+
+    let results = ring_server::services::search::search_cross_ring(
+        &state.db,
+        &[ring_id],
+        "test file content",
+        10,
+    )
+    .await
+    .unwrap();
+    assert!(!results.is_empty());
+}
+
+#[tokio::test]
+async fn test_file_upload_rejects_large_file() {
+    let result = ring_server::services::upload::validate_file("big.txt", 11 * 1024 * 1024);
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_file_upload_rejects_bad_extension() {
+    let result = ring_server::services::upload::validate_file("evil.exe", 100);
+    assert!(result.is_err());
+}
