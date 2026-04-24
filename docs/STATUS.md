@@ -7,7 +7,7 @@
 - 后端 65 个 Rust 源文件，~12,000 行
 - 前端 84 个 TS/TSX 文件，~9,400 行
 - 13 个数据库迁移
-- 64/64 集成测试通过
+- 66/66 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
 ## 本轮完成（2026-04-24）
@@ -68,6 +68,7 @@
 - **文件上传** — 支持在 Group Ring/Super Ring 聊天和 Session 材料准备中上传文本文件（PDF/TXT/MD/CSV/代码），自动提取内容注入对话上下文，📎 按钮上传 + 拖拽 + 粘贴，文件卡片渲染
 - **跨 Ring 全文搜索** — SQLite FTS5 索引所有 Ring 的消息/节点/Session/文档/归档文本，Super Chat 自动检索注入 `<cross_ring_context>`，`[Ring > Title]` 可点击引用
 - **Self Memory 自动提取** — core_identity/knowledge/goals 三个 Tier 1 文件，LLM 异步提取 + 自动压缩，前端记忆面板查看/编辑/删除
+- **深度蓝图构建器** — AI 引导的多轮对话式蓝图设计，`<blueprint>` JSON 结构化输出，D3.js 实时预览，多图谱支持，滑动窗口 + current_blueprint 注入上下文管理，快速路径边创建 bug 修复
 - **Self Metrics** — dwell_time 心跳式追踪（30s 前端心跳 + 后端批量刷盘），tool_usage 覆盖 9 类操作（search/graph_edit/archive/upload/export/blueprint/session_create/session_summarize/memory_extract），已有指标桩接入实际路由，metrics 摘要注入 Self 系统提示词，前端扩展指标面板
 
 ### 代码清理
@@ -218,7 +219,7 @@
 | Super Ring `cross_ring_cache/` 缓存 | 缺失 | 低 |
 | Self 完整文件体系（knowledge/goals/growth） | done（Tier 1 记忆文件已实现） | 中 |
 | Self metrics（dwell_time/tool_usage） | done（心跳式 dwell_time + 全路由 tool_usage + Self AI 注入） | 中 |
-| 深度蓝图构建器（AI 对话式） | 缺失 | 中 |
+| 深度蓝图构建器（AI 对话式） | done（AI 引导多轮对话 + D3 实时预览 + 多图谱 + 边创建修复） | 中 |
 | 图谱 PNG/PDF 导出 | 缺失 | 低 |
 | 移动端适配 | 缺失 | 延后 |
 
