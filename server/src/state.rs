@@ -5,6 +5,7 @@ use std::sync::Arc;
 use sqlx::SqlitePool;
 use tokio::sync::Mutex;
 
+use crate::services::cross_ring_cache::CrossRingCache;
 use crate::services::encryption::CredentialEncryption;
 use crate::ws_hub::WsHub;
 
@@ -19,6 +20,7 @@ pub struct AppState {
     pub skills_dir: PathBuf,
     pub encryption: CredentialEncryption,
     pub dwell_buffer: DwellBuffer,
+    pub cross_ring_cache: CrossRingCache,
 }
 
 impl AppState {
@@ -33,6 +35,7 @@ impl AppState {
             skills_dir,
             encryption,
             dwell_buffer: Arc::new(Mutex::new(HashMap::new())),
+            cross_ring_cache: crate::services::cross_ring_cache::new_cache(),
         }
     }
 

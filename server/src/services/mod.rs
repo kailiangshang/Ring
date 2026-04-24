@@ -2,6 +2,7 @@ pub mod archive_service;
 pub mod blueprint;
 pub mod blueprint_service;
 pub mod chat;
+pub mod cross_ring_cache;
 pub mod config;
 pub mod encryption;
 pub mod git_service;

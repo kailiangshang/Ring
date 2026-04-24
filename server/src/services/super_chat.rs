@@ -359,7 +359,7 @@ async fn execute_query_rings(pool: &sqlx::SqlitePool, user_id: &str) -> Result<S
     Ok(build_ring_summary(pool, user_id).await)
 }
 
-async fn execute_query_ring_detail(
+pub async fn execute_query_ring_detail(
     pool: &sqlx::SqlitePool,
     rings_dir: &Path,
     user_id: &str,
