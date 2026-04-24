@@ -47,6 +47,11 @@ export function MessageItem({ message }: MessageItemProps) {
 
   const isAi = !isUser && message.role !== 'system'
 
+  const isFileCard = message.role === 'system' && message.content.startsWith('📎 ')
+  const fileCardMatch = isFileCard ? message.content.match(/^📎 (.+)\n---\n([\s\S]*)$/) : null
+  const fileCardFilename = fileCardMatch ? fileCardMatch[1] : ''
+  const fileCardContent = fileCardMatch ? fileCardMatch[2] : ''
+
   const rings = useRingStore((s) => s.rings)
   const selectRing = useRingStore((s) => s.selectRing)
   const setActiveRing = useAppStore((s) => s.setActiveRing)
@@ -184,6 +189,60 @@ export function MessageItem({ message }: MessageItemProps) {
             {new Date(message.created_at).toLocaleTimeString()}
           </span>
         </div>
+        {isFileCard && fileCardMatch && (
+          <div style={{
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            padding: '8px 12px',
+            background: 'var(--bg-active)',
+            marginBottom: 8,
+            fontSize: 13,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: 14 }}>📎</span>
+              <span style={{ fontWeight: 700, color: 'var(--accent-ice)', fontSize: 12 }}>
+                {fileCardFilename}
+              </span>
+            </div>
+            <div
+              ref={contentRef}
+              style={{
+                color: 'var(--text-secondary)',
+                fontSize: 12,
+                lineHeight: 1.5,
+                maxHeight: collapsed ? 200 : undefined,
+                overflow: collapsed ? 'hidden' : 'visible',
+                position: 'relative',
+              }}
+            >
+              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
+                {fileCardContent.length > 500 ? fileCardContent.slice(0, 500) + '...' : fileCardContent}
+              </pre>
+              {collapsed && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: 40,
+                    background: 'linear-gradient(transparent, var(--bg-active))',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setCollapsed(false)}
+                >
+                  <span style={{ fontSize: 10, color: 'var(--accent-cyan)', fontWeight: 700, paddingBottom: 4 }}>
+                    EXPAND
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        {!isFileCard && (
         <div
           ref={contentRef}
           style={{
@@ -238,6 +297,7 @@ export function MessageItem({ message }: MessageItemProps) {
             </div>
           )}
         </div>
+        )}
         {!collapsed && overflowing && isAi && (
           <button
             onClick={() => setCollapsed(true)}
