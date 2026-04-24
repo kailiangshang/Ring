@@ -17,14 +17,14 @@ pub struct BlueprintPreview {
     pub edges: Vec<PreviewEdge>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PreviewNode {
     pub label: String,
     pub node_type: String,
     pub tags: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PreviewEdge {
     pub from: String,
     pub to: String,
@@ -34,6 +34,23 @@ pub struct PreviewEdge {
 #[derive(Debug, Deserialize)]
 pub struct FromTemplateRequest {
     pub template: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlueprintGraphInput {
+    pub name: String,
+    pub nodes: Vec<PreviewNode>,
+    pub edges: Vec<PreviewEdge>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ConfirmBlueprintRequest {
+    pub blueprint: Option<BlueprintGraphsInput>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlueprintGraphsInput {
+    pub graphs: Vec<BlueprintGraphInput>,
 }
 
 pub async fn get_blueprint(state: &AppState, ring_id: &str) -> Result<BlueprintResponse> {
@@ -89,4 +106,71 @@ pub async fn confirm_blueprint(state: &AppState, ring_id: &str) -> Result<()> {
         .execute(&state.db)
         .await?;
     Ok(())
+}
+
+pub async fn confirm_with_blueprint(
+    state: &AppState,
+    ring_id: &str,
+    req: &ConfirmBlueprintRequest,
+) -> Result<()> {
+    if let Some(ref bp) = req.blueprint {
+        for graph_input in &bp.graphs {
+            let graph_id = ulid::Ulid::new().to_string();
+            let now = chrono::Utc::now().to_rfc3339();
+            sqlx::query(
+                "INSERT INTO graphs (id, ring_id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            )
+            .bind(&graph_id)
+            .bind(ring_id)
+            .bind(&graph_input.name)
+            .bind(&now)
+            .bind(&now)
+            .execute(&state.db)
+            .await?;
+
+            let mut label_to_id: std::collections::HashMap<String, String> =
+                std::collections::HashMap::new();
+            for node in &graph_input.nodes {
+                let node_id = ulid::Ulid::new().to_string();
+                let tags_json = serde_json::to_string(&node.tags)?;
+                let node_now = chrono::Utc::now().to_rfc3339();
+                sqlx::query(
+                    "INSERT INTO graph_nodes (id, graph_id, ring_id, label, parent_id, node_type, content, tags, markdown_path, metadata, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, NULL, ?5, '', ?6, NULL, '{}', ?7, ?8)",
+                )
+                .bind(&node_id)
+                .bind(&graph_id)
+                .bind(ring_id)
+                .bind(&node.label)
+                .bind(&node.node_type)
+                .bind(&tags_json)
+                .bind(&node_now)
+                .bind(&node_now)
+                .execute(&state.db)
+                .await?;
+                label_to_id.insert(node.label.clone(), node_id);
+            }
+
+            for edge in &graph_input.edges {
+                if let (Some(src), Some(tgt)) =
+                    (label_to_id.get(&edge.from), label_to_id.get(&edge.to))
+                {
+                    let edge_id = ulid::Ulid::new().to_string();
+                    let edge_now = chrono::Utc::now().to_rfc3339();
+                    sqlx::query(
+                        "INSERT INTO graph_edges (id, graph_id, ring_id, source_id, target_id, relation, label, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, '', ?7)",
+                    )
+                    .bind(&edge_id)
+                    .bind(&graph_id)
+                    .bind(ring_id)
+                    .bind(src)
+                    .bind(tgt)
+                    .bind(&edge.relation)
+                    .bind(&edge_now)
+                    .execute(&state.db)
+                    .await?;
+                }
+            }
+        }
+    }
+    confirm_blueprint(state, ring_id).await
 }

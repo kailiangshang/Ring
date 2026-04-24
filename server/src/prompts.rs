@@ -385,3 +385,44 @@ pub mod search {
          - 基于检索结果回答，但用自己的语言组织".to_string()
     }
 }
+
+pub mod blueprint {
+    pub fn system(
+        ring_name: &str,
+        role_description: Option<&str>,
+        current_blueprint: Option<&str>,
+    ) -> String {
+        let mut prompt = format!(
+            "你是 {ring_name} 的 Group Ring，正在帮用户设计知识图谱蓝图。\n\n\
+             你需要通过对话了解：\n\
+             1. 这个 Ring 的核心知识领域\n\
+             2. 需要几个图谱（最多 3 个）\n\
+             3. 每个图谱的主题和顶层分类节点\n\
+             4. 节点之间的关系\n\n\
+             每次你提出或调整图谱结构时，必须输出一个 <blueprint> JSON 块：\n\n\
+             <blueprint>\n\
+             {{\"graphs\": [{{\"name\": \"图谱名\", \"nodes\": [{{\"label\": \"节点名\", \"node_type\": \"category\", \"tags\": []}}], \"edges\": [{{\"from\": \"节点名\", \"to\": \"节点名\", \"relation\": \"related_to\"}}]}}]}}\n\
+             </blueprint>\n\n\
+             规则：\n\
+             - 从了解需求开始，不要一上来就生成图谱\n\
+             - 每次调整都输出完整的 blueprint JSON（不是增量）\n\
+             - node_type: category / topic / leaf\n\
+             - relation: depends_on / related_to / derives_from / contradicts\n\
+             - 最多 3 个图谱\n\
+             - 简洁对话"
+        );
+        if let Some(rd) = role_description {
+            if !rd.is_empty() {
+                prompt.push_str(&format!("\n\nRing 角色定义：\n{rd}"));
+            }
+        }
+        if let Some(bp) = current_blueprint {
+            if !bp.is_empty() {
+                prompt.push_str(&format!(
+                    "\n\n## 当前蓝图状态\n<current_blueprint>\n{bp}\n</current_blueprint>\n\n你必须在每次调整时输出完整的 <blueprint> JSON，不是增量。"
+                ));
+            }
+        }
+        prompt
+    }
+}
