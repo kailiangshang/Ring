@@ -103,6 +103,13 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/self/export", get(self_data::export_data))
         .route("/self/reset", post(self_data::reset_data))
+        .route("/self/memory", get(self_data::list_memories))
+        .route(
+            "/self/memory/{name}",
+            get(self_data::get_memory)
+                .put(self_data::update_memory)
+                .delete(self_data::delete_memory),
+        )
         .route(
             "/rings/{ring_id}/graph",
             get(graph::get_graph).post(graph::create_node_handler),

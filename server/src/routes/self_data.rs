@@ -1,10 +1,11 @@
-use axum::extract::State;
+use axum::extract::{Path, State};
+use axum::http::StatusCode;
 use axum::Json;
 use serde::Deserialize;
 
 use crate::error::Result;
 use crate::extractors::AuthUser;
-use crate::services::self_data;
+use crate::services::{self_data, self_memory};
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -139,4 +140,47 @@ pub async fn reset_data(
     let self_dir = self_data::get_self_dir(&user.token_id);
     self_data::reset_all_data(&self_dir)?;
     Ok(Json(serde_json::json!({ "ok": true })))
+}
+
+pub async fn list_memories(
+    State(_state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<Vec<serde_json::Value>>> {
+    let self_dir = self_data::get_self_dir(&user.token_id);
+    let files = self_memory::list_memory_files(&self_dir)?;
+    Ok(Json(files))
+}
+
+pub async fn get_memory(
+    State(_state): State<AppState>,
+    user: AuthUser,
+    Path(name): Path<String>,
+) -> Result<Json<serde_json::Value>> {
+    let self_dir = self_data::get_self_dir(&user.token_id);
+    let (content, exists) = self_memory::read_memory_file(&self_dir, &name)?;
+    Ok(Json(
+        serde_json::json!({ "name": name, "content": content, "exists": exists }),
+    ))
+}
+
+pub async fn update_memory(
+    State(_state): State<AppState>,
+    user: AuthUser,
+    Path(name): Path<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>> {
+    let content = body.get("content").and_then(|v| v.as_str()).unwrap_or("");
+    let self_dir = self_data::get_self_dir(&user.token_id);
+    self_memory::write_memory_file(&self_dir, &name, content)?;
+    Ok(Json(serde_json::json!({ "name": name, "content": content })))
+}
+
+pub async fn delete_memory(
+    State(_state): State<AppState>,
+    user: AuthUser,
+    Path(name): Path<String>,
+) -> Result<StatusCode> {
+    let self_dir = self_data::get_self_dir(&user.token_id);
+    self_memory::delete_memory_file(&self_dir, &name)?;
+    Ok(StatusCode::NO_CONTENT)
 }
