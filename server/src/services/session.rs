@@ -83,6 +83,22 @@ pub async fn create_session(
 
     let id = ulid::Ulid::new().to_string();
     let sess = session::create_session(&state.db, &id, ring_id, user_id, &input).await?;
+    let ring_name = crate::services::search::get_ring_name(&state.db, ring_id)
+        .await
+        .unwrap_or_default();
+    let content = format!("{} {}", &sess.description, "");
+    let metadata = serde_json::json!({"skill": &sess.skill, "phase": &sess.phase}).to_string();
+    let _ = crate::services::search::upsert_search_index(
+        &state.db,
+        "session",
+        &sess.id,
+        ring_id,
+        &ring_name,
+        &sess.title,
+        &content,
+        &metadata,
+    )
+    .await;
     let participants = session::get_participants(&state.db, &id).await?;
 
     let participant_ids: HashSet<String> =
@@ -164,6 +180,25 @@ pub async fn close_session(
         return Err(RingError::BadRequest("session already closed".into()));
     }
     let session = session::update_phase(&state.db, session_id, "closed").await?;
+    {
+        let ring_name = crate::services::search::get_ring_name(&state.db, &session.ring_id)
+            .await
+            .unwrap_or_default();
+        let content = format!("{} {}", &session.description, "");
+        let metadata =
+            serde_json::json!({"skill": &session.skill, "phase": &session.phase}).to_string();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "session",
+            &session.id,
+            &session.ring_id,
+            &ring_name,
+            &session.title,
+            &content,
+            &metadata,
+        )
+        .await;
+    }
     let participants = session::get_participants(&state.db, session_id).await?;
 
     let interaction_mode: String =
@@ -230,6 +265,24 @@ pub async fn reopen_session(
         return Err(RingError::Conflict("active session already exists".into()));
     }
     let sess = session::update_phase(&state.db, session_id, "discussion").await?;
+    {
+        let ring_name = crate::services::search::get_ring_name(&state.db, &sess.ring_id)
+            .await
+            .unwrap_or_default();
+        let content = format!("{} {}", &sess.description, "");
+        let metadata = serde_json::json!({"skill": &sess.skill, "phase": &sess.phase}).to_string();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "session",
+            &sess.id,
+            &sess.ring_id,
+            &ring_name,
+            &sess.title,
+            &content,
+            &metadata,
+        )
+        .await;
+    }
     let participants = session::get_participants(&state.db, session_id).await?;
 
     let participant_ids: HashSet<String> =
@@ -255,6 +308,7 @@ pub async fn delete_session(
         return Err(RingError::Forbidden("only owner can delete session".into()));
     }
     session::delete_session(&state.db, session_id).await?;
+    let _ = crate::services::search::delete_search_index(&state.db, "session", session_id).await;
     state.ws_hub.remove_session(session_id);
     Ok(())
 }
@@ -364,6 +418,24 @@ pub async fn start_session(
         ));
     }
     let sess = session::update_phase(&state.db, session_id, "discussion").await?;
+    {
+        let ring_name = crate::services::search::get_ring_name(&state.db, &sess.ring_id)
+            .await
+            .unwrap_or_default();
+        let content = format!("{} {}", &sess.description, "");
+        let metadata = serde_json::json!({"skill": &sess.skill, "phase": &sess.phase}).to_string();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "session",
+            &sess.id,
+            &sess.ring_id,
+            &ring_name,
+            &sess.title,
+            &content,
+            &metadata,
+        )
+        .await;
+    }
     let participants = session::get_participants(&state.db, session_id).await?;
     Ok(SessionResponse {
         session: sess,

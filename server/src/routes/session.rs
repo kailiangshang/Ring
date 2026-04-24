@@ -118,7 +118,7 @@ pub async fn archive_toggle(
 ) -> Result<Json<Value>> {
     let result =
         session::toggle_archive(&state, &ring_id, &session_id, &user.token_id, body.enabled)
-    .await?;
+            .await?;
     Ok(Json(serde_json::to_value(result).unwrap()))
 }
 
@@ -162,12 +162,14 @@ pub async fn transfer_ownership(
         .await
         .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
-    sqlx::query("UPDATE session_participants SET role = 'owner' WHERE session_id = ?1 AND token_id = ?2")
-        .bind(&session_id)
-        .bind(&body.new_owner_id)
-        .execute(&state.db)
-        .await
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    sqlx::query(
+        "UPDATE session_participants SET role = 'owner' WHERE session_id = ?1 AND token_id = ?2",
+    )
+    .bind(&session_id)
+    .bind(&body.new_owner_id)
+    .execute(&state.db)
+    .await
+    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
     sqlx::query("UPDATE session_participants SET role = 'participant' WHERE session_id = ?1 AND token_id = ?2 AND role = 'owner'")
         .bind(&session_id)
@@ -267,6 +269,16 @@ pub async fn summarize_session(
 
                     let _ = session_model::set_summary(&pool, &sid, &full_content).await;
                     let _ = session_model::update_phase(&pool, &sid, "closed").await;
+
+                    if let Ok(updated_sess) = session_model::get_session(&pool, &sid).await {
+                        let ring_name = crate::services::search::get_ring_name(&pool, &updated_sess.ring_id).await.unwrap_or_default();
+                        let content = format!("{} {}", &updated_sess.description, updated_sess.summary.as_deref().unwrap_or(""));
+                        let metadata = serde_json::json!({"skill": &updated_sess.skill, "phase": &updated_sess.phase}).to_string();
+                        let _ = crate::services::search::upsert_search_index(
+                            &pool, "session", &updated_sess.id, &updated_sess.ring_id, &ring_name,
+                            &updated_sess.title, &content, &metadata,
+                        ).await;
+                    }
                 }
                 SseEvent::Error(msg) => {
                     let _ = session_model::update_phase(&pool, &sid, "discussion").await;

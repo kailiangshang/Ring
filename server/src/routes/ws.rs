@@ -157,6 +157,23 @@ async fn handle_text_message(
                 return;
             };
 
+            let ring_name = crate::services::search::get_ring_name(db, &sess.ring_id)
+                .await
+                .unwrap_or_default();
+            let metadata =
+                serde_json::json!({"session_id": session_id, "message_type": "user"}).to_string();
+            let _ = crate::services::search::upsert_search_index(
+                db,
+                "session_message",
+                &id,
+                &sess.ring_id,
+                &ring_name,
+                &sender_name,
+                content,
+                &metadata,
+            )
+            .await;
+
             let broadcast = json!({
                 "type": "session_message",
                 "session_id": session_id,
