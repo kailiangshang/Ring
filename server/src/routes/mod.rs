@@ -25,6 +25,7 @@ mod session;
 mod setup;
 mod skills;
 mod super_chat;
+mod upload;
 mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -179,7 +180,10 @@ pub fn build_router(state: AppState) -> Router {
             post(session::highlight_material_handler),
         )
         .route("/rings/{ring_id}/archive", post(archive::trigger_archive))
-        .route("/rings/{ring_id}/archive/quick", post(archive::quick_archive_handler))
+        .route(
+            "/rings/{ring_id}/archive/quick",
+            post(archive::quick_archive_handler),
+        )
         .route("/rings/{ring_id}/archives", get(archive::list_archives))
         .route(
             "/rings/{ring_id}/archives/{archive_id}",
@@ -298,6 +302,15 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/super/cross-ring/analysis",
             post(super_chat::cross_ring_analysis_handler),
+        )
+        .route(
+            "/rings/{ring_id}/upload",
+            post(upload::upload_ring_file),
+        )
+        .route("/super/upload", post(upload::upload_super_file))
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/material-prep/upload",
+            post(upload::upload_session_file),
         )
         .with_state(state.clone());
 
