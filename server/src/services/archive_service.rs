@@ -79,7 +79,8 @@ pub async fn quick_archive(
         .flatten();
 
         let user_row = state.get_user_decrypted(user_id).await?;
-        let (gitlab_url, gitlab_token) = (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
+        let (gitlab_url, gitlab_token) =
+            (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
 
         match (repo_url, gitlab_url, gitlab_token) {
             (Some(url), Some(gl_url), Some(gl_token)) => {
@@ -97,7 +98,12 @@ pub async fn quick_archive(
                 )
                 .await?;
                 archive::update_status(
-                    &state.db, &record_id, "committed", Some(&sha), Some(&branch_name), None,
+                    &state.db,
+                    &record_id,
+                    "committed",
+                    Some(&sha),
+                    Some(&branch_name),
+                    None,
                 )
                 .await?;
 
@@ -111,7 +117,15 @@ pub async fn quick_archive(
                     )
                     .await?;
 
-                archive::update_status(&state.db, &record_id, "mr_opened", None, None, Some(mr.iid)).await?;
+                archive::update_status(
+                    &state.db,
+                    &record_id,
+                    "mr_opened",
+                    None,
+                    None,
+                    Some(mr.iid),
+                )
+                .await?;
             }
             _ => {
                 return Err(RingError::GitlabNotConfigured);
@@ -227,6 +241,22 @@ pub async fn archive_content_creator(
         pool, &record_id, ring_id, session_id, node_id, &file_name, user_id,
     )
     .await?;
+
+    let ring_name = crate::services::search::get_ring_name(pool, ring_id)
+        .await
+        .unwrap_or_default();
+    let source_id = format!("archive:{}", &record_id);
+    let _ = crate::services::search::upsert_search_index(
+        pool,
+        "archive_file",
+        &source_id,
+        ring_id,
+        &ring_name,
+        &file_name,
+        content,
+        "{}",
+    )
+    .await;
 
     let status = if has_remote { "pushed" } else { "committed" };
     archive::update_status(pool, &record_id, status, Some(&sha), None, None).await
