@@ -1,3 +1,5 @@
+import { getToken } from './api'
+
 export interface SseMessageStart {
   message_id: string
   role: string
@@ -26,13 +28,12 @@ export interface SseCallbacks {
 export function streamChat(url: string, body: unknown, callbacks: SseCallbacks): AbortController {
   const controller = new AbortController()
 
-  const token = localStorage.getItem('ring_token')
-
+  getToken().then((token) => {
   fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { 'X-Ring-Token': token } : {}),
+      'X-Ring-Token': token ?? '',
     },
     body: JSON.stringify(body),
     signal: controller.signal,
@@ -96,6 +97,7 @@ export function streamChat(url: string, body: unknown, callbacks: SseCallbacks):
         callbacks.onError({ error: e.message })
       }
     })
+  })
 
   return controller
 }

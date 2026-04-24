@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { ChatMessage } from '../types/chat'
 import { streamChat } from '../services/sse'
+import { getToken } from '../services/api'
 
 interface SelfChatState {
   messages: ChatMessage[]
@@ -107,8 +108,9 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
 
   loadHistory: async () => {
     try {
+      const token = await getToken()
       const res = await fetch('/api/self/chat/history?limit=50', {
-        headers: { 'X-Ring-Token': localStorage.getItem('ring_token') ?? '' },
+        headers: { 'X-Ring-Token': token ?? '' },
       })
       if (!res.ok) return
       const data = await res.json()

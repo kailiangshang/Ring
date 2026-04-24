@@ -10,7 +10,7 @@ export class ApiError extends Error {
   }
 }
 
-async function getToken(): Promise<string | null> {
+export async function getToken(): Promise<string | null> {
   return localStorage.getItem('ring_token')
 }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { WsClient } from '../services/ws-client'
+import { getToken } from '../services/api'
 
 type WsMessageHandler = (data: unknown) => void
 
@@ -33,26 +34,27 @@ export const useWsStore = create<WsState>((set, get) => ({
     const { client } = get()
     if (client) return
 
-    const token = localStorage.getItem('ring_token')
-    if (!token) return
+    getToken().then((token) => {
+      if (!token) return
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${protocol}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const url = `${protocol}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`
 
-    const ws_client = new WsClient(
-      url,
-      (data) => {
-        const { handlers } = get()
-        for (const handler of handlers) {
-          handler(data)
-        }
-      },
-      () => set({ connected: true, connecting: false }),
-      () => set({ connected: false, connecting: false }),
-    )
+      const ws_client = new WsClient(
+        url,
+        (data) => {
+          const { handlers } = get()
+          for (const handler of handlers) {
+            handler(data)
+          }
+        },
+        () => set({ connected: true, connecting: false }),
+        () => set({ connected: false, connecting: false }),
+      )
 
-    set({ client: ws_client, connecting: true })
-    ws_client.connect()
+      set({ client: ws_client, connecting: true })
+      ws_client.connect()
+    })
   },
 
   disconnect: () => {

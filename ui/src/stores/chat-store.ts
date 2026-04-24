@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { ChatMessage } from '../types/chat'
 import { parseCommand } from '../services/command-parser'
 import { streamChat } from '../services/sse'
-import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill } from '../services/api'
+import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill, getToken } from '../services/api'
 import { useSelfChatStore } from './self-chat-store'
 import { usePanelStore } from './panel-store'
 import { useSelfStore } from './self-store'
@@ -490,7 +490,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadHistory: async () => {
     const context = useAppStore.getState().current_context
     const ring_id = useRingStore.getState().active_ring_id
-    const token = localStorage.getItem('ring_token')
+    const token = await getToken()
 
     let url = ''
     if (context === 'ring' && ring_id) {
