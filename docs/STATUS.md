@@ -1,13 +1,13 @@
 # Ring 项目状态
 
-> 最后更新：2026-04-24
+> 最后更新：2026-04-25
 
 ## 开发概况
 
 - 后端 65 个 Rust 源文件，~12,000 行
 - 前端 84 个 TS/TSX 文件，~9,400 行
-- 12 个数据库迁移
-- 57/57 集成测试通过
+- 13 个数据库迁移
+- 64/64 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
 ## 本轮完成（2026-04-24）
@@ -66,12 +66,15 @@
 - **用户不可见提示词** — 移除 System Prompt / Preferences 编辑器
 - **UTF-8 安全截断** — 4 处 `&content[..n]` 改为 `chars().take(n)`
 - **文件上传** — 支持在 Group Ring/Super Ring 聊天和 Session 材料准备中上传文本文件（PDF/TXT/MD/CSV/代码），自动提取内容注入对话上下文，📎 按钮上传 + 拖拽 + 粘贴，文件卡片渲染
+- **跨 Ring 全文搜索** — SQLite FTS5 索引所有 Ring 的消息/节点/Session/文档/归档文本，Super Chat 自动检索注入 `<cross_ring_context>`，`[Ring > Title]` 可点击引用
+- **Self Memory 自动提取** — core_identity/knowledge/goals 三个 Tier 1 文件，LLM 异步提取 + 自动压缩，前端记忆面板查看/编辑/删除
+- **Self Metrics** — dwell_time 心跳式追踪（30s 前端心跳 + 后端批量刷盘），tool_usage 覆盖 9 类操作（search/graph_edit/archive/upload/export/blueprint/session_create/session_summarize/memory_extract），已有指标桩接入实际路由，metrics 摘要注入 Self 系统提示词，前端扩展指标面板
 
 ### 代码清理
 
-- 删除 `docs/superpowers/`（30 个过时文件）
-- 合并 3 个测试文档为 `docs/TEST_GUIDE.md`
-- 新增 `docs/MANUAL_TEST.md`（120 步手动测试指南）
+- 技术债批次1：18 处 `.unwrap()` 改为直接 `Json(result)` 返回
+- `active_ring_id` 去重（删除 app-store 副本，统一到 ring-store）
+- Token 获取统一为 `api.getToken()`
 
 ## 功能完成状态
 
@@ -167,6 +170,7 @@
 | 功能 | 状态 |
 |---|---|
 | Memory / Personality / Privacy / Export / Reset | done |
+| **Self Memory 自动提取** — core_identity/knowledge/goals 三个 Tier 1 文件，LLM 异步提取 + 自动压缩，前端查看/编辑/删除 | done |
 | @self 转发 (从 Group Ring) + 跳转聚焦 | done |
 | 主动建议 | done |
 | 数据导出/重置 | done |
@@ -212,8 +216,8 @@
 |---|---|---|
 | 预设工作流工具（文件解析/知识提取/深度调研） | 缺失 | 低 |
 | Super Ring `cross_ring_cache/` 缓存 | 缺失 | 低 |
-| Self 完整文件体系（knowledge/goals/growth） | 部分 | 中 |
-| Self metrics（dwell_time/tool_usage） | 部分 | 中 |
+| Self 完整文件体系（knowledge/goals/growth） | done（Tier 1 记忆文件已实现） | 中 |
+| Self metrics（dwell_time/tool_usage） | done（心跳式 dwell_time + 全路由 tool_usage + Self AI 注入） | 中 |
 | 深度蓝图构建器（AI 对话式） | 缺失 | 中 |
 | 图谱 PNG/PDF 导出 | 缺失 | 低 |
 | 移动端适配 | 缺失 | 延后 |
@@ -222,9 +226,9 @@
 
 - `chat-store.ts` 685 行 god object，导入 10 个 store
 - SSE 流式回调逻辑复制 5 次（~250 行）
-- `active_ring_id` 双份状态（app-store + ring-store）
 - 非 stream 请求无 AbortController
-- Token 获取方式 4 种不统一
-- 16 个 `.unwrap()` 在路由 handler 中
+- ~~`active_ring_id` 双份状态（app-store + ring-store）~~ — **已修复**
+- ~~Token 获取方式 4 种不统一~~ — **已修复**
+- ~~16 个 `.unwrap()` 在路由 handler 中~~ — **已修复**
 - `readonly` 角色权限未执行
 - CORS 允许所有 Origin
