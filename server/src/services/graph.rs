@@ -37,7 +37,25 @@ pub async fn create_node(
 ) -> Result<graph::GraphNodeRow> {
     let g = graph::ensure_default_graph(&state.db, ring_id).await?;
     let id = ulid::Ulid::new().to_string();
-    graph::create_node(&state.db, &id, &g.id, ring_id, input).await
+    let node = graph::create_node(&state.db, &id, &g.id, ring_id, input).await?;
+    let ring_name = crate::services::search::get_ring_name(&state.db, &node.ring_id)
+        .await
+        .unwrap_or_default();
+    let content = format!("{} {}", &node.content, &node.tags);
+    let metadata =
+        serde_json::json!({"node_type": &node.node_type, "graph_id": &node.graph_id}).to_string();
+    let _ = crate::services::search::upsert_search_index(
+        &state.db,
+        "graph_node",
+        &node.id,
+        &node.ring_id,
+        &ring_name,
+        &node.label,
+        &content,
+        &metadata,
+    )
+    .await;
+    Ok(node)
 }
 
 pub async fn update_node(
@@ -45,10 +63,29 @@ pub async fn update_node(
     node_id: &str,
     input: &graph::UpdateNodeInput,
 ) -> Result<graph::GraphNodeRow> {
-    graph::update_node(&state.db, node_id, input).await
+    let node = graph::update_node(&state.db, node_id, input).await?;
+    let ring_name = crate::services::search::get_ring_name(&state.db, &node.ring_id)
+        .await
+        .unwrap_or_default();
+    let content = format!("{} {}", &node.content, &node.tags);
+    let metadata =
+        serde_json::json!({"node_type": &node.node_type, "graph_id": &node.graph_id}).to_string();
+    let _ = crate::services::search::upsert_search_index(
+        &state.db,
+        "graph_node",
+        &node.id,
+        &node.ring_id,
+        &ring_name,
+        &node.label,
+        &content,
+        &metadata,
+    )
+    .await;
+    Ok(node)
 }
 
 pub async fn delete_node(state: &AppState, node_id: &str) -> Result<()> {
+    let _ = crate::services::search::delete_search_index(&state.db, "graph_node", node_id).await;
     graph::delete_node(&state.db, node_id).await
 }
 
