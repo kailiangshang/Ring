@@ -159,6 +159,10 @@ pub async fn quick_archive_handler(
         }
     }
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "archive");
+    let _ = crate::services::self_data::record_archive_operation(&self_dir, &ring_id, &file_name);
+
     Ok(Json(
         serde_json::json!({ "ok": true, "record_id": record_id }),
     ))

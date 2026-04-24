@@ -92,6 +92,7 @@ pub async fn ring_chat(
         let user_id_c = user.token_id.clone();
         let state_c = state.clone();
         let content_c = body.content.clone();
+        let self_dir_c = crate::services::self_data::get_self_dir(&user.token_id);
         let s = stream! {
             let message_id = ulid::Ulid::new().to_string();
             yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
@@ -100,6 +101,7 @@ pub async fn ring_chat(
             let _ = crate::services::archive_service::quick_archive(
                 &state_c, &ring_id_c, &user_id_c, &content_c,
             ).await;
+            let _ = crate::services::self_data::record_tool_usage(&self_dir_c, "archive");
         }.boxed();
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }

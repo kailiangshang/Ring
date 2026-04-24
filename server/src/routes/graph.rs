@@ -30,14 +30,18 @@ pub async fn create_node_handler(
 
     let state_c = state.clone();
     let ring_id_c = ring_id.clone();
+    let token_id_c = user.token_id.clone();
     tokio::spawn(async move {
-        if let Ok(user_row) = state_c.get_user_decrypted(&user.token_id).await {
+        if let Ok(user_row) = state_c.get_user_decrypted(&token_id_c).await {
             let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
                 &state_c, &ring_id_c, &user_row,
             )
             .await;
         }
     });
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
 
     Ok(Json(node))
 }
@@ -49,6 +53,10 @@ pub async fn update_node(
     Json(body): Json<UpdateNodeInput>,
 ) -> Result<Json<crate::models::graph::GraphNodeRow>> {
     let node = services::graph::update_node(&state, &node_id, &body).await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&_user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+
     Ok(Json(node))
 }
 
@@ -77,6 +85,9 @@ pub async fn delete_node(
         }
     });
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+
     Ok(Json(serde_json::json!({"status": "deleted"})))
 }
 
@@ -88,6 +99,10 @@ pub async fn create_edge_handler(
 ) -> Result<Json<crate::models::graph::GraphEdgeRow>> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let edge = services::graph::create_edge(&state, &ring_id, &body).await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+
     Ok(Json(edge))
 }
 
@@ -103,6 +118,10 @@ pub async fn delete_edge(
         ));
     }
     services::graph::delete_edge(&state, &edge_id).await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+
     Ok(Json(serde_json::json!({"status": "deleted"})))
 }
 

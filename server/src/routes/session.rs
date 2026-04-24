@@ -244,6 +244,7 @@ pub async fn summarize_session(
 
     let pool = state.db.clone();
     let sid = session_id.clone();
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
 
     let s = stream! {
         let mut full_content = String::new();
@@ -268,6 +269,8 @@ pub async fn summarize_session(
 
                     let _ = session_model::set_summary(&pool, &sid, &full_content).await;
                     let _ = session_model::update_phase(&pool, &sid, "closed").await;
+
+                    let _ = crate::services::self_data::record_tool_usage(&self_dir, "session_summarize");
 
                     if let Ok(updated_sess) = session_model::get_session(&pool, &sid).await {
                         let ring_name = crate::services::search::get_ring_name(&pool, &updated_sess.ring_id).await.unwrap_or_default();

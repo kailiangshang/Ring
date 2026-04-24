@@ -47,5 +47,9 @@ pub async fn confirm_blueprint_handler(
         ));
     }
     confirm_blueprint(&state, &ring_id).await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "blueprint");
+
     Ok(Json(serde_json::json!({ "status": "confirmed" })))
 }

@@ -36,10 +36,7 @@ pub fn list_memory_files(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
     for name in MEMORY_FILES {
         let (content, exists) = read_memory_file(self_dir, name)?;
         let line_count = if exists {
-            content
-                .lines()
-                .filter(|l| !l.trim().is_empty())
-                .count()
+            content.lines().filter(|l| !l.trim().is_empty()).count()
         } else {
             0
         };
@@ -155,6 +152,9 @@ pub async fn extract_memories(
             }
         }
     }
+
+    let self_dir = crate::services::self_data::get_self_dir(user_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "memory_extract");
 
     Ok(())
 }

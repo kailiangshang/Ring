@@ -67,6 +67,9 @@ pub async fn super_chat_handler(
     let user_row = state.get_user_decrypted(&user.token_id).await?;
     let mut rx = super_chat::stream_super_chat(state, user_row, body.content);
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "search");
+
     let s: BoxedSseStream = Box::pin(stream! {
         while let Some(event) = rx.recv().await {
             match event {

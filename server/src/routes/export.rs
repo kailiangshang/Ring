@@ -65,6 +65,9 @@ pub async fn export_ring_chat(
         md.push_str("\n\n---\n\n");
     }
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
+
     Ok(markdown_response(md, format!("ring_{}_chat.md", ring_id)))
 }
 
@@ -86,6 +89,9 @@ pub async fn export_self_chat(
         md.push_str("\n\n---\n\n");
     }
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
+
     Ok(markdown_response(md, "self_chat.md".into()))
 }
 
@@ -106,6 +112,9 @@ pub async fn export_super_chat(
         md.push_str(&msg.content);
         md.push_str("\n\n---\n\n");
     }
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
 
     Ok(markdown_response(md, "super_chat.md".into()))
 }
@@ -131,6 +140,9 @@ pub async fn export_ring_graph(
 
     let json_str = serde_json::to_string_pretty(&json)
         .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
 
     Ok(json_response(
         json_str,
@@ -233,6 +245,9 @@ pub async fn export_ring_backup(
             .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
     }
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
+
     Ok((
         [
             (header::CONTENT_TYPE, "application/gzip".to_string()),
@@ -285,6 +300,9 @@ pub async fn export_session_messages(
         md.push_str(&msg.content);
         md.push_str("\n\n---\n\n");
     }
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
 
     Ok(markdown_response(md, format!("session_{}.md", session_id)))
 }
@@ -343,6 +361,9 @@ pub async fn export_ai_report(
 
     let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
     let report = llm.chat_complete(system_prompt, user_message).await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "export");
 
     Ok(markdown_response(
         report,

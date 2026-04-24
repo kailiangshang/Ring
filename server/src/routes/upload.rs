@@ -29,6 +29,9 @@ pub async fn upload_ring_file(
     )
     .await?;
 
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
+
     Ok(Json(msg))
 }
 
@@ -50,6 +53,9 @@ pub async fn upload_super_file(
         &data,
     )
     .await?;
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
 
     Ok(Json(msg))
 }
@@ -85,6 +91,9 @@ pub async fn upload_session_file(
     state
         .ws_hub
         .broadcast_to_session(&session_id, &broadcast.to_string());
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
 
     Ok(Json(material))
 }
