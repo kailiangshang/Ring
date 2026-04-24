@@ -21,6 +21,13 @@ pub async fn create_ring(
     Json(body): Json<CreateRing>,
 ) -> Result<(axum::http::StatusCode, Json<CreateRingResponse>)> {
     let result = ring::create_ring(&state, &user.token_id, body).await?;
+    {
+        let cache = state.cross_ring_cache.clone();
+        let uid = user.token_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_summary(&cache, &uid).await;
+        });
+    }
     Ok((axum::http::StatusCode::CREATED, Json(result)))
 }
 

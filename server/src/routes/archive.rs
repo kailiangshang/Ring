@@ -163,6 +163,16 @@ pub async fn quick_archive_handler(
     let _ = crate::services::self_data::record_tool_usage(&self_dir, "archive");
     let _ = crate::services::self_data::record_archive_operation(&self_dir, &ring_id, &file_name);
 
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        let uid = user.token_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+            crate::services::cross_ring_cache::invalidate_summary(&cache, &uid).await;
+        });
+    }
+
     Ok(Json(
         serde_json::json!({ "ok": true, "record_id": record_id }),
     ))

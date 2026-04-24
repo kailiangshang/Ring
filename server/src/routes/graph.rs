@@ -28,6 +28,14 @@ pub async fn create_node_handler(
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let node = services::graph::create_node(&state, &ring_id, &body).await?;
 
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+        });
+    }
+
     let state_c = state.clone();
     let ring_id_c = ring_id.clone();
     let token_id_c = user.token_id.clone();
@@ -73,6 +81,14 @@ pub async fn delete_node(
     }
     services::graph::delete_node(&state, &node_id).await?;
 
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+        });
+    }
+
     let state_c = state.clone();
     let ring_id_c = ring_id.clone();
     let user_id = user.token_id.clone();
@@ -100,6 +116,14 @@ pub async fn create_edge_handler(
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     let edge = services::graph::create_edge(&state, &ring_id, &body).await?;
 
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+        });
+    }
+
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
 
@@ -118,6 +142,14 @@ pub async fn delete_edge(
         ));
     }
     services::graph::delete_edge(&state, &edge_id).await?;
+
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+        });
+    }
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");

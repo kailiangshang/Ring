@@ -61,6 +61,13 @@ pub async fn remove_member(
     }
 
     member::remove_member(&state, &ring_id, &user.token_id, &target_id).await?;
+    {
+        let cache = state.cross_ring_cache.clone();
+        let uid = user.token_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_summary(&cache, &uid).await;
+        });
+    }
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -77,6 +84,13 @@ pub async fn add_member(
 ) -> Result<Json<MemberResponse>> {
     let result =
         member::add_member_service(&state, &ring_id, &user.token_id, &body.user_id).await?;
+    {
+        let cache = state.cross_ring_cache.clone();
+        let uid = user.token_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_summary(&cache, &uid).await;
+        });
+    }
     Ok(Json(result))
 }
 
