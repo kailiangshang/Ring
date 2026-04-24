@@ -2323,3 +2323,91 @@ async fn test_heartbeat_invalid_view() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
+
+#[tokio::test]
+async fn test_blueprint_confirm_with_graphs() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let body = r#"{"blueprint":{"graphs":[{"name":"Test Graph","nodes":[{"label":"Root","node_type":"category","tags":[]},{"label":"Child","node_type":"topic","tags":["test"]}],"edges":[{"from":"Root","to":"Child","relation":"related_to"}]}]}}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/blueprint/confirm"),
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["status"], "confirmed");
+
+    let graph_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM graphs WHERE ring_id = ?1")
+        .bind(&ring_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(graph_count.0, 1);
+
+    let node_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM graph_nodes WHERE ring_id = ?1")
+        .bind(&ring_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(node_count.0, 2);
+
+    let edge_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM graph_edges WHERE ring_id = ?1")
+        .bind(&ring_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(edge_count.0, 1);
+
+    let status: (String,) = sqlx::query_as("SELECT blueprint_status FROM rings WHERE id = ?1")
+        .bind(&ring_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(status.0, "confirmed");
+}
+
+#[tokio::test]
+async fn test_blueprint_chat_requires_creator() {
+    let state = setup_app().await;
+    let pool = state.db.clone();
+    let app = build_router(state);
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+    let bob_token = create_second_user(&pool).await;
+
+    let add_body = &format!(r#"{{"user_id":"{bob_token}"}}"#);
+    let _ = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/members"),
+            Some(add_body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+
+    let chat_body = r#"{"content":"hello","current_blueprint":null}"#;
+    let resp = app
+        .oneshot(make_request(
+            "POST",
+            &format!("/api/rings/{ring_id}/blueprint/chat"),
+            Some(chat_body),
+            Some(&bob_token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+}
