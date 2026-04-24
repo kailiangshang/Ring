@@ -2411,3 +2411,13 @@ async fn test_blueprint_chat_requires_creator() {
         .unwrap();
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
+
+#[sqlx::test(migrations = "./migrations")]
+async fn test_group_ring_tools_defined(pool: SqlitePool) {
+    let tools = ring_server::services::chat::get_group_ring_tools();
+    assert_eq!(tools.len(), 2);
+
+    let names: Vec<&str> = tools.iter().map(|t| t.function.name.as_str()).collect();
+    assert!(names.contains(&"file_parse"));
+    assert!(names.contains(&"knowledge_extract"));
+}

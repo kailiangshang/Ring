@@ -7,7 +7,7 @@
 - 后端 65 个 Rust 源文件，~12,000 行
 - 前端 84 个 TS/TSX 文件，~9,400 行
 - 13 个数据库迁移
-- 66/66 集成测试通过
+- 67/67 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
 ## 本轮完成（2026-04-24）
@@ -70,6 +70,7 @@
 - **Self Memory 自动提取** — core_identity/knowledge/goals 三个 Tier 1 文件，LLM 异步提取 + 自动压缩，前端记忆面板查看/编辑/删除
 - **深度蓝图构建器** — AI 引导的多轮对话式蓝图设计，`<blueprint>` JSON 结构化输出，D3.js 实时预览，多图谱支持，滑动窗口 + current_blueprint 注入上下文管理，快速路径边创建 bug 修复
 - **Self Metrics** — dwell_time 心跳式追踪（30s 前端心跳 + 后端批量刷盘），tool_usage 覆盖 9 类操作（search/graph_edit/archive/upload/export/blueprint/session_create/session_summarize/memory_extract），已有指标桩接入实际路由，metrics 摘要注入 Self 系统提示词，前端扩展指标面板
+- **预设工作流工具** — Group Ring tool_calls 基础设施（chat_stream_with_tools），file_parse（文件解析 → 结构化提取 → 图谱节点推荐）和 knowledge_extract（文本 → 概念提取 → 图谱节点推荐），AI 自动决定何时调用，`<file_analysis>` / `<knowledge_extraction>` 结构化输出卡片，一键添加到图谱
 
 ### 代码清理
 
@@ -215,7 +216,7 @@
 
 | PRD 要求 | 状态 | 优先级 |
 |---|---|---|
-| 预设工作流工具（文件解析/知识提取/深度调研） | 缺失 | 低 |
+| 预设工作流工具（文件解析/知识提取/深度调研） | done（文件解析 + 知识提取，AI tool_calls 驱动，节点推荐 + 确认） | 低 |
 | Super Ring `cross_ring_cache/` 缓存 | 缺失 | 低 |
 | Self 完整文件体系（knowledge/goals/growth） | done（Tier 1 记忆文件已实现） | 中 |
 | Self metrics（dwell_time/tool_usage） | done（心跳式 dwell_time + 全路由 tool_usage + Self AI 注入） | 中 |

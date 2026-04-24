@@ -5,8 +5,112 @@ import { useRingStore } from '../../stores/ring-store'
 import { useAppStore } from '../../stores/app-store'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useGraphStore } from '../../stores/graph-store'
 
 const COLLAPSE_HEIGHT = 200
+
+interface ExtractedConcept {
+  label: string
+  node_type: string
+  tags: string[]
+}
+
+interface ExtractionData {
+  summary?: string
+  concepts: ExtractedConcept[]
+  relations: { from: string; to: string; relation: string }[]
+  suggested_graph?: string
+}
+
+function parseExtraction(text: string, tag: string): ExtractionData | null {
+  const re = new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*<\\/${tag}>`)
+  const match = text.match(re)
+  if (!match) return null
+  try {
+    return JSON.parse(match[1])
+  } catch {
+    return null
+  }
+}
+
+function stripExtractionTags(text: string): string {
+  return text
+    .replace(/<file_analysis>[\s\S]*?<\/file_analysis>/g, '')
+    .replace(/<knowledge_extraction>[\s\S]*?<\/knowledge_extraction>/g, '')
+    .trim()
+}
+
+function ExtractionCard({
+  data,
+  onAddToGraph,
+}: {
+  data: ExtractionData
+  onAddToGraph: () => void
+}) {
+  return (
+    <div
+      style={{
+        background: 'var(--bg-input)',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: 10,
+        marginTop: 8,
+      }}
+    >
+      {data.summary && (
+        <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginBottom: 6 }}>
+          {data.summary}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+        {data.concepts.map((c, i) => (
+          <span
+            key={i}
+            style={{
+              fontSize: 9,
+              background:
+                c.node_type === 'category'
+                  ? 'rgba(34,211,238,0.15)'
+                  : c.node_type === 'leaf'
+                    ? 'rgba(52,211,153,0.15)'
+                    : 'rgba(167,139,250,0.15)',
+              padding: '2px 6px',
+              borderRadius: 3,
+              color: 'var(--text-secondary)',
+            }}
+          >
+            {c.label}
+          </span>
+        ))}
+      </div>
+      {data.relations.length > 0 && (
+        <div style={{ fontSize: 9, color: 'var(--text-dim)', lineHeight: 1.6, marginBottom: 6 }}>
+          {data.relations.slice(0, 5).map((r, i) => (
+            <div key={i}>
+              {r.from} <span style={{ color: 'var(--accent-cyan)' }}>&rarr;</span> {r.to}{' '}
+              <span style={{ color: 'var(--text-dim)' }}>({r.relation})</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <button
+        onClick={onAddToGraph}
+        style={{
+          fontSize: 9,
+          fontWeight: 700,
+          background: 'var(--accent-cyan)',
+          color: 'var(--bg-base)',
+          border: 'none',
+          borderRadius: 3,
+          padding: '3px 8px',
+          cursor: 'pointer',
+        }}
+      >
+        添加到图谱
+      </button>
+    </div>
+  )
+}
 
 const ROLE_COLORS: Record<string, string> = {
   user: 'var(--accent-ice)',
@@ -46,6 +150,12 @@ export function MessageItem({ message }: MessageItemProps) {
   }, [isStreaming])
 
   const isAi = !isUser && message.role !== 'system'
+
+  const activeRingId = useRingStore((s) => s.active_ring_id)
+  const fileAnalysis = isAi ? parseExtraction(message.content, 'file_analysis') : null
+  const knowledgeExtraction = isAi ? parseExtraction(message.content, 'knowledge_extraction') : null
+  const displayContent = (fileAnalysis || knowledgeExtraction) ? stripExtractionTags(message.content) : message.content
+  const hasExtraction = !!(fileAnalysis || knowledgeExtraction)
 
   const isFileCard = message.role === 'system' && message.content.startsWith('📎 ')
   const fileCardMatch = isFileCard ? message.content.match(/^📎 (.+)\n---\n([\s\S]*)$/) : null
@@ -256,7 +366,7 @@ export function MessageItem({ message }: MessageItemProps) {
           }}
         >
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
-            {message.content}
+            {displayContent}
           </ReactMarkdown>
           {isStreaming && (
             <span style={{
@@ -297,6 +407,38 @@ export function MessageItem({ message }: MessageItemProps) {
             </div>
           )}
         </div>
+        )}
+        {hasExtraction && (
+          <>
+            {fileAnalysis && (
+              <ExtractionCard
+                data={fileAnalysis}
+                onAddToGraph={() => {
+                  if (activeRingId) {
+                    useGraphStore.getState().createNodesFromExtraction(
+                      activeRingId,
+                      fileAnalysis.concepts,
+                      fileAnalysis.relations,
+                    )
+                  }
+                }}
+              />
+            )}
+            {knowledgeExtraction && (
+              <ExtractionCard
+                data={knowledgeExtraction}
+                onAddToGraph={() => {
+                  if (activeRingId) {
+                    useGraphStore.getState().createNodesFromExtraction(
+                      activeRingId,
+                      knowledgeExtraction.concepts,
+                      knowledgeExtraction.relations,
+                    )
+                  }
+                }}
+              />
+            )}
+          </>
         )}
         {!collapsed && overflowing && isAi && (
           <button

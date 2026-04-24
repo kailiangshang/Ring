@@ -30,6 +30,11 @@ interface GraphState {
   selectNode: (nodeId: string | null) => void
   toggleCollapse: (nodeId: string) => void
   isCollapsed: (nodeId: string) => boolean
+  createNodesFromExtraction: (
+    ringId: string,
+    concepts: { label: string; node_type: string; tags: string[] }[],
+    relations: { from: string; to: string; relation: string }[],
+  ) => Promise<void>
 }
 
 interface GraphResponse {
@@ -206,5 +211,40 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   isCollapsed: (nodeId: string) => {
     return get().collapsed_nodes.has(nodeId)
+  },
+
+  createNodesFromExtraction: async (ringId, concepts, relations) => {
+    await get().fetchGraphs(ringId)
+    const { graph_id } = get()
+    if (!graph_id) return
+
+    const labelToId = new Map<string, string>()
+
+    for (const concept of concepts) {
+      try {
+        const res = await api.post<{ id: string }>(`/rings/${ringId}/graph`, {
+          label: concept.label,
+          node_type: concept.node_type,
+          tags: concept.tags,
+        })
+        labelToId.set(concept.label, res.id)
+      } catch {}
+    }
+
+    for (const rel of relations) {
+      const sourceId = labelToId.get(rel.from)
+      const targetId = labelToId.get(rel.to)
+      if (sourceId && targetId) {
+        try {
+          await api.post(`/rings/${ringId}/graph/edges`, {
+            source_id: sourceId,
+            target_id: targetId,
+            relation: rel.relation,
+          })
+        } catch {}
+      }
+    }
+
+    get().fetchGraph(ringId)
   },
 }))

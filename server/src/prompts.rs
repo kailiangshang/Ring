@@ -426,3 +426,48 @@ pub mod blueprint {
         prompt
     }
 }
+
+pub mod workflow {
+    pub fn file_parse_extraction(focus: Option<&str>) -> String {
+        let mut prompt = String::from(
+            "分析以下文件内容，提取结构化知识。\n\n\
+            输出格式：\n\
+            <file_analysis>\n\
+            {\"summary\": \"文件摘要\", \"concepts\": [{\"label\": \"概念名\", \"node_type\": \"category|topic|leaf\", \"tags\": []}], \"relations\": [{\"from\": \"概念A\", \"to\": \"概念B\", \"relation\": \"related_to\"}]}\n\
+            </file_analysis>\n\n\
+            规则：\n\
+            - 提取 3-10 个核心概念作为建议的图谱节点\n\
+            - node_type: category（顶层分类）/ topic（具体主题）/ leaf（细节）\n\
+            - relation: depends_on / related_to / derives_from / contradicts\n\
+            - 每个概念有意义的标签\n\
+            - 简洁摘要，不超过 3 句",
+        );
+        if let Some(f) = focus {
+            if !f.is_empty() {
+                prompt.push_str(&format!("\n\n重点关注：{f}"));
+            }
+        }
+        prompt
+    }
+
+    pub fn knowledge_extraction_prompt(target_graph: Option<&str>) -> String {
+        let mut prompt = String::from(
+            "从以下内容中提取知识概念和关系。\n\n\
+            输出格式：\n\
+            <knowledge_extraction>\n\
+            {\"concepts\": [{\"label\": \"概念名\", \"node_type\": \"category|topic|leaf\", \"tags\": []}], \"relations\": [{\"from\": \"概念A\", \"to\": \"概念B\", \"relation\": \"related_to\"}], \"suggested_graph\": \"图谱名\"}\n\
+            </knowledge_extraction>\n\n\
+            规则：\n\
+            - 识别核心实体、概念和它们之间的关系\n\
+            - 生成适合图谱结构的节点和边\n\
+            - 建议节点类型和标签\n\
+            - relation: depends_on / related_to / derives_from / contradicts",
+        );
+        if let Some(g) = target_graph {
+            if !g.is_empty() {
+                prompt.push_str(&format!("\n\n目标图谱：{g}"));
+            }
+        }
+        prompt
+    }
+}

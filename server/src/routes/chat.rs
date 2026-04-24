@@ -108,21 +108,75 @@ pub async fn ring_chat(
 
     let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
 
-    let mut rx = chat::start_chat_stream(
-        &state,
-        &user_row,
-        &ChatParams {
-            ring_id: Some(&ring_id),
-            role_description: ring_info.1.as_deref(),
-            ring_name: Some(&ring_info.0),
-            ai_role: "group_ring",
-            content: &body.content,
-            node_refs: body.node_refs,
-            tag_refs: body.tag_refs,
-            ephemeral: body.ephemeral,
-        },
-    )
-    .await?;
+    let user_msg_id = ulid::Ulid::new().to_string();
+    if !body.ephemeral {
+        message::insert_message(
+            &state.db,
+            &message::NewMessage {
+                id: &user_msg_id,
+                ring_id: Some(&ring_id),
+                user_id: &user.token_id,
+                role: "user",
+                sender_name: &user_row.display_name,
+                content: &body.content,
+                node_refs: &body.node_refs,
+                tag_refs: &body.tag_refs,
+                token_usage: None,
+            },
+        )
+        .await?;
+    }
+
+    {
+        let ring_name_search = crate::services::search::get_ring_name(&state.db, &ring_id)
+            .await
+            .unwrap_or_default();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "message",
+            &user_msg_id,
+            &ring_id,
+            &ring_name_search,
+            &user_row.display_name,
+            &body.content,
+            &serde_json::json!({"role": "user"}).to_string(),
+        )
+        .await;
+    }
+
+    let tools = crate::services::chat::get_group_ring_tools();
+    let pool_c = state.db.clone();
+    let user_row_tool = user_row.clone();
+
+    let mut rx = {
+        let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
+        let system_prompt = chat::build_system_prompt(Some(&ring_info.0), ring_info.1.as_deref());
+        let history =
+            chat::load_history_context(&state.db, Some(&ring_id), &user.token_id, 20).await?;
+        let filters = user_row
+            .privacy_filters
+            .as_deref()
+            .map(crate::services::privacy_filter::PrivacyFilters::from_json)
+            .unwrap_or_default();
+        let filtered_content =
+            crate::services::privacy_filter::apply_filters(&body.content, &filters);
+        let pool_t = pool_c.clone();
+        let user_t = user_row_tool.clone();
+        llm.chat_stream_with_tools(
+            system_prompt,
+            history,
+            filtered_content,
+            "group_ring".to_string(),
+            tools,
+            move |name: String, args: serde_json::Value| {
+                let pool = pool_t.clone();
+                let user = user_t.clone();
+                async move {
+                    crate::services::chat::execute_group_tool(&pool, &user, name, args).await
+                }
+            },
+        )
+    };
 
     let pool = state.db.clone();
     let ring_id_c = ring_id.clone();

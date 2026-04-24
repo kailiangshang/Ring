@@ -322,3 +322,65 @@ pub async fn start_chat_stream(
     );
     Ok(rx)
 }
+
+pub fn get_group_ring_tools() -> Vec<async_openai::types::ChatCompletionTool> {
+    vec![
+        async_openai::types::ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "file_parse".into(),
+                description: Some("Parse an uploaded file and extract structured knowledge. Recommend graph nodes.".into()),
+                parameters: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "file_reference": { "type": "string", "description": "The message_id of the file upload message" },
+                        "focus": { "type": "string", "description": "Optional focus area for extraction" }
+                    },
+                    "required": ["file_reference"]
+                })),
+                strict: Some(true),
+            },
+        },
+        async_openai::types::ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "knowledge_extract".into(),
+                description: Some("Extract knowledge concepts from text and generate graph node recommendations.".into()),
+                parameters: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "content": { "type": "string", "description": "Text or topic to extract knowledge from" },
+                        "target_graph": { "type": "string", "description": "Optional target graph name" }
+                    },
+                    "required": ["content"]
+                })),
+                strict: Some(true),
+            },
+        },
+    ]
+}
+
+pub async fn execute_group_tool(
+    pool: &sqlx::SqlitePool,
+    user: &crate::models::user::UserRow,
+    tool_name: String,
+    args: serde_json::Value,
+) -> crate::error::Result<String> {
+    match tool_name.as_str() {
+        "file_parse" => {
+            let parsed: crate::services::workflow::FileParseArgs =
+                serde_json::from_value(args)
+                    .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
+            crate::services::workflow::execute_file_parse(pool, user, &parsed).await
+        }
+        "knowledge_extract" => {
+            let parsed: crate::services::workflow::KnowledgeExtractArgs =
+                serde_json::from_value(args)
+                    .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
+            crate::services::workflow::execute_knowledge_extract(user, &parsed).await
+        }
+        _ => Err(crate::error::RingError::BadRequest(format!(
+            "unknown tool: {tool_name}"
+        ))),
+    }
+}
