@@ -2245,3 +2245,81 @@ async fn test_file_upload_rejects_bad_extension() {
     let result = ring_server::services::upload::validate_file("evil.exe", 100);
     assert!(result.is_err());
 }
+
+fn make_self_dir() -> std::path::PathBuf {
+    let id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("ring-self-test-{id}"));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+#[test]
+fn test_record_tool_usage() {
+    let dir = make_self_dir();
+    ring_server::services::self_data::record_tool_usage(&dir, "search").unwrap();
+    ring_server::services::self_data::record_tool_usage(&dir, "search").unwrap();
+    ring_server::services::self_data::record_tool_usage(&dir, "upload").unwrap();
+
+    let metrics = ring_server::services::self_data::read_metrics(&dir);
+    let tools = &metrics["tool_usage"]["tools"];
+    assert_eq!(tools["search"].as_i64().unwrap(), 2);
+    assert_eq!(tools["upload"].as_i64().unwrap(), 1);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn test_record_dwell_heartbeat() {
+    let dir = make_self_dir();
+    ring_server::services::self_data::record_dwell_heartbeat(&dir, "ring_chat", 30).unwrap();
+    ring_server::services::self_data::record_dwell_heartbeat(&dir, "ring_chat", 30).unwrap();
+
+    let metrics = ring_server::services::self_data::read_metrics(&dir);
+    let views = &metrics["dwell_time"]["views"];
+    assert_eq!(views["ring_chat"].as_i64().unwrap(), 60);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn test_heartbeat_endpoint() {
+    let state = setup_app().await;
+    let app = build_router(state.clone());
+    let token = do_setup(&app).await;
+
+    let body = r#"{"view":"ring_chat"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "POST",
+            "/api/self/metrics/heartbeat",
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+
+    let buf = state.dwell_buffer.lock().await;
+    assert_eq!(buf.get("ring_chat"), Some(&30));
+}
+
+#[tokio::test]
+async fn test_heartbeat_invalid_view() {
+    let state = setup_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+
+    let body = r#"{"view":"invalid_view"}"#;
+    let resp = app
+        .oneshot(make_request(
+            "POST",
+            "/api/self/metrics/heartbeat",
+            Some(body),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
