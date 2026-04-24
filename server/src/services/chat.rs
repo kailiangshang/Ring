@@ -36,7 +36,9 @@ mod tests {
     #[test]
     fn test_should_recommend_archive_with_indicators() {
         assert!(should_recommend_archive("我们达成了共识，结论是采用方案A"));
-        assert!(should_recommend_archive("The team decided to go with option B"));
+        assert!(should_recommend_archive(
+            "The team decided to go with option B"
+        ));
         assert!(should_recommend_archive("Final conclusion: use Rust"));
     }
 
@@ -50,8 +52,18 @@ mod tests {
 pub fn detect_archive_intent(content: &str) -> bool {
     let lower = content.to_lowercase();
     let keywords = [
-        "归档", "保存", "记录到图谱", "archive", "save to graph", "值得归档", "mark this",
-        "save this", "archive this", "记录一下", "记下来", "存到图谱",
+        "归档",
+        "保存",
+        "记录到图谱",
+        "archive",
+        "save to graph",
+        "值得归档",
+        "mark this",
+        "save this",
+        "archive this",
+        "记录一下",
+        "记下来",
+        "存到图谱",
     ];
     keywords.iter().any(|kw| lower.contains(kw))
 }
@@ -59,8 +71,20 @@ pub fn detect_archive_intent(content: &str) -> bool {
 pub fn should_recommend_archive(content: &str) -> bool {
     let lower = content.to_lowercase();
     let indicators = [
-        "结论", "总结", "决策", "方案", "决定", "agreed", "decided", "conclusion",
-        "resolved", "solution", "finalized", "确定", "共识", "一致同意",
+        "结论",
+        "总结",
+        "决策",
+        "方案",
+        "决定",
+        "agreed",
+        "decided",
+        "conclusion",
+        "resolved",
+        "solution",
+        "finalized",
+        "确定",
+        "共识",
+        "一致同意",
     ];
     indicators.iter().any(|ind| lower.contains(ind))
 }
@@ -119,6 +143,23 @@ pub async fn auto_compact_history(
     )
     .await?;
 
+    if let Some(ring_id) = ring_id {
+        let ring_name = crate::services::search::get_ring_name(&state.db, ring_id)
+            .await
+            .unwrap_or_default();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "message",
+            &summary_id,
+            ring_id,
+            &ring_name,
+            "SYSTEM",
+            &format!("[历史摘要] {}", summary),
+            &serde_json::json!({"role": "system"}).to_string(),
+        )
+        .await;
+    }
+
     for msg in old_messages {
         let _ = sqlx::query("DELETE FROM messages WHERE id = ?1")
             .bind(&msg.id)
@@ -137,18 +178,30 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
             let (identity, identity_exists) =
                 crate::services::self_data::read_self_file(&self_dir, "identity")
                     .unwrap_or_default();
-            let identity = if identity_exists && !identity.is_empty() { Some(identity.as_str()) } else { None };
+            let identity = if identity_exists && !identity.is_empty() {
+                Some(identity.as_str())
+            } else {
+                None
+            };
 
             let (style, style_exists) =
                 crate::services::self_data::read_self_file(&self_dir, "style").unwrap_or_default();
-            let style = if style_exists && !style.is_empty() { Some(style.as_str()) } else { None };
+            let style = if style_exists && !style.is_empty() {
+                Some(style.as_str())
+            } else {
+                None
+            };
 
             let personality = crate::services::self_data::read_self_file(&self_dir, "personality")
                 .unwrap_or_default();
             let tone = if personality.1 && !personality.0.is_empty() {
                 serde_json::from_str::<serde_json::Value>(&personality.0)
                     .ok()
-                    .and_then(|p| p.get("tone").and_then(|v| v.as_str()).map(|s| s.to_string()))
+                    .and_then(|p| {
+                        p.get("tone")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_string())
+                    })
             } else {
                 None
             };
@@ -207,6 +260,23 @@ pub async fn start_chat_stream(
             },
         )
         .await?;
+    }
+
+    if let Some(ring_id) = params.ring_id {
+        let ring_name = crate::services::search::get_ring_name(&state.db, ring_id)
+            .await
+            .unwrap_or_default();
+        let _ = crate::services::search::upsert_search_index(
+            &state.db,
+            "message",
+            &user_msg_id,
+            ring_id,
+            &ring_name,
+            &user.display_name,
+            params.content,
+            &serde_json::json!({"role": "user"}).to_string(),
+        )
+        .await;
     }
 
     let system_prompt = build_system_prompt(params.ring_name, params.role_description);

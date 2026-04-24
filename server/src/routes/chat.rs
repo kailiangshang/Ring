@@ -167,6 +167,13 @@ pub async fn ring_chat(
                         },
                     ).await;
 
+                    let ring_name_search = crate::services::search::get_ring_name(&pool, &ring_id_c).await.unwrap_or_default();
+                    let _ = crate::services::search::upsert_search_index(
+                        &pool, "message", &message_id, &ring_id_c, &ring_name_search,
+                        "GROUP RING", &full_content,
+                        &serde_json::json!({"role": "group_ring"}).to_string(),
+                    ).await;
+
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
                     let user_id_for_doc = user_id.clone();
