@@ -171,7 +171,7 @@ pub async fn auto_compact_history(
 }
 
 pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&str>) -> String {
-    match ring_name {
+    let prompt = match ring_name {
         Some(name) => crate::prompts::group_ring::system(name, role_description),
         None => {
             let self_dir = crate::services::self_data::get_self_dir("");
@@ -208,7 +208,15 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
 
             crate::prompts::self_chat::system(identity, style, tone.as_deref())
         }
+    };
+    if ring_name.is_none() {
+        let self_dir = crate::services::self_data::get_self_dir("");
+        let memory_ctx = crate::services::self_memory::build_memory_context(&self_dir);
+        if !memory_ctx.is_empty() {
+            return format!("{prompt}\n\n{memory_ctx}");
+        }
     }
+    prompt
 }
 
 pub async fn load_history_context(

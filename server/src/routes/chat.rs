@@ -285,7 +285,9 @@ pub async fn self_chat(
     let user_id = user.token_id.clone();
     let self_dir = crate::services::self_data::get_self_dir(&user_id);
     let content_len = body.content.len();
+    let user_message = body.content.clone();
     let _ = crate::services::self_data::record_chat_message(&self_dir, None, content_len);
+    let user_row_c = user_row.clone();
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -320,6 +322,23 @@ pub async fn self_chat(
                             token_usage: token_usage.as_deref(),
                         },
                     ).await;
+
+                    let extract_user_id = user_id.clone();
+                    let extract_user_msg = user_message.clone();
+                    let extract_ai_msg = full_content.clone();
+                    let extract_user_row = user_row_c.clone();
+                    tokio::spawn(async move {
+                        let _ = crate::services::self_memory::extract_memories(
+                            &extract_user_row,
+                            &extract_user_id,
+                            &extract_user_msg,
+                            &extract_ai_msg,
+                        ).await;
+                        let _ = crate::services::self_memory::check_and_compress(
+                            &extract_user_row,
+                            &extract_user_id,
+                        ).await;
+                    });
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });
