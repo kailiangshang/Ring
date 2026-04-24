@@ -8,6 +8,8 @@ import { useSelfStore } from '../../stores/self-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
+import { uploadFile } from '../../services/api'
+import type { ChatMessage } from '../../types/chat'
 
 export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, messages } = useChatStore()
@@ -15,6 +17,9 @@ export function InputArea() {
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [showArchiveBanner, setShowArchiveBanner] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const addMessage = useChatStore((s) => s.addMessage)
 
   const lastMessage = messages[messages.length - 1]
   const shouldRecommend = lastMessage && lastMessage.role === 'group_ring' && lastMessage.content && (
@@ -140,8 +145,57 @@ export function InputArea() {
     setShowArchiveBanner(false)
   }
 
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true)
+
+    const { current_context, active_ring_id, active_session_id } = useAppStore.getState()
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
+      try {
+        let endpoint: string
+        if (current_context === 'session' && active_ring_id && active_session_id) {
+          endpoint = `/rings/${active_ring_id}/sessions/${active_session_id}/material-prep/upload`
+        } else if (current_context === 'super') {
+          endpoint = '/super/upload'
+        } else if (active_ring_id) {
+          endpoint = `/rings/${active_ring_id}/upload`
+        } else {
+          continue
+        }
+
+        const result = await uploadFile(endpoint, file)
+        if (current_context !== 'session' && addMessage) {
+          addMessage(result as ChatMessage)
+        }
+      } catch (e: any) {
+        console.error('upload failed:', e.message)
+      }
+    }
+    setUploading(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    handleFileUpload(e.dataTransfer.files)
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (e.clipboardData.files.length > 0) {
+      e.preventDefault()
+      handleFileUpload(e.clipboardData.files)
+    }
+  }
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div style={{ position: 'relative' }} onDrop={handleDrop} onDragOver={handleDragOver}>
       {shouldRecommend && !showArchiveBanner && (
         <div
           style={{
@@ -202,11 +256,36 @@ export function InputArea() {
       >
         <ModeIndicator />
         <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept=".txt,.md,.csv,.json,.py,.js,.ts,.tsx,.rs,.go,.java,.yaml,.yml,.xml,.html,.css,.toml,.sh,.sql,.log,.pdf"
+          style={{ display: 'none' }}
+          onChange={(e) => handleFileUpload(e.target.files)}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: uploading ? 'var(--text-dim)' : 'var(--text-secondary)',
+            cursor: uploading ? 'default' : 'pointer',
+            fontSize: 16,
+            padding: '4px 4px',
+            lineHeight: 1,
+          }}
+          title="Upload file"
+        >
+          {uploading ? '⏳' : '📎'}
+        </button>
+        <input
           ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder="Type / for commands, @ to address..."
           style={{
             flex: 1,
