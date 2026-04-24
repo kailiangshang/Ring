@@ -223,6 +223,14 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/blueprint/confirm",
             post(blueprint::confirm_blueprint_handler),
         )
+        .route(
+            "/rings/{ring_id}/blueprint/chat",
+            post(blueprint::blueprint_chat),
+        )
+        .route(
+            "/rings/{ring_id}/blueprint/chat/history",
+            get(blueprint::blueprint_history),
+        )
         .route("/super/chat", post(super_chat::super_chat_handler))
         .route("/super/chat/history", get(super_chat::super_history))
         .route(
