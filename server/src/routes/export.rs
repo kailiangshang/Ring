@@ -193,7 +193,10 @@ pub async fn export_ring_backup(
 
     let mut chat_md = String::new();
     chat_md.push_str(&format!("# Ring: {}\n\n", ring_info.name));
-    chat_md.push_str(&format!("Exported: {}\n\n---\n\n", chrono::Utc::now().to_rfc3339()));
+    chat_md.push_str(&format!(
+        "Exported: {}\n\n---\n\n",
+        chrono::Utc::now().to_rfc3339()
+    ));
     for msg in messages.iter().rev() {
         let role_label = if msg.role == "user" { "User" } else { "AI" };
         chat_md.push_str(&format!("## {} ({})\n\n", role_label, msg.sender_name));
@@ -211,12 +214,23 @@ pub async fn export_ring_backup(
     {
         let enc = GzEncoder::new(&mut buf, Compression::default());
         let mut tar = Builder::new(enc);
-        tar_append(&mut tar, "metadata.json", &serde_json::to_string_pretty(&metadata).unwrap())?;
-        tar_append(&mut tar, "graph.json", &serde_json::to_string_pretty(&graph_json).unwrap())?;
+        tar_append(
+            &mut tar,
+            "metadata.json",
+            &serde_json::to_string_pretty(&metadata)
+                .map_err(|e| crate::error::RingError::Internal(e.to_string()))?,
+        )?;
+        tar_append(
+            &mut tar,
+            "graph.json",
+            &serde_json::to_string_pretty(&graph_json)
+                .map_err(|e| crate::error::RingError::Internal(e.to_string()))?,
+        )?;
         tar_append(&mut tar, "chat.md", &chat_md)?;
         tar_append(&mut tar, "sessions.json", &sessions_json)?;
         tar_append(&mut tar, "archives.json", &archives_json)?;
-        tar.finish().map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        tar.finish()
+            .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
     }
 
     Ok((
@@ -295,13 +309,18 @@ pub async fn export_ai_report(
 
     let selected_nodes: Vec<_> = if let Some(ids_str) = &query.node_ids {
         let ids: Vec<&str> = ids_str.split(',').collect();
-        all_nodes.into_iter().filter(|n| ids.contains(&n.id.as_str())).collect()
+        all_nodes
+            .into_iter()
+            .filter(|n| ids.contains(&n.id.as_str()))
+            .collect()
     } else {
         all_nodes
     };
 
     if selected_nodes.is_empty() {
-        return Err(crate::error::RingError::BadRequest("No nodes selected".into()));
+        return Err(crate::error::RingError::BadRequest(
+            "No nodes selected".into(),
+        ));
     }
 
     let topic = query.topic.as_deref().unwrap_or("综合分析");
@@ -317,10 +336,16 @@ pub async fn export_ai_report(
     }
 
     let system_prompt = crate::prompts::export::AI_REPORT_SYSTEM.to_string();
-    let user_message = format!("主题：{}\n\n以下是选中的图谱节点：\n\n{}", topic, nodes_info);
+    let user_message = format!(
+        "主题：{}\n\n以下是选中的图谱节点：\n\n{}",
+        topic, nodes_info
+    );
 
     let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
     let report = llm.chat_complete(system_prompt, user_message).await?;
 
-    Ok(markdown_response(report, format!("ring_{}_report.md", ring_id)))
+    Ok(markdown_response(
+        report,
+        format!("ring_{}_report.md", ring_id),
+    ))
 }

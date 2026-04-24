@@ -1,10 +1,10 @@
 use axum::extract::{Path, State};
 use axum::Json;
 use serde::Deserialize;
-use serde_json::Value;
 
 use crate::error::Result;
 use crate::extractors::AuthUser;
+use crate::models::member::MemberResponse;
 use crate::services::member;
 use crate::state::AppState;
 
@@ -17,7 +17,7 @@ pub async fn list_members(
     State(state): State<AppState>,
     user: AuthUser,
     Path(ring_id): Path<String>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     let members = member::list_members(&state, &ring_id, &user.token_id).await?;
     Ok(Json(serde_json::json!({ "members": members })))
 }
@@ -52,7 +52,11 @@ pub async fn remove_member(
         return Err(crate::error::RingError::BadRequest(format!(
             "User owns {} active session(s). Transfer ownership first: {}",
             owned_sessions.len(),
-            owned_sessions.iter().map(|(id, t)| format!("{} ({})", id, t)).collect::<Vec<_>>().join(", ")
+            owned_sessions
+                .iter()
+                .map(|(id, t)| format!("{} ({})", id, t))
+                .collect::<Vec<_>>()
+                .join(", ")
         )));
     }
 
@@ -70,10 +74,10 @@ pub async fn add_member(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<AddMemberRequest>,
-) -> Result<Json<Value>> {
+) -> Result<Json<MemberResponse>> {
     let result =
         member::add_member_service(&state, &ring_id, &user.token_id, &body.user_id).await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn grant_session(

@@ -3,16 +3,18 @@ use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
 use serde::Deserialize;
-use serde_json::Value;
 use std::convert::Infallible;
 
 use crate::error::{Result, RingError};
 use crate::extractors::AuthUser;
 use crate::models::ring;
 use crate::models::session as session_model;
-use crate::models::session::{ArchiveToggleInput, CreateSessionInput, InviteParticipantsInput};
+use crate::models::session::{
+    ArchiveToggleInput, CreateSessionInput, InviteParticipantsInput, SessionMaterialRow,
+    SessionParticipantRow,
+};
 use crate::services::llm::SseEvent;
-use crate::services::session;
+use crate::services::session::{self, SessionResponse};
 use crate::state::AppState;
 
 #[derive(Deserialize)]
@@ -31,16 +33,13 @@ pub async fn create_session(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<CreateSessionInput>,
-) -> Result<(axum::http::StatusCode, Json<Value>)> {
+) -> Result<(axum::http::StatusCode, Json<SessionResponse>)> {
     let result = session::create_session(&state, &ring_id, &user.token_id, body).await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     let _ = crate::services::self_data::record_session_created(&self_dir);
 
-    Ok((
-        axum::http::StatusCode::CREATED,
-        Json(serde_json::to_value(result).unwrap()),
-    ))
+    Ok((axum::http::StatusCode::CREATED, Json(result)))
 }
 
 pub async fn list_sessions(
@@ -48,7 +47,7 @@ pub async fn list_sessions(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Query(query): Query<ListSessionsQuery>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     let sessions =
         session::list_sessions(&state, &ring_id, &user.token_id, query.status.as_deref()).await?;
     Ok(Json(serde_json::json!({ "sessions": sessions })))
@@ -58,34 +57,34 @@ pub async fn get_session(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionResponse>> {
     let result = session::get_session_detail(&state, &ring_id, &session_id, &user.token_id).await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn close_session(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionResponse>> {
     let result = session::close_session(&state, &ring_id, &session_id, &user.token_id).await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn reopen_session(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionResponse>> {
     let result = session::reopen_session(&state, &ring_id, &session_id, &user.token_id).await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn delete_session(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     session::delete_session(&state, &ring_id, &session_id, &user.token_id).await?;
     Ok(Json(serde_json::json!({ "status": "deleted" })))
 }
@@ -95,17 +94,17 @@ pub async fn invite_participants(
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
     Json(body): Json<InviteParticipantsInput>,
-) -> Result<Json<Value>> {
+) -> Result<Json<Vec<SessionParticipantRow>>> {
     let participants =
         session::invite_participants(&state, &ring_id, &session_id, &user.token_id, body).await?;
-    Ok(Json(serde_json::to_value(participants).unwrap()))
+    Ok(Json(participants))
 }
 
 pub async fn remove_participant(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id, target_id)): Path<(String, String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     session::remove_participant(&state, &ring_id, &session_id, &target_id, &user.token_id).await?;
     Ok(Json(serde_json::json!({ "status": "removed" })))
 }
@@ -115,11 +114,11 @@ pub async fn archive_toggle(
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
     Json(body): Json<ArchiveToggleInput>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionResponse>> {
     let result =
         session::toggle_archive(&state, &ring_id, &session_id, &user.token_id, body.enabled)
             .await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 #[derive(Debug, serde::Deserialize)]
@@ -186,7 +185,7 @@ pub async fn get_messages(
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
     Query(query): Query<MessagesQuery>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     let messages = session::get_messages(
         &state,
         &ring_id,
@@ -203,9 +202,9 @@ pub async fn start_session_handler(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionResponse>> {
     let result = session::start_session(&state, &ring_id, &session_id, &user.token_id).await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn summarize_session(
@@ -296,7 +295,7 @@ pub async fn get_material_prep(
     State(state): State<AppState>,
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
-) -> Result<Json<Value>> {
+) -> Result<Json<serde_json::Value>> {
     let materials =
         session::get_materials_service(&state, &ring_id, &session_id, &user.token_id).await?;
     Ok(Json(serde_json::json!({ "materials": materials })))
@@ -313,7 +312,7 @@ pub async fn highlight_material_handler(
     user: AuthUser,
     Path((ring_id, session_id)): Path<(String, String)>,
     Json(body): Json<HighlightInput>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SessionMaterialRow>> {
     let result = session::highlight_material(
         &state,
         &ring_id,
@@ -323,5 +322,5 @@ pub async fn highlight_material_handler(
         &body.note,
     )
     .await?;
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }

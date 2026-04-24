@@ -1,10 +1,9 @@
 use axum::extract::State;
 use axum::Json;
-use serde_json::Value;
 
 use crate::error::Result;
 use crate::extractors::AuthUser;
-use crate::services::setup;
+use crate::services::setup::{self, SetupResponse};
 use crate::state::AppState;
 
 pub async fn get_status(State(state): State<AppState>) -> Result<Json<setup::SetupStatusResponse>> {
@@ -15,25 +14,25 @@ pub async fn get_status(State(state): State<AppState>) -> Result<Json<setup::Set
 pub async fn submit_setup(
     State(state): State<AppState>,
     Json(body): Json<setup::SetupRequest>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SetupResponse>> {
     let result = setup::submit_setup(&state, body).await?;
     let token_path = state.hub_dir.join("token");
     let _ = std::fs::write(&token_path, &result.token_id);
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
 pub async fn update_setup(
     State(state): State<AppState>,
     user: AuthUser,
     Json(body): Json<setup::SetupRequest>,
-) -> Result<Json<Value>> {
+) -> Result<Json<SetupResponse>> {
     let result = setup::update_setup(&state, &user.token_id, body).await?;
     let token_path = state.hub_dir.join("token");
     let _ = std::fs::write(&token_path, &result.token_id);
-    Ok(Json(serde_json::to_value(result).unwrap()))
+    Ok(Json(result))
 }
 
-pub async fn recover_token(State(state): State<AppState>) -> Result<Json<Value>> {
+pub async fn recover_token(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
     let token_path = state.hub_dir.join("token");
     let token = std::fs::read_to_string(&token_path)
         .map_err(|_| crate::error::RingError::NotFound("no recovery token found".into()))?;
