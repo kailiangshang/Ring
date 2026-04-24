@@ -20,4 +20,5 @@ pub mod self_data;
 pub mod session;
 pub mod setup;
 pub mod skill;
+pub mod search;
 pub mod super_chat;
