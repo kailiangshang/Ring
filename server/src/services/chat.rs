@@ -211,9 +211,21 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
     };
     if ring_name.is_none() {
         let self_dir = crate::services::self_data::get_self_dir("");
+        let mut extra = String::new();
         let memory_ctx = crate::services::self_memory::build_memory_context(&self_dir);
         if !memory_ctx.is_empty() {
-            return format!("{prompt}\n\n{memory_ctx}");
+            extra.push_str(&memory_ctx);
+        }
+        let metrics = crate::services::self_data::read_metrics(&self_dir);
+        let metrics_ctx = crate::prompts::self_chat::metrics_context(&metrics);
+        if !metrics_ctx.is_empty() {
+            if !extra.is_empty() {
+                extra.push_str("\n\n");
+            }
+            extra.push_str(&metrics_ctx);
+        }
+        if !extra.is_empty() {
+            return format!("{prompt}\n\n{extra}");
         }
     }
     prompt

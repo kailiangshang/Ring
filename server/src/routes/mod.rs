@@ -93,6 +93,7 @@ pub fn build_router(state: AppState) -> Router {
             get(self_data::get_style).put(self_data::update_style),
         )
         .route("/self/metrics", get(self_data::get_metrics))
+        .route("/self/metrics/heartbeat", post(self_data::heartbeat))
         .route(
             "/self/personality",
             get(self_data::get_personality).put(self_data::update_personality),

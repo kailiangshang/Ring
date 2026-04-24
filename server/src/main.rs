@@ -1,4 +1,5 @@
 use ring_server::routes::build_router;
+use ring_server::services::self_data;
 use ring_server::state::AppState;
 use sqlx::sqlite::SqlitePoolOptions;
 
@@ -33,7 +34,25 @@ async fn main() {
     std::fs::create_dir_all(&skills_dir).expect("failed to create skills dir");
 
     let state = AppState::new(pool, rings_dir, hub_dir, skills_dir);
-    let app = build_router(state);
+    let app = build_router(state.clone());
+
+    {
+        let state_clone = state.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
+            loop {
+                interval.tick().await;
+                let buf = {
+                    let mut guard = state_clone.dwell_buffer.lock().await;
+                    std::mem::take(&mut *guard)
+                };
+                if !buf.is_empty() {
+                    let self_dir = self_data::get_self_dir("");
+                    let _ = self_data::flush_dwell_buffer(&self_dir, &buf);
+                }
+            }
+        });
+    }
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:7420")
         .await

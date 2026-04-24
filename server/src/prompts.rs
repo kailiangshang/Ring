@@ -47,6 +47,65 @@ pub mod self_chat {
         }
         prompt
     }
+
+    pub fn metrics_context(metrics: &serde_json::Value) -> String {
+        let cp = metrics.get("chat_patterns");
+        let total_msgs = cp
+            .and_then(|m| m.get("total_messages"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let self_msgs = cp
+            .and_then(|m| m.get("self_messages"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let total_rings = metrics
+            .get("ring_activity")
+            .and_then(|m| m.get("total_rings"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let total_archives = metrics
+            .get("archive_patterns")
+            .and_then(|m| m.get("total_archives"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+        let total_sessions = metrics
+            .get("session_stats")
+            .and_then(|m| m.get("total_sessions"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+
+        let tools = metrics
+            .get("tool_usage")
+            .and_then(|m| m.get("tools"))
+            .and_then(|t| t.as_object());
+        let tools_summary = if let Some(tools) = tools {
+            let mut entries: Vec<(String, i64)> = tools
+                .iter()
+                .filter_map(|(k, v)| v.as_i64().map(|i| (k.clone(), i)))
+                .collect();
+            entries.sort_by(|a, b| b.1.cmp(&a.1));
+            entries
+                .iter()
+                .take(5)
+                .map(|(k, v)| format!("{k}({v})"))
+                .collect::<Vec<_>>()
+                .join(", ")
+        } else {
+            String::new()
+        };
+
+        if total_msgs == 0 && total_rings == 0 {
+            return String::new();
+        }
+
+        let mut ctx = format!(
+            "## 用户行为概览\n- 总消息数: {total_msgs}（其中 Self 对话: {self_msgs}）\n- 活跃 Ring: {total_rings} 个\n- Session: {total_sessions} 次\n- 归档: {total_archives} 次"
+        );
+        if !tools_summary.is_empty() {
+            ctx.push_str(&format!("\n- 常用功能: {tools_summary}"));
+        }
+        ctx
+    }
 }
 
 pub mod super_ring {

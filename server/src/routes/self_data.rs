@@ -172,7 +172,9 @@ pub async fn update_memory(
     let content = body.get("content").and_then(|v| v.as_str()).unwrap_or("");
     let self_dir = self_data::get_self_dir(&user.token_id);
     self_memory::write_memory_file(&self_dir, &name, content)?;
-    Ok(Json(serde_json::json!({ "name": name, "content": content })))
+    Ok(Json(
+        serde_json::json!({ "name": name, "content": content }),
+    ))
 }
 
 pub async fn delete_memory(
@@ -182,5 +184,28 @@ pub async fn delete_memory(
 ) -> Result<StatusCode> {
     let self_dir = self_data::get_self_dir(&user.token_id);
     self_memory::delete_memory_file(&self_dir, &name)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Deserialize)]
+pub struct HeartbeatRequest {
+    pub view: String,
+    #[allow(dead_code)]
+    pub ring_id: Option<String>,
+}
+
+pub async fn heartbeat(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Json(body): Json<HeartbeatRequest>,
+) -> Result<StatusCode> {
+    let _ = user;
+    let valid_views = ["self_panel", "ring_chat", "graph", "session", "archive"];
+    if !valid_views.contains(&body.view.as_str()) {
+        return Ok(StatusCode::BAD_REQUEST);
+    }
+    let mut buf = state.dwell_buffer.lock().await;
+    let entry = buf.entry(body.view).or_insert(0);
+    *entry += 30;
     Ok(StatusCode::NO_CONTENT)
 }
