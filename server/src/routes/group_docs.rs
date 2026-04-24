@@ -91,6 +91,22 @@ pub async fn update_group_doc(
         .execute(&state.db)
         .await?;
 
+    let ring_name = crate::services::search::get_ring_name(&state.db, &ring_id)
+        .await
+        .unwrap_or_default();
+    let source_id = format!("{}:{}", &ring_id, &doc_name);
+    let _ = crate::services::search::upsert_search_index(
+        &state.db,
+        "group_doc",
+        &source_id,
+        &ring_id,
+        &ring_name,
+        &doc_name,
+        &body.content,
+        "{}",
+    )
+    .await;
+
     Ok(Json(GroupDocResponse {
         doc_name,
         content: body.content,
