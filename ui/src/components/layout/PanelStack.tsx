@@ -9,7 +9,7 @@ import { SuperSkillsPanel } from '../panels/SuperSkillsPanel'
 import { SuperSettingsPanel } from '../panels/SuperSettingsPanel'
 import { BlueprintPanel } from '../panels/BlueprintPanel'
 
-const PANEL_CONTENT: Record<string, () => ReactElement> = {
+const PANEL_CONTENT: Record<string, () => ReactElement | null> = {
   graph: GraphPanel,
   archive: ArchivePanel,
   config: ConfigPanel,
