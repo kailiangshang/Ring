@@ -2160,8 +2160,13 @@ async fn test_search_index_upsert_and_query() {
     let ring_id = create_ring(&app, &token).await;
 
     ring_server::services::search::upsert_search_index(
-        &db, "graph_node", "node-1", &ring_id, "Test Ring",
-        "API设计", "REST API with JWT authentication",
+        &db,
+        "graph_node",
+        "node-1",
+        &ring_id,
+        "Test Ring",
+        "API设计",
+        "REST API with JWT authentication",
         "{}",
     )
     .await
@@ -2184,11 +2189,10 @@ async fn test_search_index_upsert_and_query() {
         .await
         .unwrap();
 
-    let results_after_delete = ring_server::services::search::search_cross_ring(
-        &db, &ring_ids, "API JWT", 10,
-    )
-    .await
-    .unwrap();
+    let results_after_delete =
+        ring_server::services::search::search_cross_ring(&db, &ring_ids, "API JWT", 10)
+            .await
+            .unwrap();
     assert!(results_after_delete.is_empty());
 }
 

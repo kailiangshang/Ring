@@ -1,13 +1,15 @@
 import { useAppStore } from '../../stores/app-store'
+import { useRingStore } from '../../stores/ring-store'
 
 export function SuperRingEntry() {
-  const { current_context, setContext, setActiveRing } = useAppStore()
+  const { current_context, setContext } = useAppStore()
+  const selectRing = useRingStore((s) => s.selectRing)
   const isActive = current_context === 'super'
 
   return (
     <div
       onClick={() => {
-        setActiveRing(null)
+        selectRing(null)
         setContext('super')
       }}
       style={{

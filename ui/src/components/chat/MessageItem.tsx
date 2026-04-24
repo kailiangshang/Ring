@@ -54,13 +54,13 @@ export function MessageItem({ message }: MessageItemProps) {
 
   const rings = useRingStore((s) => s.rings)
   const selectRing = useRingStore((s) => s.selectRing)
-  const setActiveRing = useAppStore((s) => s.setActiveRing)
+  const setContext = useAppStore((s) => s.setContext)
 
   const handleCitationClick = (ringName: string) => {
     const ring = rings.find((r) => r.name === ringName)
     if (!ring) return
     selectRing(ring.id)
-    setActiveRing(ring.id)
+    setContext('ring')
   }
 
   /* eslint-disable @typescript-eslint/no-explicit-any */

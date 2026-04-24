@@ -125,7 +125,8 @@ export function InputArea() {
         el?.focus()
       }, 50)
     } else if (cmd === '@super ') {
-      useAppStore.getState().setActiveRing(null)
+      useRingStore.getState().selectRing(null)
+      useAppStore.getState().setContext('super')
       setTimeout(() => inputRef.current?.focus(), 50)
     } else {
       setInput(val)
@@ -149,7 +150,9 @@ export function InputArea() {
     if (!files || files.length === 0) return
     setUploading(true)
 
-    const { current_context, active_ring_id, active_session_id } = useAppStore.getState()
+    const current_context = useAppStore.getState().current_context
+    const active_ring_id = useRingStore.getState().active_ring_id
+    const active_session_id = useAppStore.getState().active_session_id
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]

@@ -10,7 +10,7 @@ export function RingList() {
   const loading = useRingStore((s) => s.loading)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const createRing = useRingStore((s) => s.createRing)
-  const setActiveRing = useAppStore((s) => s.setActiveRing)
+  const setContext = useAppStore((s) => s.setContext)
   const selectRing = useRingStore((s) => s.selectRing)
   const openPanel = usePanelStore((s) => s.open)
   const [creating, setCreating] = useState(false)
@@ -25,7 +25,7 @@ export function RingList() {
       setNewName('')
       setCreating(false)
       selectRing(ring_id)
-      setActiveRing(ring_id)
+      setContext('ring')
       openPanel('graph')
     } else {
       setCreateError('Failed to create ring. Name may already exist.')
@@ -44,7 +44,7 @@ export function RingList() {
       )}
       {rings.map((ring) => (
         <div key={ring.id}>
-          <div onClick={() => { selectRing(ring.id); setActiveRing(ring.id) }}>
+          <div onClick={() => { selectRing(ring.id); setContext('ring') }}>
             <RingListItem ring={ring} isActive={active_ring_id === ring.id} />
           </div>
           {ring.id === active_ring_id && ring.has_active_session && (

@@ -37,7 +37,7 @@ pub async fn get_or_create(
     sqlx::query_as::<_, ConversationTokenRow>(
         "INSERT INTO conversation_tokens (id, user_id, ring_id, total_tokens)
          VALUES (?1, ?2, ?3, 0)
-         RETURNING *"
+         RETURNING *",
     )
     .bind(&id)
     .bind(user_id)
@@ -60,7 +60,7 @@ pub async fn add_tokens(
         "UPDATE conversation_tokens
          SET total_tokens = ?1, updated_at = datetime('now')
          WHERE id = ?2
-         RETURNING *"
+         RETURNING *",
     )
     .bind(new_total)
     .bind(&row.id)
@@ -80,7 +80,7 @@ pub async fn reset_tokens(
         "UPDATE conversation_tokens
          SET total_tokens = 0, updated_at = datetime('now')
          WHERE id = ?1
-         RETURNING *"
+         RETURNING *",
     )
     .bind(&row.id)
     .fetch_one(pool)
@@ -103,12 +103,10 @@ pub struct UpdateAutoCompact {
 }
 
 pub async fn get_auto_compact(pool: &sqlx::SqlitePool, user_id: &str) -> Result<bool> {
-    let row: Option<(bool,)> = sqlx::query_as(
-        "SELECT auto_compact FROM users WHERE token_id = ?1"
-    )
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
+    let row: Option<(bool,)> = sqlx::query_as("SELECT auto_compact FROM users WHERE token_id = ?1")
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
 
     match row {
         Some((auto_compact,)) => Ok(auto_compact),
@@ -121,13 +119,11 @@ pub async fn update_auto_compact(
     user_id: &str,
     auto_compact: bool,
 ) -> Result<bool> {
-    let result = sqlx::query(
-        "UPDATE users SET auto_compact = ?1 WHERE token_id = ?2"
-    )
-    .bind(auto_compact)
-    .bind(user_id)
-    .execute(pool)
-    .await?;
+    let result = sqlx::query("UPDATE users SET auto_compact = ?1 WHERE token_id = ?2")
+        .bind(auto_compact)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
 
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("user not found".into()));

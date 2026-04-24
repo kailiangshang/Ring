@@ -8,7 +8,8 @@ export function NotificationBell() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { notifications, unreadCount, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
   const active_ring_id = useRingStore((s) => s.active_ring_id)
-  const setActiveRing = useAppStore((s) => s.setActiveRing)
+  const selectRing = useRingStore((s) => s.selectRing)
+  const setContext = useAppStore((s) => s.setContext)
 
   useEffect(() => {
     fetchUnreadCount()
@@ -47,7 +48,8 @@ export function NotificationBell() {
       markAsRead(n.id)
     }
     if (n.ring_id && n.ring_id !== active_ring_id) {
-      setActiveRing(n.ring_id)
+      selectRing(n.ring_id)
+      setContext('ring')
     }
     setIsOpen(false)
   }

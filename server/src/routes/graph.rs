@@ -129,7 +129,9 @@ pub async fn create_graph_handler(
 ) -> Result<Json<crate::models::graph::GraphRow>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" && role != "admin" {
-        return Err(RingError::Forbidden("only creator/admin can create graphs".into()));
+        return Err(RingError::Forbidden(
+            "only creator/admin can create graphs".into(),
+        ));
     }
     let graph = crate::models::graph::create_graph(&state.db, &ring_id, &body.name).await?;
     Ok(Json(graph))
@@ -142,7 +144,9 @@ pub async fn delete_graph_handler(
 ) -> Result<Json<serde_json::Value>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" {
-        return Err(RingError::Forbidden("only creator can delete graphs".into()));
+        return Err(RingError::Forbidden(
+            "only creator can delete graphs".into(),
+        ));
     }
     crate::models::graph::delete_graph(&state.db, &graph_id).await?;
     Ok(Json(serde_json::json!({"status": "deleted"})))

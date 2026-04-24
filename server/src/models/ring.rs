@@ -58,7 +58,7 @@ pub async fn create_ring(
     input: &CreateRing,
 ) -> Result<RingRow> {
     let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM rings WHERE creator_id = ?1 AND name = ?2)"
+        "SELECT EXISTS(SELECT 1 FROM rings WHERE creator_id = ?1 AND name = ?2)",
     )
     .bind(creator_id)
     .bind(&input.name)
@@ -67,9 +67,10 @@ pub async fn create_ring(
     .unwrap_or(false);
 
     if exists {
-        return Err(crate::error::RingError::BadRequest(
-            format!("Ring「{}」already exists", input.name)
-        ));
+        return Err(crate::error::RingError::BadRequest(format!(
+            "Ring「{}」already exists",
+            input.name
+        )));
     }
 
     let ring = sqlx::query_as::<_, RingRow>(

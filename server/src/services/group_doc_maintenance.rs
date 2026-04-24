@@ -23,11 +23,18 @@ pub async fn update_active_context(
         .collect::<Vec<_>>()
         .join("\n\n");
 
-    let prompt = format!("{}\n{}", crate::prompts::group_docs::ACTIVE_CONTEXT_USER, history_text);
+    let prompt = format!(
+        "{}\n{}",
+        crate::prompts::group_docs::ACTIVE_CONTEXT_USER,
+        history_text
+    );
 
     let llm = LlmClient::from_user(user)?;
     let content = llm
-        .chat_complete(crate::prompts::group_docs::ACTIVE_CONTEXT_SYSTEM.into(), prompt)
+        .chat_complete(
+            crate::prompts::group_docs::ACTIVE_CONTEXT_SYSTEM.into(),
+            prompt,
+        )
         .await?;
 
     sqlx::query(
@@ -60,11 +67,18 @@ pub async fn update_archive_patterns(
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
     let existing = existing.unwrap_or_default();
-    let prompt = format!("{}\n{}", crate::prompts::group_docs::ARCHIVE_PATTERNS_USER, archive_content);
+    let prompt = format!(
+        "{}\n{}",
+        crate::prompts::group_docs::ARCHIVE_PATTERNS_USER,
+        archive_content
+    );
 
     let llm = LlmClient::from_user(user)?;
     let new_patterns = llm
-        .chat_complete(crate::prompts::group_docs::ARCHIVE_PATTERNS_SYSTEM.into(), prompt)
+        .chat_complete(
+            crate::prompts::group_docs::ARCHIVE_PATTERNS_SYSTEM.into(),
+            prompt,
+        )
         .await?;
 
     let merged = if existing.is_empty() {

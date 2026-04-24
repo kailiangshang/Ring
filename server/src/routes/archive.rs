@@ -76,13 +76,18 @@ pub async fn quick_archive_handler(
         }
 
         archive::insert_record(
-            &state.db, &record_id, &ring_id, body.session_id.as_deref(), None, &file_name, &user.token_id,
+            &state.db,
+            &record_id,
+            &ring_id,
+            body.session_id.as_deref(),
+            None,
+            &file_name,
+            &user.token_id,
         )
         .await?;
 
         let status = if has_remote { "pushed" } else { "committed" };
-        archive::update_status(
-            &state.db, &record_id, status, Some(&sha), None, None).await?;
+        archive::update_status(&state.db, &record_id, status, Some(&sha), None, None).await?;
     } else {
         let repo_url = sqlx::query_scalar::<_, Option<String>>(
             "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
@@ -94,7 +99,8 @@ pub async fn quick_archive_handler(
         .flatten();
 
         let user_row = state.get_user_decrypted(&user.token_id).await?;
-        let (gitlab_url, gitlab_token) = (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
+        let (gitlab_url, gitlab_token) =
+            (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
 
         match (repo_url, gitlab_url, gitlab_token) {
             (Some(url), Some(gl_url), Some(gl_token)) => {
@@ -108,11 +114,22 @@ pub async fn quick_archive_handler(
                 git.checkout(&repo_path, "main")?;
 
                 archive::insert_record(
-                    &state.db, &record_id, &ring_id, body.session_id.as_deref(), None, &file_name, &user.token_id,
+                    &state.db,
+                    &record_id,
+                    &ring_id,
+                    body.session_id.as_deref(),
+                    None,
+                    &file_name,
+                    &user.token_id,
                 )
                 .await?;
                 archive::update_status(
-                    &state.db, &record_id, "committed", Some(&sha), Some(&branch_name), None,
+                    &state.db,
+                    &record_id,
+                    "committed",
+                    Some(&sha),
+                    Some(&branch_name),
+                    None,
                 )
                 .await?;
 
@@ -126,7 +143,15 @@ pub async fn quick_archive_handler(
                     )
                     .await?;
 
-                archive::update_status(&state.db, &record_id, "mr_opened", None, None, Some(mr.iid)).await?;
+                archive::update_status(
+                    &state.db,
+                    &record_id,
+                    "mr_opened",
+                    None,
+                    None,
+                    Some(mr.iid),
+                )
+                .await?;
             }
             _ => {
                 return Err(RingError::GitlabNotConfigured);
@@ -134,7 +159,9 @@ pub async fn quick_archive_handler(
         }
     }
 
-    Ok(Json(serde_json::json!({ "ok": true, "record_id": record_id })))
+    Ok(Json(
+        serde_json::json!({ "ok": true, "record_id": record_id }),
+    ))
 }
 
 pub async fn trigger_archive(

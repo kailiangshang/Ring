@@ -8,9 +8,8 @@ const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
 const MAX_CONTENT_CHARS: usize = 50000;
 
 const ALLOWED_EXTENSIONS: &[&str] = &[
-    "txt", "md", "csv", "json", "py", "js", "ts", "tsx", "rs", "go", "java",
-    "yaml", "yml", "xml", "html", "css", "toml", "sh", "sql", "log", "env",
-    "conf", "cfg", "ini", "pdf",
+    "txt", "md", "csv", "json", "py", "js", "ts", "tsx", "rs", "go", "java", "yaml", "yml", "xml",
+    "html", "css", "toml", "sh", "sql", "log", "env", "conf", "cfg", "ini", "pdf",
 ];
 
 pub fn validate_file(filename: &str, size: usize) -> Result<()> {
@@ -21,11 +20,7 @@ pub fn validate_file(filename: &str, size: usize) -> Result<()> {
         )));
     }
 
-    let ext = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
 
     if !ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
         return Err(RingError::BadRequest(format!(
@@ -37,11 +32,7 @@ pub fn validate_file(filename: &str, size: usize) -> Result<()> {
 }
 
 pub fn extract_text(filename: &str, data: &[u8]) -> Result<String> {
-    let ext = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
 
     let text = if ext == "pdf" {
         extract_pdf_text(data)?
@@ -134,15 +125,9 @@ pub async fn upload_to_session(
     let content = extract_text(filename, data)?;
 
     let material_id = ulid::Ulid::new().to_string();
-    let material = session::create_material(
-        db,
-        &material_id,
-        session_id,
-        "document",
-        filename,
-        &content,
-    )
-    .await?;
+    let material =
+        session::create_material(db, &material_id, session_id, "document", filename, &content)
+            .await?;
 
     let _ = crate::services::search::upsert_search_index(
         db,

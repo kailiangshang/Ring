@@ -303,10 +303,7 @@ pub fn build_router(state: AppState) -> Router {
             "/super/cross-ring/analysis",
             post(super_chat::cross_ring_analysis_handler),
         )
-        .route(
-            "/rings/{ring_id}/upload",
-            post(upload::upload_ring_file),
-        )
+        .route("/rings/{ring_id}/upload", post(upload::upload_ring_file))
         .route("/super/upload", post(upload::upload_super_file))
         .route(
             "/rings/{ring_id}/sessions/{session_id}/material-prep/upload",
