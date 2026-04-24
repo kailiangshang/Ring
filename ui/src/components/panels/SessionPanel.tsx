@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSessionStore } from '../../stores/session-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
-import { exportSessionMessages, uploadFile } from '../../services/api'
+import { exportSessionMessages, getToken, uploadFile } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill } from '../../types/session'
 const PHASE_LABELS: Record<string, string> = {
@@ -365,11 +365,11 @@ function SummarizeView() {
   const [error, setError] = useState<string | null>(null)
   const [started, setStarted] = useState(false)
 
-  const triggerSummarize = () => {
+  const triggerSummarize = async () => {
     if (!session) return
     setStarted(true)
 
-    const token = localStorage.getItem('ring_token')
+    const token = (await getToken()) ?? ''
     const ring_id = useRingStore.getState().active_ring_id
     if (!ring_id) return
 
