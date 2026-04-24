@@ -310,5 +310,19 @@ pub mod export {
 - 知识缺口：图谱中可能缺少的关键信息
 - 建议：下一步应该补充哪些节点或深入研究什么
 
-用 Markdown 格式。";
+    用 Markdown 格式。";
+}
+
+pub mod search {
+    pub fn cross_ring_context_instruction() -> String {
+        "## 跨 Ring 知识检索\n\n\
+         系统已根据用户的问题自动搜索了所有 Ring 中的相关内容，结果在 <cross_ring_context> 标签中。\n\n\
+         引用规则：\n\
+         - 使用 [Ring名 > 标题] 格式引用来源\n\
+         - 引用必须是方括号格式，例如：[后端团队 > API 设计]\n\
+         - 每个 Ring名 和标题之间用 > 分隔\n\
+         - 在回答中自然地嵌入引用，不要单独列出\n\
+         - 如果检索结果与用户问题无关，忽略它们\n\
+         - 基于检索结果回答，但用自己的语言组织".to_string()
+    }
 }
