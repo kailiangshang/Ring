@@ -176,6 +176,89 @@ pub fn record_ring_joined(self_dir: &Path, ring_id: &str, ring_name: &str) -> Re
     write_metric_file(self_dir, "ring_activity", &activity)
 }
 
+pub fn record_tool_usage(self_dir: &Path, tool_name: &str) -> Result<()> {
+    let mut usage = read_metric_file(self_dir, "tool_usage");
+    if usage.is_null() {
+        usage = serde_json::json!({});
+    }
+    let tools = usage.as_object_mut().unwrap();
+    let count = tools
+        .get("tools")
+        .and_then(|t| t.get(tool_name))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+        + 1;
+    if tools.get("tools").is_none() {
+        tools.insert("tools".into(), serde_json::json!({}));
+    }
+    tools["tools"][tool_name] = serde_json::json!(count);
+    if tools.get("last_used").is_none() {
+        tools.insert("last_used".into(), serde_json::json!({}));
+    }
+    let now = chrono::Local::now().to_rfc3339();
+    tools["last_used"][tool_name] = serde_json::json!(now);
+    write_metric_file(
+        self_dir,
+        "tool_usage",
+        &serde_json::Value::Object(tools.clone()),
+    )
+}
+
+pub fn record_dwell_heartbeat(self_dir: &Path, view: &str, duration_s: u64) -> Result<()> {
+    let mut dwell = read_metric_file(self_dir, "dwell_time");
+    if dwell.is_null() {
+        dwell = serde_json::json!({});
+    }
+    let obj = dwell.as_object_mut().unwrap();
+
+    let views_total = obj
+        .get("views")
+        .and_then(|v| v.get(view))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+        + duration_s as i64;
+    if obj.get("views").is_none() {
+        obj.insert("views".into(), serde_json::json!({}));
+    }
+    obj["views"][view] = serde_json::json!(views_total);
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    if obj.get("daily").is_none() {
+        obj.insert("daily".into(), serde_json::json!({}));
+    }
+    if obj["daily"].get(&today).is_none() {
+        obj["daily"][&today] = serde_json::json!({});
+    }
+    let daily_total = obj["daily"]
+        .get(&today)
+        .and_then(|d| d.get(view))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0)
+        + duration_s as i64;
+    obj["daily"][&today][view] = serde_json::json!(daily_total);
+
+    obj.insert(
+        "last_heartbeat".into(),
+        serde_json::json!(chrono::Local::now().to_rfc3339()),
+    );
+
+    write_metric_file(
+        self_dir,
+        "dwell_time",
+        &serde_json::Value::Object(obj.clone()),
+    )
+}
+
+pub fn flush_dwell_buffer(
+    self_dir: &Path,
+    buffer: &std::collections::HashMap<String, u64>,
+) -> Result<()> {
+    for (view, seconds) in buffer {
+        record_dwell_heartbeat(self_dir, view, *seconds)?;
+    }
+    Ok(())
+}
+
 pub fn get_self_dir(_user_id: &str) -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     std::path::PathBuf::from(format!("{home}/.ring/self"))
