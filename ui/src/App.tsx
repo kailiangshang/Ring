@@ -3,6 +3,7 @@ import { useAppStore } from './stores/app-store'
 import { useAuthStore } from './stores/auth-store'
 import { AppLayout } from './components/layout/AppLayout'
 import { SetupWizard } from './components/setup/SetupWizard'
+import { startHeartbeat, stopHeartbeat } from './services/metrics'
 import './index.css'
 
 function getJoinParams(): { token?: string; creator_ip?: string } | undefined {
@@ -23,6 +24,16 @@ export default function App() {
     loadFromStorage()
     init()
   }, [init, loadFromStorage])
+
+  useEffect(() => {
+    startHeartbeat()
+    const handleUnload = () => stopHeartbeat()
+    window.addEventListener('beforeunload', handleUnload)
+    return () => {
+      stopHeartbeat()
+      window.removeEventListener('beforeunload', handleUnload)
+    }
+  }, [])
 
   useEffect(() => {
     if (!loading && is_setup && !localStorage.getItem('ring_token') && !recovering) {

@@ -14,11 +14,26 @@ interface MemoryFile {
   size: number
 }
 
+interface ToolUsage {
+  tools?: Record<string, number>
+}
+
+interface DwellTime {
+  views?: Record<string, number>
+  daily?: Record<string, Record<string, number>>
+}
+
 interface Metrics {
-  chat_patterns?: { total_messages?: number }
+  chat_patterns?: {
+    total_messages?: number
+    self_messages?: number
+    total_chars?: number
+  }
   session_stats?: { total_sessions?: number }
   archive_patterns?: { total_archives?: number }
   ring_activity?: { total_rings?: number }
+  tool_usage?: ToolUsage
+  dwell_time?: DwellTime
 }
 
 export function SelfMemory() {
@@ -151,14 +166,49 @@ export function SelfMemory() {
       ))}
 
       <div style={{ marginTop: 12, fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }}>
-        METRICS
+        ACTIVITY
       </div>
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-        <div>消息数: {metrics.chat_patterns?.total_messages ?? 0}</div>
-        <div>Session 数: {metrics.session_stats?.total_sessions ?? 0}</div>
-        <div>归档数: {metrics.archive_patterns?.total_archives ?? 0}</div>
-        <div>Ring 数: {metrics.ring_activity?.total_rings ?? 0}</div>
+        <div>消息: {metrics.chat_patterns?.total_messages ?? 0} (Self: {metrics.chat_patterns?.self_messages ?? 0})</div>
+        <div>Ring: {metrics.ring_activity?.total_rings ?? 0} | Session: {metrics.session_stats?.total_sessions ?? 0} | 归档: {metrics.archive_patterns?.total_archives ?? 0}</div>
       </div>
+
+      {metrics.tool_usage?.tools && Object.keys(metrics.tool_usage.tools).length > 0 && (
+        <>
+          <div style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }}>
+            TOOLS
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+            {Object.entries(metrics.tool_usage.tools)
+              .sort(([, a], [, b]) => b - a)
+              .slice(0, 6)
+              .map(([name, count]) => (
+                <div key={name}>{name}: {count}</div>
+              ))}
+          </div>
+        </>
+      )}
+
+      {metrics.dwell_time?.daily && (() => {
+        const today = new Date().toISOString().slice(0, 10)
+        const todayData = metrics.dwell_time.daily[today]
+        if (!todayData || Object.keys(todayData).length === 0) return null
+        const fmtMin = (s: number) => s > 0 ? `${Math.round(s / 60)}min` : '0min'
+        return (
+          <>
+            <div style={{ marginTop: 10, fontSize: 11, fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.1em', marginBottom: 8 }}>
+              TODAY
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+              {todayData.self_panel && <div>Self: {fmtMin(todayData.self_panel)}</div>}
+              {todayData.ring_chat && <div>聊天: {fmtMin(todayData.ring_chat)}</div>}
+              {todayData.graph && <div>图谱: {fmtMin(todayData.graph)}</div>}
+              {todayData.session && <div>Session: {fmtMin(todayData.session)}</div>}
+              {todayData.archive && <div>归档: {fmtMin(todayData.archive)}</div>}
+            </div>
+          </>
+        )
+      })()}
 
       <div style={{ marginTop: 12, fontSize: 10, color: 'var(--text-dim)', textAlign: 'center' }}>
         Memory 100% private, stored in ~/.ring/self/
