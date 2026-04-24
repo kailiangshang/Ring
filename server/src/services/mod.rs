@@ -18,6 +18,7 @@ pub mod privacy_filter;
 pub mod ring;
 pub mod search;
 pub mod self_data;
+pub mod self_memory;
 pub mod session;
 pub mod setup;
 pub mod skill;
