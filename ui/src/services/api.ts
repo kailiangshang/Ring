@@ -334,3 +334,17 @@ export async function getTokenCount(ring_id?: string): Promise<{ total_tokens: n
 export async function resetSelfData(): Promise<{ ok: boolean }> {
   return api.post('/self/reset', {})
 }
+
+export async function getSyncSnapshot(ringId: string, signal?: AbortSignal): Promise<Blob> {
+  const token = await getToken()
+  const res = await fetch(`${API_BASE}/rings/${ringId}/sync/snapshot`, {
+    headers: { 'X-Ring-Token': token || '' },
+    signal,
+  })
+  if (!res.ok) throw new ApiError(res.status, 'sync', 'snapshot failed')
+  return res.blob()
+}
+
+export async function getSyncDelta(ringId: string, sinceCommit: string, signal?: AbortSignal): Promise<{ since_commit: string; current_commit: string; files: Array<{ action: string; path: string; content: string }> }> {
+  return api.get(`/rings/${ringId}/sync/delta?since=${encodeURIComponent(sinceCommit)}`, signal)
+}

@@ -165,7 +165,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             else if (cmd.action === 'new') {
               const name = cmd.args.trim()
               if (name) {
-                useRingStore.getState().createRing(name, `You are a ${name} assistant`)
+                useRingStore.getState().createRing({ name, role_description: `You are a ${name} assistant`, storage_mode: 'local' })
                 addMessage(sysMsg(`Creating ring: ${name}`))
               }
             }

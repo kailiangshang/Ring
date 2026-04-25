@@ -16,6 +16,8 @@ pub struct SetupRequest {
     pub llm_base_url: Option<String>,
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
+    pub github_url: Option<String>,
+    pub github_token: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -58,6 +60,7 @@ pub async fn submit_setup(state: &AppState, input: SetupRequest) -> Result<Setup
     let token_id = format!("user-{}", Ulid::new());
     let encrypted_api_key = input.llm_api_key.map(|k| state.encryption.encrypt(&k));
     let encrypted_gitlab_token = input.gitlab_token.map(|t| state.encryption.encrypt(&t));
+    let encrypted_github_token = input.github_token.map(|t| state.encryption.encrypt(&t));
 
     let create_input = user::CreateUser {
         display_name: input.display_name,
@@ -68,6 +71,8 @@ pub async fn submit_setup(state: &AppState, input: SetupRequest) -> Result<Setup
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
         gitlab_token: encrypted_gitlab_token,
+        github_url: input.github_url,
+        github_token: encrypted_github_token,
         privacy_filters: None,
     };
     let user = user::create_user(&state.db, &token_id, &create_input).await?;
@@ -87,6 +92,7 @@ pub async fn update_setup(
 ) -> Result<SetupResponse> {
     let encrypted_api_key = input.llm_api_key.map(|k| state.encryption.encrypt(&k));
     let encrypted_gitlab_token = input.gitlab_token.map(|t| state.encryption.encrypt(&t));
+    let encrypted_github_token = input.github_token.map(|t| state.encryption.encrypt(&t));
 
     let update_input = user::UpdateUser {
         display_name: Some(input.display_name),
@@ -97,6 +103,8 @@ pub async fn update_setup(
         llm_base_url: input.llm_base_url,
         gitlab_url: input.gitlab_url,
         gitlab_token: encrypted_gitlab_token,
+        github_url: input.github_url,
+        github_token: encrypted_github_token,
         privacy_filters: None,
     };
     let user = user::update_user(&state.db, token_id, &update_input).await?;

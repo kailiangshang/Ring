@@ -18,6 +18,8 @@ export interface SetupData {
   llm_base_url: string
   gitlab_url: string
   gitlab_token: string
+  github_url: string
+  github_token: string
 }
 
 interface JoinParams {
@@ -37,6 +39,8 @@ export function SetupWizard({ join_params }: { join_params?: JoinParams }) {
     llm_base_url: '',
     gitlab_url: '',
     gitlab_token: '',
+    github_url: '',
+    github_token: '',
   })
   const [token, setToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -58,6 +62,8 @@ export function SetupWizard({ join_params }: { join_params?: JoinParams }) {
         llm_base_url: data.llm_base_url || undefined,
         gitlab_url: data.gitlab_url.trim() || null,
         gitlab_token: data.gitlab_token.trim() || null,
+        github_url: data.github_url.trim() || null,
+        github_token: data.github_token.trim() || null,
       })
       setToken(res.token_id)
       setAuth(res.token_id, res.display_name, res.avatar)

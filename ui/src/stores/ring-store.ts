@@ -2,12 +2,19 @@ import { create } from 'zustand'
 import type { Ring } from '../types/ring'
 import { api } from '../services/api'
 
+interface CreateRingInput {
+  name: string
+  role_description: string
+  storage_mode: 'local' | 'github'
+  github_repo_url?: string
+}
+
 interface RingState {
   rings: Ring[]
   loading: boolean
   active_ring_id: string | null
   fetchRings: () => Promise<void>
-  createRing: (name: string, role_description: string) => Promise<string | null>
+  createRing: (input: CreateRingInput) => Promise<string | null>
   setRings: (rings: Ring[]) => void
   selectRing: (id: string | null) => void
 }
@@ -27,12 +34,17 @@ export const useRingStore = create<RingState>((set, get) => ({
     }
   },
 
-  createRing: async (name, role_description) => {
+  createRing: async (input) => {
     try {
-      const res = await api.post<{ id: string; name: string; role: string }>('/rings', {
-        name,
-        role_description,
-      })
+      const body: Record<string, unknown> = {
+        name: input.name,
+        role_description: input.role_description,
+        storage_mode: input.storage_mode,
+      }
+      if (input.storage_mode === 'github' && input.github_repo_url) {
+        body.github_repo_url = input.github_repo_url
+      }
+      const res = await api.post<{ id: string; name: string; role: string }>('/rings', body)
       await get().fetchRings()
       return res.id
     } catch {

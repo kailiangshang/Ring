@@ -71,6 +71,8 @@ export function RingList() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [startBlueprint, setStartBlueprint] = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [storageMode, setStorageMode] = useState<'local' | 'github'>('local')
+  const [githubRepoUrl, setGithubRepoUrl] = useState('')
 
   const toggle_expand = useCallback((ring_id: string) => {
     setExpanded((prev) => ({ ...prev, [ring_id]: !prev[ring_id] }))
@@ -84,11 +86,19 @@ export function RingList() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return
+    if (storageMode === 'github' && !githubRepoUrl.trim()) return
     setCreateError(null)
-    const ring_id = await createRing(newName.trim(), `You are a ${newName.trim()} assistant`)
+    const ring_id = await createRing({
+      name: newName.trim(),
+      role_description: `You are a ${newName.trim()} assistant`,
+      storage_mode: storageMode,
+      github_repo_url: storageMode === 'github' ? githubRepoUrl.trim() : undefined,
+    })
     if (ring_id) {
       setNewName('')
       setCreating(false)
+      setStorageMode('local')
+      setGithubRepoUrl('')
       selectRing(ring_id)
       setContext('ring')
       if (startBlueprint) {
@@ -233,6 +243,51 @@ export function RingList() {
             <div style={{ fontSize: 10, color: 'var(--accent-amber)', marginBottom: 4 }}>
               {createError}
             </div>
+          )}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+            {(['local', 'github'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setStorageMode(m)}
+                style={{
+                  flex: 1,
+                  background: storageMode === m ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                  color: storageMode === m ? 'var(--bg-base)' : 'var(--text-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 0',
+                  fontSize: 9,
+                  cursor: 'pointer',
+                  fontWeight: storageMode === m ? 700 : 400,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          {storageMode === 'github' && (
+            <input
+              value={githubRepoUrl}
+              onChange={(e) => setGithubRepoUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate()
+                if (e.key === 'Escape') setCreating(false)
+              }}
+              placeholder="https://github.com/owner/repo"
+              style={{
+                width: '100%',
+                background: 'var(--bg-input)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '5px 8px',
+                color: 'var(--text-primary)',
+                fontSize: 11,
+                fontFamily: 'inherit',
+                outline: 'none',
+                marginBottom: 4,
+              }}
+            />
           )}
           <label style={{
             display: 'flex',

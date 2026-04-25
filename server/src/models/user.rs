@@ -31,6 +31,8 @@ pub struct CreateUser {
     pub llm_base_url: Option<String>,
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
+    pub github_url: Option<String>,
+    pub github_token: Option<String>,
     pub privacy_filters: Option<String>,
 }
 
@@ -44,6 +46,8 @@ pub struct UpdateUser {
     pub llm_base_url: Option<String>,
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
+    pub github_url: Option<String>,
+    pub github_token: Option<String>,
     pub privacy_filters: Option<String>,
 }
 
@@ -71,8 +75,8 @@ pub async fn create_user(
 ) -> Result<UserRow> {
     let model = input.llm_model.as_deref().unwrap_or("gpt-4o");
     sqlx::query_as::<_, UserRow>(
-        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token, privacy_filters)
-         VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
+        "INSERT INTO users (token_id, display_name, avatar, is_creator, llm_provider, llm_api_key, llm_model, llm_base_url, gitlab_url, gitlab_token, github_url, github_token, privacy_filters)
+         VALUES (?1, ?2, ?3, 1, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          RETURNING *"
     )
         .bind(token_id)
@@ -84,6 +88,8 @@ pub async fn create_user(
         .bind(&input.llm_base_url)
         .bind(&input.gitlab_url)
         .bind(&input.gitlab_token)
+        .bind(&input.github_url)
+        .bind(&input.github_token)
         .bind(&input.privacy_filters)
         .fetch_one(pool)
         .await
@@ -125,8 +131,8 @@ pub async fn update_user(
         "UPDATE users SET
             display_name = ?1, avatar = ?2, llm_provider = ?3, llm_api_key = ?4,
             llm_model = ?5, llm_base_url = ?6, gitlab_url = ?7, gitlab_token = ?8,
-            privacy_filters = ?9
-         WHERE token_id = ?10
+            github_url = ?9, github_token = ?10, privacy_filters = ?11
+         WHERE token_id = ?12
          RETURNING *",
     )
     .bind(
@@ -156,6 +162,13 @@ pub async fn update_user(
             .gitlab_token
             .as_ref()
             .or(current.gitlab_token.as_ref()),
+    )
+    .bind(input.github_url.as_ref().or(current.github_url.as_ref()))
+    .bind(
+        input
+            .github_token
+            .as_ref()
+            .or(current.github_token.as_ref()),
     )
     .bind(
         input

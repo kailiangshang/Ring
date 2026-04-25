@@ -1,5 +1,5 @@
 use async_stream::stream;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
 use futures_util::stream::BoxStream;
@@ -428,4 +428,90 @@ pub async fn init_repo(
         initialized: true,
         has_remote,
     }))
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct SyncDeltaQuery {
+    pub since: String,
+}
+
+pub async fn sync_snapshot(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<axum::response::Response> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let repo_path = archive_service::ring_repo_path(&state.rings_dir, &ring_id);
+    if !repo_path.join(".git").exists() {
+        return Err(RingError::RepoNotFound {
+            ring_id: ring_id.to_string(),
+        });
+    }
+
+    let output = std::process::Command::new("git")
+        .current_dir(&repo_path)
+        .args(["archive", "--format=tar", "HEAD"])
+        .output()
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    Ok(axum::response::Response::builder()
+        .status(200)
+        .header("Content-Type", "application/tar")
+        .body(axum::body::Body::from(output.stdout))
+        .unwrap())
+}
+
+pub async fn sync_delta(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Query(query): Query<SyncDeltaQuery>,
+) -> Result<Json<serde_json::Value>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let repo_path = archive_service::ring_repo_path(&state.rings_dir, &ring_id);
+    if !repo_path.join(".git").exists() {
+        return Err(RingError::RepoNotFound {
+            ring_id: ring_id.to_string(),
+        });
+    }
+
+    let name_status = std::process::Command::new("git")
+        .current_dir(&repo_path)
+        .args(["diff", "--name-status", &format!("{}..HEAD", query.since)])
+        .output()
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    let text = String::from_utf8_lossy(&name_status.stdout);
+    let mut files = Vec::new();
+    for line in text.lines() {
+        let parts: Vec<&str> = line.splitn(2, char::is_whitespace).collect();
+        if parts.len() == 2 {
+            let action = parts[0].to_string();
+            let path = parts[1].to_string();
+            let content = if action != "D" {
+                std::fs::read_to_string(repo_path.join(&path)).unwrap_or_default()
+            } else {
+                String::new()
+            };
+            files.push(serde_json::json!({
+                "action": action,
+                "path": path,
+                "content": content,
+            }));
+        }
+    }
+
+    let head_sha = std::process::Command::new("git")
+        .current_dir(&repo_path)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    let current_sha = String::from_utf8_lossy(&head_sha.stdout).trim().to_string();
+
+    Ok(Json(serde_json::json!({
+        "since_commit": query.since,
+        "current_commit": current_sha,
+        "files": files,
+    })))
 }
