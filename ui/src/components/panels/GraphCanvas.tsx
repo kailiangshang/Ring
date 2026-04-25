@@ -278,6 +278,45 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
     return () => cleanup?.()
   }, [render])
 
+  const exportPNG = useCallback(() => {
+    if (!svgRef.current) return
+    const clone = svgRef.current.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+    clone.setAttribute('width', '2400')
+    clone.setAttribute('height', '1600')
+    const style = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    style.textContent = `text{font-family:system-ui,sans-serif;fill:#e0e0e0}circle{transition:none}line{stroke:#444}rect{fill:#0a0a0a}`
+    clone.insertBefore(style, clone.firstChild)
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
+    bg.setAttribute('width', '100%')
+    bg.setAttribute('height', '100%')
+    bg.setAttribute('fill', '#0a0a0a')
+    clone.insertBefore(bg, clone.firstChild)
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(clone)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = 2400
+      canvas.height = 1600
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob((blob) => {
+        if (!blob) return
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'graph.png'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 'image/png')
+    }
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgString)
+  }, [])
+
   const exportSVG = useCallback(() => {
     if (!svgRef.current) return
     const clone = svgRef.current.cloneNode(true) as SVGSVGElement
@@ -379,6 +418,21 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
           }}
         >
           Download SVG
+        </button>
+        <button
+          onClick={exportPNG}
+          title="Download graph as PNG"
+          style={{
+            background: 'var(--bg-hover)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: 3,
+            padding: '2px 8px',
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          PNG
         </button>
       </div>
     </div>
