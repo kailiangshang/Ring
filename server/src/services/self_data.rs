@@ -181,7 +181,9 @@ pub fn record_tool_usage(self_dir: &Path, tool_name: &str) -> Result<()> {
     if usage.is_null() {
         usage = serde_json::json!({});
     }
-    let tools = usage.as_object_mut().unwrap();
+    let Some(tools) = usage.as_object_mut() else {
+        return Ok(());
+    };
     let count = tools
         .get("tools")
         .and_then(|t| t.get(tool_name))
@@ -209,7 +211,9 @@ pub fn record_dwell_heartbeat(self_dir: &Path, view: &str, duration_s: u64) -> R
     if dwell.is_null() {
         dwell = serde_json::json!({});
     }
-    let obj = dwell.as_object_mut().unwrap();
+    let Some(obj) = dwell.as_object_mut() else {
+        return Ok(());
+    };
 
     let views_total = obj
         .get("views")

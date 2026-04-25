@@ -119,22 +119,14 @@ impl IntoResponse for RingError {
             RingError::GitlabNotConfigured => {
                 (StatusCode::BAD_REQUEST, "gitlab not configured".into())
             }
-            RingError::RepoNotFound { ring_id } => (
-                StatusCode::NOT_FOUND,
-                format!("repo not found for ring: {ring_id}"),
-            ),
-            RingError::ArchiveConflict { record_id } => (
-                StatusCode::CONFLICT,
-                format!("archive conflict: {record_id}"),
-            ),
-            RingError::InvalidArchiveState {
-                record_id,
-                current,
-                expected,
-            } => (
-                StatusCode::CONFLICT,
-                format!("archive {record_id} is {current}, expected {expected}"),
-            ),
+            RingError::RepoNotFound { .. } => {
+                tracing::warn!("Repo not found (ring_id redacted)");
+                (StatusCode::NOT_FOUND, "resource not found".into())
+            }
+            RingError::ArchiveConflict { .. } => (StatusCode::CONFLICT, "archive conflict".into()),
+            RingError::InvalidArchiveState { .. } => {
+                (StatusCode::CONFLICT, "invalid archive state".into())
+            }
         };
         let code = status
             .canonical_reason()
