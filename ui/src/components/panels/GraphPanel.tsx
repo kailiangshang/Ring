@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useGraphStore } from '../../stores/graph-store'
 import { useRingStore } from '../../stores/ring-store'
 import { exportRingGraph } from '../../services/api'
+import { usePanelStore } from '../../stores/panel-store'
 import { GraphCanvas } from './GraphCanvas'
 
 export function GraphPanel() {
@@ -27,6 +28,7 @@ export function GraphPanel() {
   const [newGraphName, setNewGraphName] = useState('')
   const [showNewGraph, setShowNewGraph] = useState(false)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const openPanel = usePanelStore((s) => s.open)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -172,6 +174,21 @@ export function GraphPanel() {
               +Graph
             </button>
           )}
+          <button
+            onClick={() => openPanel('blueprint')}
+            style={{
+              background: 'var(--bg-hover)',
+              color: 'var(--accent-cyan)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '4px 10px',
+              fontSize: 11,
+              cursor: 'pointer',
+              fontWeight: 700,
+            }}
+          >
+            Blueprint
+          </button>
         </div>
         {showNewGraph && (
           <div style={{ marginTop: 6, display: 'flex', gap: 4 }}>
