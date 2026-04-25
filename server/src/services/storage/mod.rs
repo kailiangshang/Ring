@@ -1,4 +1,4 @@
-pub mod github;
+pub mod gitlab;
 pub mod local;
 
 use async_trait::async_trait;

@@ -6,33 +6,40 @@ use crate::services::git_service::GitService;
 
 use super::{DiffEntry, RepoStatus, StorageBackend};
 
-pub struct GitHubBackend {
+pub struct GitLabBackend {
     git: GitService,
-    github_token: String,
-    github_repo: String,
+    gitlab_url: String,
+    gitlab_token: String,
+    project_id: String,
 }
 
-impl GitHubBackend {
-    pub fn new(github_token: &str, repo_url: &str) -> Self {
-        let github_repo = Self::extract_repo(repo_url);
+impl GitLabBackend {
+    pub fn new(gitlab_url: &str, gitlab_token: &str, repo_url: &str) -> Self {
+        let project_id = Self::extract_project_id(gitlab_url, repo_url);
         Self {
             git: GitService::new(),
-            github_token: github_token.to_string(),
-            github_repo,
+            gitlab_url: gitlab_url.trim_end_matches('/').to_string(),
+            gitlab_token: gitlab_token.to_string(),
+            project_id,
         }
     }
 
-    fn extract_repo(url: &str) -> String {
-        let url = url.trim_end_matches(".git");
-        if let Some(idx) = url.find("github.com/") {
-            url[idx + 11..].to_string()
+    fn extract_project_id(gitlab_url: &str, repo_url: &str) -> String {
+        let repo_url = repo_url.trim_end_matches(".git");
+        let base = gitlab_url.trim_end_matches('/');
+        let path = if let Some(stripped) = repo_url.strip_prefix(base) {
+            stripped.trim_start_matches('/')
         } else {
-            url.to_string()
-        }
+            repo_url
+        };
+        path.replace('/', "%2F")
     }
 
     fn api_url(&self, path: &str) -> String {
-        format!("https://api.github.com/repos/{}/{}", self.github_repo, path)
+        format!(
+            "{}/api/v4/projects/{}/{}",
+            self.gitlab_url, self.project_id, path
+        )
     }
 
     fn client(&self) -> reqwest::Client {
@@ -41,7 +48,7 @@ impl GitHubBackend {
 }
 
 #[async_trait]
-impl StorageBackend for GitHubBackend {
+impl StorageBackend for GitLabBackend {
     fn init_repo(
         &self,
         rings_dir: &Path,
@@ -107,52 +114,48 @@ impl StorageBackend for GitHubBackend {
     ) -> Result<i64> {
         let resp = self
             .client()
-            .post(self.api_url("pulls"))
-            .header("Authorization", format!("Bearer {}", self.github_token))
-            .header("User-Agent", "ring-server")
-            .header("Accept", "application/vnd.github.v3+json")
+            .post(self.api_url("merge_requests"))
+            .header("PRIVATE-TOKEN", &self.gitlab_token)
             .json(&serde_json::json!({
+                "source_branch": branch,
+                "target_branch": "main",
                 "title": title,
-                "body": description,
-                "head": branch,
-                "base": "main"
+                "description": description,
             }))
             .send()
             .await
-            .map_err(|e| RingError::Internal(format!("GitHub API error: {e}")))?;
+            .map_err(|e| RingError::Internal(format!("GitLab API error: {e}")))?;
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
             return Err(RingError::Internal(format!(
-                "GitHub create PR failed: {body}"
+                "GitLab create MR failed: {body}"
             )));
         }
 
-        let pr: serde_json::Value = resp
+        let mr: serde_json::Value = resp
             .json()
             .await
             .map_err(|e| RingError::Internal(e.to_string()))?;
-        let number = pr["number"]
+        let iid = mr["iid"]
             .as_i64()
-            .ok_or_else(|| RingError::Internal("missing PR number".into()))?;
-        Ok(number)
+            .ok_or_else(|| RingError::Internal("missing MR iid".into()))?;
+        Ok(iid)
     }
 
     async fn merge_review(&self, repo_path: &Path, _ring_id: &str, review_id: i64) -> Result<()> {
         let resp = self
             .client()
-            .put(self.api_url(&format!("pulls/{}/merge", review_id)))
-            .header("Authorization", format!("Bearer {}", self.github_token))
-            .header("User-Agent", "ring-server")
-            .header("Accept", "application/vnd.github.v3+json")
+            .put(self.api_url(&format!("merge_requests/{}/merge", review_id)))
+            .header("PRIVATE-TOKEN", &self.gitlab_token)
             .send()
             .await
-            .map_err(|e| RingError::Internal(format!("GitHub API error: {e}")))?;
+            .map_err(|e| RingError::Internal(format!("GitLab API error: {e}")))?;
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
             return Err(RingError::Internal(format!(
-                "GitHub merge PR failed: {body}"
+                "GitLab merge MR failed: {body}"
             )));
         }
 
@@ -163,19 +166,17 @@ impl StorageBackend for GitHubBackend {
     async fn reject_review(&self, _repo_path: &Path, _ring_id: &str, review_id: i64) -> Result<()> {
         let resp = self
             .client()
-            .patch(self.api_url(&format!("pulls/{}", review_id)))
-            .header("Authorization", format!("Bearer {}", self.github_token))
-            .header("User-Agent", "ring-server")
-            .header("Accept", "application/vnd.github.v3+json")
-            .json(&serde_json::json!({"state": "closed"}))
+            .put(self.api_url(&format!("merge_requests/{}", review_id)))
+            .header("PRIVATE-TOKEN", &self.gitlab_token)
+            .json(&serde_json::json!({"state_event": "close"}))
             .send()
             .await
-            .map_err(|e| RingError::Internal(format!("GitHub API error: {e}")))?;
+            .map_err(|e| RingError::Internal(format!("GitLab API error: {e}")))?;
 
         if !resp.status().is_success() {
             let body = resp.text().await.unwrap_or_default();
             return Err(RingError::Internal(format!(
-                "GitHub close PR failed: {body}"
+                "GitLab close MR failed: {body}"
             )));
         }
 
@@ -190,25 +191,27 @@ impl StorageBackend for GitHubBackend {
     ) -> Result<Vec<DiffEntry>> {
         let resp = self
             .client()
-            .get(self.api_url(&format!("pulls/{}/files", review_id)))
-            .header("Authorization", format!("Bearer {}", self.github_token))
-            .header("User-Agent", "ring-server")
-            .header("Accept", "application/vnd.github.v3+json")
+            .get(self.api_url(&format!("merge_requests/{}/changes", review_id)))
+            .header("PRIVATE-TOKEN", &self.gitlab_token)
             .send()
             .await
-            .map_err(|e| RingError::Internal(format!("GitHub API error: {e}")))?;
+            .map_err(|e| RingError::Internal(format!("GitLab API error: {e}")))?;
 
-        let files: Vec<serde_json::Value> = resp
+        let body: serde_json::Value = resp
             .json()
             .await
             .map_err(|e| RingError::Internal(e.to_string()))?;
 
-        Ok(files
-            .into_iter()
-            .map(|f| DiffEntry {
-                old_path: f["filename"].as_str().unwrap_or("").to_string(),
-                new_path: f["filename"].as_str().unwrap_or("").to_string(),
-                diff: f["patch"].as_str().unwrap_or("").to_string(),
+        let changes = body["changes"]
+            .as_array()
+            .ok_or_else(|| RingError::Internal("missing changes array".into()))?;
+
+        Ok(changes
+            .iter()
+            .map(|c| DiffEntry {
+                old_path: c["old_path"].as_str().unwrap_or("").to_string(),
+                new_path: c["new_path"].as_str().unwrap_or("").to_string(),
+                diff: c["diff"].as_str().unwrap_or("").to_string(),
             })
             .collect())
     }
