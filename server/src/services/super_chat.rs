@@ -686,7 +686,7 @@ async fn stream_super_chat_inner(
         };
 
         let mut second_stream = second_stream;
-        full_content.clear();
+        full_content.push_str("\n\n");
         token_usage = None;
 
         while let Some(chunk_result) = second_stream.next().await {

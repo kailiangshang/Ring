@@ -43,6 +43,56 @@ pub enum ChatCompleteWithToolsResult {
     },
 }
 
+fn build_messages(
+    system_prompt: String,
+    history: Vec<(String, String)>,
+    user_message: String,
+) -> Vec<ChatCompletionRequestMessage> {
+    let mut messages = vec![ChatCompletionRequestMessage::System(
+        ChatCompletionRequestSystemMessage {
+            content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
+            name: None,
+        },
+    )];
+
+    for (role, content) in history {
+        match role.as_str() {
+            "user" => {
+                messages.push(ChatCompletionRequestMessage::User(
+                    ChatCompletionRequestUserMessage {
+                        content: ChatCompletionRequestUserMessageContent::Text(content),
+                        name: None,
+                    },
+                ));
+            }
+            _ => {
+                messages.push(ChatCompletionRequestMessage::Assistant(
+                    #[allow(deprecated)]
+                    ChatCompletionRequestAssistantMessage {
+                        content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                            content,
+                        )),
+                        name: None,
+                        tool_calls: None,
+                        refusal: None,
+                        audio: None,
+                        function_call: None,
+                    },
+                ));
+            }
+        }
+    }
+
+    messages.push(ChatCompletionRequestMessage::User(
+        ChatCompletionRequestUserMessage {
+            content: ChatCompletionRequestUserMessageContent::Text(user_message),
+            name: None,
+        },
+    ));
+
+    messages
+}
+
 impl LlmClient {
     pub fn from_user(user: &UserRow) -> Result<Self> {
         let api_key = user
@@ -80,47 +130,7 @@ impl LlmClient {
                 })
                 .await;
 
-            let mut messages = vec![ChatCompletionRequestMessage::System(
-                ChatCompletionRequestSystemMessage {
-                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
-                    name: None,
-                },
-            )];
-
-            for (role, content) in history {
-                match role.as_str() {
-                    "user" => {
-                        messages.push(ChatCompletionRequestMessage::User(
-                            ChatCompletionRequestUserMessage {
-                                content: ChatCompletionRequestUserMessageContent::Text(content),
-                                name: None,
-                            },
-                        ));
-                    }
-                    _ => {
-                        messages.push(ChatCompletionRequestMessage::Assistant(
-                            #[allow(deprecated)]
-                            ChatCompletionRequestAssistantMessage {
-                                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                                    content,
-                                )),
-                                name: None,
-                                tool_calls: None,
-                                refusal: None,
-                                audio: None,
-                                function_call: None,
-                            },
-                        ));
-                    }
-                }
-            }
-
-            messages.push(ChatCompletionRequestMessage::User(
-                ChatCompletionRequestUserMessage {
-                    content: ChatCompletionRequestUserMessageContent::Text(user_message),
-                    name: None,
-                },
-            ));
+            let messages = build_messages(system_prompt, history, user_message);
 
             let request = CreateChatCompletionRequest {
                 messages,
@@ -212,47 +222,7 @@ impl LlmClient {
         user_message: String,
         tools: Vec<ChatCompletionTool>,
     ) -> crate::error::Result<ChatCompleteWithToolsResult> {
-        let mut messages = vec![ChatCompletionRequestMessage::System(
-            ChatCompletionRequestSystemMessage {
-                content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
-                name: None,
-            },
-        )];
-
-        for (role, content) in history {
-            match role.as_str() {
-                "user" => {
-                    messages.push(ChatCompletionRequestMessage::User(
-                        ChatCompletionRequestUserMessage {
-                            content: ChatCompletionRequestUserMessageContent::Text(content),
-                            name: None,
-                        },
-                    ));
-                }
-                _ => {
-                    messages.push(ChatCompletionRequestMessage::Assistant(
-                        #[allow(deprecated)]
-                        ChatCompletionRequestAssistantMessage {
-                            content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                                content,
-                            )),
-                            name: None,
-                            tool_calls: None,
-                            refusal: None,
-                            audio: None,
-                            function_call: None,
-                        },
-                    ));
-                }
-            }
-        }
-
-        messages.push(ChatCompletionRequestMessage::User(
-            ChatCompletionRequestUserMessage {
-                content: ChatCompletionRequestUserMessageContent::Text(user_message),
-                name: None,
-            },
-        ));
+        let messages = build_messages(system_prompt, history, user_message);
 
         let request = CreateChatCompletionRequest {
             messages,
@@ -304,47 +274,7 @@ impl LlmClient {
                 })
                 .await;
 
-            let mut messages = vec![ChatCompletionRequestMessage::System(
-                ChatCompletionRequestSystemMessage {
-                    content: ChatCompletionRequestSystemMessageContent::Text(system_prompt),
-                    name: None,
-                },
-            )];
-
-            for (role, content) in history {
-                match role.as_str() {
-                    "user" => {
-                        messages.push(ChatCompletionRequestMessage::User(
-                            ChatCompletionRequestUserMessage {
-                                content: ChatCompletionRequestUserMessageContent::Text(content),
-                                name: None,
-                            },
-                        ));
-                    }
-                    _ => {
-                        messages.push(ChatCompletionRequestMessage::Assistant(
-                            #[allow(deprecated)]
-                            ChatCompletionRequestAssistantMessage {
-                                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                                    content,
-                                )),
-                                name: None,
-                                tool_calls: None,
-                                refusal: None,
-                                audio: None,
-                                function_call: None,
-                            },
-                        ));
-                    }
-                }
-            }
-
-            messages.push(ChatCompletionRequestMessage::User(
-                ChatCompletionRequestUserMessage {
-                    content: ChatCompletionRequestUserMessageContent::Text(user_message),
-                    name: None,
-                },
-            ));
+            let mut messages = build_messages(system_prompt, history, user_message);
 
             let request = CreateChatCompletionRequest {
                 messages: messages.clone(),
