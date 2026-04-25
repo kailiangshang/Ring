@@ -24,20 +24,22 @@ export async function clearToken(): Promise<void> {
 
 async function request<T>(
   path: string,
-  options: RequestInit = {},
+  options: RequestInit & { signal?: AbortSignal } = {},
 ): Promise<T> {
   const token = await getToken()
+  const { signal, ...rest } = options
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
+    ...(rest.headers as Record<string, string>),
   }
   if (token) {
     headers['X-Ring-Token'] = token
   }
 
   const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
+    ...rest,
     headers,
+    signal,
   })
 
   if (!res.ok) {
@@ -54,16 +56,16 @@ async function request<T>(
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
 
-  post: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: 'POST', body: JSON.stringify(body) }),
+  post: <T>(path: string, body: unknown, signal?: AbortSignal) =>
+    request<T>(path, { method: 'POST', body: JSON.stringify(body), signal }),
 
-  put: <T>(path: string, body: unknown) =>
-    request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown, signal?: AbortSignal) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body), signal }),
 
-  delete: <T>(path: string) =>
-    request<T>(path, { method: 'DELETE' }),
+  delete: <T>(path: string, signal?: AbortSignal) =>
+    request<T>(path, { method: 'DELETE', signal }),
 }
 
 export async function triggerArchiveSSE(
@@ -72,6 +74,7 @@ export async function triggerArchiveSSE(
   onProgress: (event: import('../types/archive').ArchiveProgressEvent) => void,
   onComplete: () => void,
   onError: (err: string) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const token = await getToken()
   const resp = await fetch(`${API_BASE}/rings/${ringId}/archive`, {
@@ -81,6 +84,7 @@ export async function triggerArchiveSSE(
       'X-Ring-Token': token || '',
     },
     body: JSON.stringify(input),
+    signal,
   })
 
   if (!resp.ok || !resp.body) {
@@ -207,12 +211,13 @@ function downloadFromResponse(res: Response, defaultFilename: string) {
   })
 }
 
-async function exportFile(path: string, defaultFilename: string) {
+async function exportFile(path: string, defaultFilename: string, signal?: AbortSignal) {
   const token = await getToken()
   const res = await fetch(`${API_BASE}${path}`, {
     headers: {
       'X-Ring-Token': token || '',
     },
+    signal,
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -225,38 +230,38 @@ async function exportFile(path: string, defaultFilename: string) {
   downloadFromResponse(res, defaultFilename)
 }
 
-export async function exportRingChat(ringId: string) {
-  return exportFile(`/rings/${ringId}/export/chat`, `ring_${ringId}_chat.md`)
+export async function exportRingChat(ringId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/export/chat`, `ring_${ringId}_chat.md`, signal)
 }
 
-export async function exportSelfChat() {
-  return exportFile('/self/export/chat', 'self_chat.md')
+export async function exportSelfChat(signal?: AbortSignal) {
+  return exportFile('/self/export/chat', 'self_chat.md', signal)
 }
 
-export async function exportSuperChat() {
-  return exportFile('/super/export/chat', 'super_chat.md')
+export async function exportSuperChat(signal?: AbortSignal) {
+  return exportFile('/super/export/chat', 'super_chat.md', signal)
 }
 
-export async function exportRingGraph(ringId: string) {
-  return exportFile(`/rings/${ringId}/export/graph`, `ring_${ringId}_graph.json`)
+export async function exportRingGraph(ringId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/export/graph`, `ring_${ringId}_graph.json`, signal)
 }
 
-export async function exportRingBackup(ringId: string) {
-  return exportFile(`/rings/${ringId}/export/backup`, `ring_${ringId}_backup.tar.gz`)
+export async function exportRingBackup(ringId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/export/backup`, `ring_${ringId}_backup.tar.gz`, signal)
 }
 
-export async function exportAIReport(ringId: string, nodeIds: string[], topic?: string) {
+export async function exportAIReport(ringId: string, nodeIds: string[], topic?: string, signal?: AbortSignal) {
   const params = new URLSearchParams()
   params.set('node_ids', nodeIds.join(','))
   if (topic) params.set('topic', topic)
-  return exportFile(`/rings/${ringId}/export/report?${params.toString()}`, `ring_${ringId}_report.md`)
+  return exportFile(`/rings/${ringId}/export/report?${params.toString()}`, `ring_${ringId}_report.md`, signal)
 }
 
-export async function exportSessionMessages(ringId: string, sessionId: string) {
-  return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`)
+export async function exportSessionMessages(ringId: string, sessionId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`, signal)
 }
 
-export async function uploadFile(path: string, file: File): Promise<any> {
+export async function uploadFile(path: string, file: File, signal?: AbortSignal): Promise<any> {
   const token = await getToken()
   const formData = new FormData()
   formData.append('file', file)
@@ -264,6 +269,7 @@ export async function uploadFile(path: string, file: File): Promise<any> {
     method: 'POST',
     headers: token ? { 'X-Ring-Token': token } : {},
     body: formData,
+    signal,
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

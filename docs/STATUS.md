@@ -228,11 +228,11 @@
 
 ## 技术债（审计记录，不阻塞）
 
-- `chat-store.ts` 733 行 god object，导入 10 个 store
-- `super_chat.rs` 流式循环 3 份重复（~300 行），待统一到 LlmClient
-- 非 stream 请求无 AbortController
+- ~~`chat-store.ts` 733 行 god object，导入 10 个 store~~ — **已修复**（拆分 command-handlers.ts + createSseCallbacks 工厂）
+- ~~`super_chat.rs` 流式循环 3 份重复（~300 行），待统一到 LlmClient~~ — **已修复**（统一到 LlmClient::chat_stream）
+- ~~非 stream 请求无 AbortController~~ — **已修复**（api.get/post/put/delete 支持 signal，triggerArchiveSSE/exportFile/uploadFile/summarize 支持 abort）
 - ~~`active_ring_id` 双份状态（app-store + ring-store）~~ — **已修复**
 - ~~Token 获取方式 4 种不统一~~ — **已修复**
 - ~~16 个 `.unwrap()` 在路由 handler 中~~ — **已修复**
-- `readonly` 角色权限未执行
+- ~~`readonly` 角色权限未执行~~ — **已修复**（reject_readonly 覆盖 30+ 写端点 + WebSocket）
 - ~~CORS 允许所有 Origin~~ — **已修复**（仅 localhost）

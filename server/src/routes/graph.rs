@@ -25,7 +25,8 @@ pub async fn create_node_handler(
     Path(ring_id): Path<String>,
     Json(body): Json<CreateNodeInput>,
 ) -> Result<Json<crate::models::graph::GraphNodeRow>> {
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let node = services::graph::create_node(&state, &ring_id, &body).await?;
 
     {
@@ -61,13 +62,15 @@ pub async fn create_node_handler(
 
 pub async fn update_node(
     State(state): State<AppState>,
-    _user: AuthUser,
-    Path((_ring_id, node_id)): Path<(String, String)>,
+    user: AuthUser,
+    Path((ring_id, node_id)): Path<(String, String)>,
     Json(body): Json<UpdateNodeInput>,
 ) -> Result<Json<crate::models::graph::GraphNodeRow>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let node = services::graph::update_node(&state, &node_id, &body).await?;
 
-    let self_dir = crate::services::self_data::get_self_dir(&_user.token_id);
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
         tracing::warn!("failed to record tool usage: {e}");
     }
@@ -125,7 +128,8 @@ pub async fn create_edge_handler(
     Path(ring_id): Path<String>,
     Json(body): Json<CreateEdgeInput>,
 ) -> Result<Json<crate::models::graph::GraphEdgeRow>> {
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let edge = services::graph::create_edge(&state, &ring_id, &body).await?;
 
     {

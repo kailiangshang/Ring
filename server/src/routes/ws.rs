@@ -128,6 +128,14 @@ async fn handle_text_message(
                 return;
             }
 
+            let Ok(role) = crate::models::ring::get_user_role(db, &sess.ring_id, token_id).await
+            else {
+                return;
+            };
+            if role == "readonly" {
+                return;
+            }
+
             let sender_name: String = sqlx::query_scalar::<_, String>(
                 "SELECT display_name FROM users WHERE token_id = ?1",
             )

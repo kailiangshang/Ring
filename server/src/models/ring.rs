@@ -215,3 +215,12 @@ pub async fn get_user_role(
         .await?
         .ok_or_else(|| RingError::NotFound("not a member".into()))
 }
+
+pub fn reject_readonly(role: &str) -> std::result::Result<(), RingError> {
+    if role == "readonly" {
+        return Err(RingError::Forbidden(
+            "readonly members cannot perform this action".into(),
+        ));
+    }
+    Ok(())
+}

@@ -14,7 +14,8 @@ pub async fn upload_ring_file(
     Path(ring_id): Path<String>,
     mut multipart: Multipart,
 ) -> Result<Json<MessageRow>> {
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
     let (filename, data) = extract_file(&mut multipart).await?;
@@ -70,6 +71,8 @@ pub async fn upload_session_file(
     Path((ring_id, session_id)): Path<(String, String)>,
     mut multipart: Multipart,
 ) -> Result<Json<SessionMaterialRow>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let is_participant =
         crate::models::session::is_participant(&state.db, &session_id, &user.token_id).await?;
     if !is_participant {

@@ -39,6 +39,7 @@ pub async fn quick_archive_handler(
     Json(body): Json<CreateArchiveInput>,
 ) -> Result<Json<serde_json::Value>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let is_creator = role == "creator" || role == "admin";
 
     let content = body.content.clone();
@@ -197,6 +198,7 @@ pub async fn trigger_archive(
     >,
 > {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let is_creator = role == "creator" || role == "admin";
 
     let node_id = match &body.node_suggestion {
@@ -483,7 +485,8 @@ pub async fn init_repo(
     user: AuthUser,
     Path(ring_id): Path<String>,
 ) -> Result<Json<RepoStatusResponse>> {
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     let repo_url: Option<String> =
         sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
             .bind(&ring_id)

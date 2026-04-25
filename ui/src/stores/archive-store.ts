@@ -9,6 +9,7 @@ interface ArchiveState {
   loading: boolean
   archiving: boolean
   progress: string
+  abortArchive?: () => void
 
   fetchArchives: (ringId: string) => Promise<void>
   fetchQueue: (ringId: string) => Promise<void>
@@ -19,6 +20,7 @@ interface ArchiveState {
     title: string,
     sessionId?: string,
   ) => Promise<void>
+  cancelArchive: () => void
   reviewArchive: (
     ringId: string,
     archiveId: string,
@@ -62,7 +64,9 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
   },
 
   triggerArchive: async (ringId, content, title, sessionId) => {
-    set({ archiving: true, progress: '' })
+    get().abortArchive?.()
+    const controller = new AbortController()
+    set({ archiving: true, progress: '', abortArchive: () => controller.abort() })
     try {
       await api.triggerArchiveSSE(
         ringId,
@@ -75,11 +79,19 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
         (event) => set({ progress: event.message }),
         () => {},
         () => {},
+        controller.signal,
       )
       await get().fetchArchives(ringId)
+    } catch (e: any) {
+      if (e.name !== 'AbortError') throw e
     } finally {
-      set({ archiving: false, progress: '' })
+      set({ archiving: false, progress: '', abortArchive: undefined })
     }
+  },
+
+  cancelArchive: () => {
+    get().abortArchive?.()
+    set({ archiving: false, progress: '', abortArchive: undefined })
   },
 
   reviewArchive: async (ringId, archiveId, action) => {

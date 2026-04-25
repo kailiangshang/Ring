@@ -111,6 +111,7 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
       const token = await getToken()
       const res = await fetch('/api/self/chat/history?limit=50', {
         headers: { 'X-Ring-Token': token ?? '' },
+        signal: AbortSignal.timeout(15000),
       })
       if (!res.ok) return
       const data = await res.json()

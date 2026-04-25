@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/app-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { verifyJoinToken, localJoin, applyJoin, checkApplyStatus } from '../../services/api'
@@ -18,6 +18,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
   const [error, set_error] = useState<string | null>(null)
   const [loading, set_loading] = useState(false)
   const [status, set_status] = useState<'idle' | 'verified' | 'joining' | 'polling' | 'done'>('idle')
+  const pollCleanup = useRef<(() => void) | null>(null)
 
   const setSetup = useAppStore((s) => s.setSetup)
   const setAuth = useAuthStore((s) => s.setAuth)
@@ -26,6 +27,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
     if (initial_token) {
       handle_verify(initial_token)
     }
+    return () => { pollCleanup.current?.() }
   }, [])
 
   const parse_token = (input: string): { token: string; ip?: string } => {
@@ -77,7 +79,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
       if (join_info?.token_type === 'audit') {
         const res = await applyJoin(token, display_name.trim(), message || undefined)
         set_status('polling')
-        poll_status(res.request_id)
+        pollCleanup.current = poll_status(res.request_id)
       } else if (creator_ip) {
         const res = await localJoin(token, creator_ip)
         setAuth(res.ring_id, display_name.trim(), null)
@@ -109,6 +111,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
       } catch {
       }
     }, 3000)
+    return () => clearInterval(interval)
   }
 
   const input_style = { width: '100%', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', color: 'var(--text-primary)', fontFamily: 'inherit' as const, fontSize: 12, outline: 'none' as const }

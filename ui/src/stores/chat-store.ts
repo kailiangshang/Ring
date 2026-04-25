@@ -345,12 +345,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     try {
       const res = await fetch(url, {
         headers: { 'X-Ring-Token': token ?? '' },
+        signal: AbortSignal.timeout(15000),
       })
       if (!res.ok) return
       const data = await res.json()
       set({ messages: data.messages ?? [], history_loaded: true })
     } catch {
-      // keep existing messages
     }
   },
 

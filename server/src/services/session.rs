@@ -45,6 +45,11 @@ pub async fn create_session(
     input: CreateSessionInput,
 ) -> Result<SessionResponse> {
     let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    if role == "readonly" {
+        return Err(RingError::Forbidden(
+            "readonly members cannot create sessions".into(),
+        ));
+    }
     if role != "creator" && role != "admin" {
         let has_grant: bool = sqlx::query_scalar::<_, bool>(
             "SELECT session_grant FROM members WHERE ring_id = ?1 AND user_id = ?2",
@@ -171,7 +176,8 @@ pub async fn close_session(
     session_id: &str,
     user_id: &str,
 ) -> Result<SessionResponse> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can close session".into()));
     }
@@ -253,7 +259,8 @@ pub async fn reopen_session(
     session_id: &str,
     user_id: &str,
 ) -> Result<SessionResponse> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can reopen session".into()));
     }
@@ -303,7 +310,8 @@ pub async fn delete_session(
     session_id: &str,
     user_id: &str,
 ) -> Result<()> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can delete session".into()));
     }
@@ -320,7 +328,8 @@ pub async fn invite_participants(
     user_id: &str,
     input: InviteParticipantsInput,
 ) -> Result<Vec<SessionParticipantRow>> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden(
             "only owner can invite participants".into(),
@@ -350,7 +359,8 @@ pub async fn remove_participant(
     target_id: &str,
     user_id: &str,
 ) -> Result<()> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden(
             "only owner can remove participants".into(),
@@ -370,7 +380,8 @@ pub async fn toggle_archive(
     user_id: &str,
     enabled: bool,
 ) -> Result<SessionResponse> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can toggle archive".into()));
     }
@@ -407,7 +418,8 @@ pub async fn start_session(
     session_id: &str,
     user_id: &str,
 ) -> Result<SessionResponse> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden("only owner can start session".into()));
     }
@@ -464,7 +476,8 @@ pub async fn highlight_material(
     material_id: &str,
     note: &str,
 ) -> Result<session::SessionMaterialRow> {
-    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
     if !session::is_owner(&state.db, session_id, user_id).await? {
         return Err(RingError::Forbidden(
             "only owner can highlight materials".into(),

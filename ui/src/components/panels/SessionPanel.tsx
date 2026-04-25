@@ -364,9 +364,17 @@ function SummarizeView() {
   const [summary, setSummary] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [started, setStarted] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    return () => { abortRef.current?.abort() }
+  }, [])
 
   const triggerSummarize = async () => {
     if (!session) return
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setStarted(true)
 
     const token = (await getToken()) ?? ''
@@ -381,6 +389,7 @@ function SummarizeView() {
         'Content-Type': 'application/json',
         ...(token ? { 'X-Ring-Token': token } : {}),
       },
+      signal: controller.signal,
     })
       .then(async (res) => {
         if (!res.ok) {

@@ -58,7 +58,8 @@ pub async fn ring_chat(
     >,
 > {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
 
     let ring_info = sqlx::query_as::<_, (String, Option<String>)>(
         "SELECT name, role_description FROM rings WHERE id = ?1",

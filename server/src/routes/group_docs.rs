@@ -67,6 +67,8 @@ pub async fn update_group_doc(
         ));
     }
 
+    ring::reject_readonly(&role)?;
+
     let valid_docs = [
         "role",
         "conventions",

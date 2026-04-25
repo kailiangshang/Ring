@@ -215,7 +215,8 @@ pub async fn summarize_session(
     Path((ring_id, session_id)): Path<(String, String)>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
-    let _ = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
     if !session_model::is_owner(&state.db, &session_id, &user.token_id).await? {
         return Err(RingError::Forbidden("only owner can summarize".into()));
     }
