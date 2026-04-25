@@ -4,7 +4,7 @@ use std::path::Path;
 use async_openai::config::OpenAIConfig;
 use async_openai::types::{
     ChatCompletionMessageToolCall, ChatCompletionRequestAssistantMessage,
-    ChatCompletionRequestAssistantMessageContent, ChatCompletionRequestMessage,
+    ChatCompletionRequestMessage,
     ChatCompletionRequestSystemMessage, ChatCompletionRequestSystemMessageContent,
     ChatCompletionRequestToolMessage, ChatCompletionRequestToolMessageContent,
     ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageContent, ChatCompletionTool,
@@ -552,7 +552,7 @@ async fn stream_super_chat_inner(
         })
         .await;
 
-    let mut messages = build_messages(&system_prompt, &history, &filtered_content);
+    let mut messages = crate::services::llm::build_messages(system_prompt, history, filtered_content);
 
     let request = CreateChatCompletionRequest {
         messages: messages.clone(),
@@ -752,56 +752,6 @@ async fn stream_super_chat_inner(
     .await;
 
     Ok(())
-}
-
-fn build_messages(
-    system_prompt: &str,
-    history: &[(String, String)],
-    user_content: &str,
-) -> Vec<ChatCompletionRequestMessage> {
-    let mut messages = vec![ChatCompletionRequestMessage::System(
-        ChatCompletionRequestSystemMessage {
-            content: ChatCompletionRequestSystemMessageContent::Text(system_prompt.to_string()),
-            name: None,
-        },
-    )];
-
-    for (role, content) in history {
-        match role.as_str() {
-            "user" => {
-                messages.push(ChatCompletionRequestMessage::User(
-                    ChatCompletionRequestUserMessage {
-                        content: ChatCompletionRequestUserMessageContent::Text(content.clone()),
-                        name: None,
-                    },
-                ));
-            }
-            _ => {
-                messages.push(ChatCompletionRequestMessage::Assistant(
-                    #[allow(deprecated)]
-                    ChatCompletionRequestAssistantMessage {
-                        content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                            content.clone(),
-                        )),
-                        name: None,
-                        tool_calls: None,
-                        refusal: None,
-                        audio: None,
-                        function_call: None,
-                    },
-                ));
-            }
-        }
-    }
-
-    messages.push(ChatCompletionRequestMessage::User(
-        ChatCompletionRequestUserMessage {
-            content: ChatCompletionRequestUserMessageContent::Text(user_content.to_string()),
-            name: None,
-        },
-    ));
-
-    messages
 }
 
 pub async fn get_super_history(

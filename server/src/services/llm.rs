@@ -43,7 +43,7 @@ pub enum ChatCompleteWithToolsResult {
     },
 }
 
-fn build_messages(
+pub fn build_messages(
     system_prompt: String,
     history: Vec<(String, String)>,
     user_message: String,

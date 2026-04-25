@@ -98,41 +98,17 @@ pub async fn ring_chat(
         });
     }
 
-    let user_msg_id = ulid::Ulid::new().to_string();
-    if !body.ephemeral {
-        message::insert_message(
-            &state.db,
-            &message::NewMessage {
-                id: &user_msg_id,
-                ring_id: Some(&ring_id),
-                user_id: &user.token_id,
-                role: "user",
-                sender_name: &user_row.display_name,
-                content: &body.content,
-                node_refs: &body.node_refs,
-                tag_refs: &body.tag_refs,
-                token_usage: None,
-            },
-        )
-        .await?;
-    }
-
-    {
-        let ring_name_search = crate::services::search::get_ring_name(&state.db, &ring_id)
-            .await
-            .unwrap_or_default();
-        let _ = crate::services::search::upsert_search_index(
-            &state.db,
-            "message",
-            &user_msg_id,
-            &ring_id,
-            &ring_name_search,
-            &user_row.display_name,
-            &body.content,
-            &serde_json::json!({"role": "user"}).to_string(),
-        )
-        .await;
-    }
+    let _user_msg_id = chat::save_user_message(
+        &state.db,
+        Some(&ring_id),
+        &user.token_id,
+        &user_row.display_name,
+        &body.content,
+        &body.node_refs,
+        &body.tag_refs,
+        body.ephemeral,
+    )
+    .await?;
 
     let tools = crate::services::chat::get_group_ring_tools();
     let pool_c = state.db.clone();

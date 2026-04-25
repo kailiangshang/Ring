@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import type { ChatMessage } from '../../types/chat'
 import { useChatStore } from '../../stores/chat-store'
 import { useRingStore } from '../../stores/ring-store'
@@ -125,7 +125,7 @@ interface MessageItemProps {
   message: ChatMessage
 }
 
-export function MessageItem({ message }: MessageItemProps) {
+function MessageItemInner({ message }: MessageItemProps) {
   const streaming_message_id = useChatStore((s) => s.streaming_message_id)
   const isStreaming = message.id === streaming_message_id
   const labelColor = ROLE_COLORS[message.role] ?? 'var(--text-muted)'
@@ -474,3 +474,5 @@ export function MessageItem({ message }: MessageItemProps) {
     </div>
   )
 }
+
+export const MessageItem = React.memo(MessageItemInner)

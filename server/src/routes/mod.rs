@@ -1,3 +1,4 @@
+use axum::http::HeaderValue;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
@@ -30,8 +31,17 @@ mod upload;
 mod ws;
 
 pub fn build_router(state: AppState) -> Router {
+    let localhost = [
+        "http://localhost:5173",
+        "http://localhost:7420",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:7420",
+    ]
+    .iter()
+    .map(|o| o.parse::<HeaderValue>().unwrap())
+    .collect::<Vec<_>>();
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(localhost)
         .allow_methods(Any)
         .allow_headers(Any);
 

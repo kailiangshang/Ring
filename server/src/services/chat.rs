@@ -257,47 +257,72 @@ pub struct ChatParams<'a> {
     pub ephemeral: bool,
 }
 
-pub async fn start_chat_stream(
-    state: &AppState,
-    user: &crate::models::user::UserRow,
-    params: &ChatParams<'_>,
-) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
-    let user_msg_id = ulid::Ulid::new().to_string();
-
-    if !params.ephemeral {
+pub async fn save_user_message(
+    pool: &sqlx::SqlitePool,
+    ring_id: Option<&str>,
+    user_id: &str,
+    display_name: &str,
+    content: &str,
+    node_refs: &[String],
+    tag_refs: &[String],
+    ephemeral: bool,
+) -> Result<String> {
+    let msg_id = ulid::Ulid::new().to_string();
+    if !ephemeral {
         message::insert_message(
-            &state.db,
+            pool,
             &message::NewMessage {
-                id: &user_msg_id,
-                ring_id: params.ring_id,
-                user_id: &user.token_id,
+                id: &msg_id,
+                ring_id,
+                user_id,
                 role: "user",
-                sender_name: &user.display_name,
-                content: params.content,
-                node_refs: &params.node_refs,
-                tag_refs: &params.tag_refs,
+                sender_name: display_name,
+                content,
+                node_refs,
+                tag_refs,
                 token_usage: None,
             },
         )
         .await?;
     }
 
-    if let Some(ring_id) = params.ring_id {
-        let ring_name = crate::services::search::get_ring_name(&state.db, ring_id)
-            .await
-            .unwrap_or_default();
+    if let Some(rid) = ring_id {
+        let ring_name =
+            crate::services::search::get_ring_name(pool, rid)
+                .await
+                .unwrap_or_default();
         let _ = crate::services::search::upsert_search_index(
-            &state.db,
+            pool,
             "message",
-            &user_msg_id,
-            ring_id,
+            &msg_id,
+            rid,
             &ring_name,
-            &user.display_name,
-            params.content,
+            display_name,
+            content,
             &serde_json::json!({"role": "user"}).to_string(),
         )
         .await;
     }
+
+    Ok(msg_id)
+}
+
+pub async fn start_chat_stream(
+    state: &AppState,
+    user: &crate::models::user::UserRow,
+    params: &ChatParams<'_>,
+) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
+    let _user_msg_id = save_user_message(
+        &state.db,
+        params.ring_id,
+        &user.token_id,
+        &user.display_name,
+        params.content,
+        &params.node_refs,
+        &params.tag_refs,
+        params.ephemeral,
+    )
+    .await?;
 
     let system_prompt = build_system_prompt(params.ring_name, params.role_description);
     let history = if params.ephemeral {

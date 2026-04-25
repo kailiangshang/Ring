@@ -96,7 +96,7 @@ async function handlePrefsShow(addMessage: (msg: ChatMessage) => void) {
     const { content, is_custom } = await getPreferences()
     const label = is_custom ? '当前偏好设置（自定义）：' : '当前偏好设置（默认）：'
     addMessage({
-      id: `sys-prefs-${Date.now()}`,
+      id: `sys-prefs-${crypto.randomUUID()}`,
       role: 'system',
       sender_name: 'SYSTEM',
       content: `${label}\n\`\`\`\n${content}\n\`\`\``,
@@ -104,7 +104,7 @@ async function handlePrefsShow(addMessage: (msg: ChatMessage) => void) {
     })
   } catch {
     addMessage({
-      id: `sys-prefs-err-${Date.now()}`,
+      id: `sys-prefs-err-${crypto.randomUUID()}`,
       role: 'system',
       sender_name: 'SYSTEM',
       content: 'Failed to load preferences.',
@@ -117,7 +117,7 @@ async function handlePrefsSet(key: string, value: string, addMessage: (msg: Chat
   const mapping = PREFS_KEY_MAP[key]
   if (!mapping) {
     addMessage({
-      id: `sys-prefs-err-${Date.now()}`,
+      id: `sys-prefs-err-${crypto.randomUUID()}`,
       role: 'system',
       sender_name: 'SYSTEM',
       content: `Unknown preference key "${key}". Supported keys: ${Object.keys(PREFS_KEY_MAP).join(', ')}. For other changes, ask Super Ring.`,
@@ -148,7 +148,7 @@ async function handlePrefsSet(key: string, value: string, addMessage: (msg: Chat
 
     if (!found) {
       addMessage({
-        id: `sys-prefs-err-${Date.now()}`,
+        id: `sys-prefs-err-${crypto.randomUUID()}`,
         role: 'system',
         sender_name: 'SYSTEM',
         content: `Could not find preference "${key}" in current settings. Please use Super Ring to modify.`,
@@ -159,7 +159,7 @@ async function handlePrefsSet(key: string, value: string, addMessage: (msg: Chat
 
     await updatePreferences(updated)
     addMessage({
-      id: `sys-prefs-${Date.now()}`,
+      id: `sys-prefs-${crypto.randomUUID()}`,
       role: 'system',
       sender_name: 'SYSTEM',
       content: `Preference updated: ${key} = ${value}`,
@@ -167,7 +167,7 @@ async function handlePrefsSet(key: string, value: string, addMessage: (msg: Chat
     })
   } catch {
     addMessage({
-      id: `sys-prefs-err-${Date.now()}`,
+      id: `sys-prefs-err-${crypto.randomUUID()}`,
       role: 'system',
       sender_name: 'SYSTEM',
       content: `Failed to update preference "${key}".`,
@@ -180,36 +180,36 @@ async function handleSkillList(addMessage: (msg: ChatMessage) => void) {
   try {
     const { skills } = await listSkills()
     if (skills.length === 0) {
-      addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: 'No skills installed.', created_at: new Date().toISOString() })
+      addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'No skills installed.', created_at: new Date().toISOString() })
       return
     }
     const lines = skills.map(s => {
       const tag = s.source === 'builtin' ? '[built-in]' : '[user]'
       return `- **${s.name}** ${tag}: ${s.description}`
     })
-    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `## Skills\n\n${lines.join('\n')}`, created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `## Skills\n\n${lines.join('\n')}`, created_at: new Date().toISOString() })
   } catch {
-    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: 'Failed to load skills.', created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'Failed to load skills.', created_at: new Date().toISOString() })
   }
 }
 
 async function handleSkillInstall(name: string, url: string, addMessage: (msg: ChatMessage) => void) {
   try {
     const result = await installSkill(name, url)
-    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: result.ok ? `Skill "${result.name}" installed: ${result.description}` : 'Install failed', created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: result.ok ? `Skill "${result.name}" installed: ${result.description}` : 'Install failed', created_at: new Date().toISOString() })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
-    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill install failed: ${msg}`, created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill install failed: ${msg}`, created_at: new Date().toISOString() })
   }
 }
 
 async function handleSkillRemove(name: string, addMessage: (msg: ChatMessage) => void) {
   try {
     await removeSkill(name)
-    addMessage({ id: `sys-skill-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill "${name}" removed.`, created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `Skill "${name}" removed.`, created_at: new Date().toISOString() })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
-    addMessage({ id: `sys-skill-err-${Date.now()}`, role: 'system', sender_name: 'SYSTEM', content: `Failed to remove skill: ${msg}`, created_at: new Date().toISOString() })
+    addMessage({ id: `sys-skill-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `Failed to remove skill: ${msg}`, created_at: new Date().toISOString() })
   }
 }
 
@@ -305,7 +305,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               if (rid) {
                 useArchiveStore.getState().triggerArchive(rid, content, title, sid)
                 addMessage({
-                  id: `sys-${Date.now()}`,
+                  id: `sys-${crypto.randomUUID()}`,
                   role: 'system',
                   sender_name: 'SYSTEM',
                   content: `Archiving: ${title}`,
@@ -413,7 +413,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             const targetCmd = cmd.command
             if (targetCmd) {
               addMessage({
-                id: `sys-help-${Date.now()}`,
+                id: `sys-help-${crypto.randomUUID()}`,
                 role: 'system',
                 sender_name: 'SYSTEM',
                 content: getCommandHelp(targetCmd),
@@ -421,7 +421,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
               })
             } else {
               addMessage({
-                id: `sys-help-${Date.now()}`,
+                id: `sys-help-${crypto.randomUUID()}`,
                 role: 'system',
                 sender_name: 'SYSTEM',
                 content: buildHelpContent(),
@@ -440,7 +440,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
 
     addMessage({
-      id: `msg-${Date.now()}`,
+      id: `msg-${crypto.randomUUID()}`,
       role: 'user',
       sender_name: 'You',
       content: input,
@@ -463,7 +463,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       url = '/api/super/chat'
     } else {
       addMessage({
-        id: `sys-${Date.now()}`,
+        id: `sys-${crypto.randomUUID()}`,
         role: 'system',
         sender_name: 'SYSTEM',
         content: 'Chat is not available in this context.',
@@ -488,41 +488,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }))
       },
       onDelta: (data) => {
-        const { streaming_message_id, messages } = get()
+        const { streaming_message_id } = get()
         if (!streaming_message_id) return
-        set({
-          messages: messages.map((m) =>
-            m.id === streaming_message_id ? { ...m, content: m.content + data.content } : m,
-          ),
+        set((s) => {
+          const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
+          if (idx === -1) return s
+          const msgs = [...s.messages]
+          msgs[idx] = { ...msgs[idx], content: msgs[idx].content + data.content }
+          return { messages: msgs }
         })
       },
       onEnd: (data) => {
-        const { streaming_message_id, messages } = get()
+        const { streaming_message_id } = get()
         if (streaming_message_id && data.usage) {
-          set({
-            messages: messages.map((m) =>
-              m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
-            ),
+          set((s) => {
+            const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
+            if (idx === -1) return s
+            const msgs = [...s.messages]
+            msgs[idx] = { ...msgs[idx], token_usage: data.usage }
+            return { messages: msgs }
           })
         }
         set({ sending: false, streaming_message_id: null, abort_controller: null })
       },
       onError: (data) => {
-        const { streaming_message_id, messages } = get()
+        const { streaming_message_id } = get()
         if (streaming_message_id) {
-          set({
-            messages: messages.map((m) =>
-              m.id === streaming_message_id
-                ? { ...m, content: m.content + `\n\n⚠ Error: ${data.error}` }
-                : m,
-            ),
-            sending: false,
-            streaming_message_id: null,
-            abort_controller: null,
+          set((s) => {
+            const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
+            if (idx === -1) return { sending: false, streaming_message_id: null, abort_controller: null }
+            const msgs = [...s.messages]
+            msgs[idx] = { ...msgs[idx], content: msgs[idx].content + `\n\n⚠ Error: ${data.error}` }
+            return { messages: msgs, sending: false, streaming_message_id: null, abort_controller: null }
           })
         } else {
           addMessage({
-            id: `err-${Date.now()}`,
+            id: `err-${crypto.randomUUID()}`,
             role: 'system',
             sender_name: 'SYSTEM',
             content: `Error: ${data.error}`,
@@ -577,7 +578,7 @@ async function handleCrossRingQuery(
   get: any
 ) {
   addMessage({
-    id: `msg-${Date.now()}`,
+    id: `msg-${crypto.randomUUID()}`,
     role: 'user',
     sender_name: 'You',
     content: `/cross-ring-query ${query}`,
@@ -601,41 +602,42 @@ async function handleCrossRingQuery(
       }))
     },
     onDelta: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (!streaming_message_id) return
-      set({
-        messages: messages.map((m: ChatMessage) =>
-          m.id === streaming_message_id ? { ...m, content: m.content + data.content } : m,
-        ),
+      set((s: any) => {
+        const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+        if (idx === -1) return s
+        const msgs = [...s.messages]
+        msgs[idx] = { ...msgs[idx], content: msgs[idx].content + data.content }
+        return { messages: msgs }
       })
     },
     onEnd: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (streaming_message_id && data.usage) {
-        set({
-          messages: messages.map((m: ChatMessage) =>
-            m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
-          ),
+        set((s: any) => {
+          const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+          if (idx === -1) return s
+          const msgs = [...s.messages]
+          msgs[idx] = { ...msgs[idx], token_usage: data.usage }
+          return { messages: msgs }
         })
       }
       set({ sending: false, streaming_message_id: null, abort_controller: null })
     },
     onError: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (streaming_message_id) {
-        set({
-          messages: messages.map((m: ChatMessage) =>
-            m.id === streaming_message_id
-              ? { ...m, content: m.content + `\n\n⚠ Error: ${data.error}` }
-              : m,
-          ),
-          sending: false,
-          streaming_message_id: null,
-          abort_controller: null,
+        set((s: any) => {
+          const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+          if (idx === -1) return { sending: false, streaming_message_id: null, abort_controller: null }
+          const msgs = [...s.messages]
+          msgs[idx] = { ...msgs[idx], content: msgs[idx].content + `\n\n⚠ Error: ${data.error}` }
+          return { messages: msgs, sending: false, streaming_message_id: null, abort_controller: null }
         })
       } else {
         addMessage({
-          id: `err-${Date.now()}`,
+          id: `err-${crypto.randomUUID()}`,
           role: 'system',
           sender_name: 'SYSTEM',
           content: `Error: ${data.error}`,
@@ -657,7 +659,7 @@ async function handleCrossRingAnalysis(
   get: any
 ) {
   addMessage({
-    id: `msg-${Date.now()}`,
+    id: `msg-${crypto.randomUUID()}`,
     role: 'user',
     sender_name: 'You',
     content: `/cross-ring-analysis ${analysisType} ${ringNames.join(',')}${question ? ' ' + question : ''}`,
@@ -685,41 +687,42 @@ async function handleCrossRingAnalysis(
       }))
     },
     onDelta: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (!streaming_message_id) return
-      set({
-        messages: messages.map((m: ChatMessage) =>
-          m.id === streaming_message_id ? { ...m, content: m.content + data.content } : m,
-        ),
+      set((s: any) => {
+        const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+        if (idx === -1) return s
+        const msgs = [...s.messages]
+        msgs[idx] = { ...msgs[idx], content: msgs[idx].content + data.content }
+        return { messages: msgs }
       })
     },
     onEnd: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (streaming_message_id && data.usage) {
-        set({
-          messages: messages.map((m: ChatMessage) =>
-            m.id === streaming_message_id ? { ...m, token_usage: data.usage } : m
-          ),
+        set((s: any) => {
+          const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+          if (idx === -1) return s
+          const msgs = [...s.messages]
+          msgs[idx] = { ...msgs[idx], token_usage: data.usage }
+          return { messages: msgs }
         })
       }
       set({ sending: false, streaming_message_id: null, abort_controller: null })
     },
     onError: (data) => {
-      const { streaming_message_id, messages } = get()
+      const { streaming_message_id } = get()
       if (streaming_message_id) {
-        set({
-          messages: messages.map((m: ChatMessage) =>
-            m.id === streaming_message_id
-              ? { ...m, content: m.content + `\n\n⚠ Error: ${data.error}` }
-              : m,
-          ),
-          sending: false,
-          streaming_message_id: null,
-          abort_controller: null,
+        set((s: any) => {
+          const idx = s.messages.findIndex((m: ChatMessage) => m.id === streaming_message_id)
+          if (idx === -1) return { sending: false, streaming_message_id: null, abort_controller: null }
+          const msgs = [...s.messages]
+          msgs[idx] = { ...msgs[idx], content: msgs[idx].content + `\n\n⚠ Error: ${data.error}` }
+          return { messages: msgs, sending: false, streaming_message_id: null, abort_controller: null }
         })
       } else {
         addMessage({
-          id: `err-${Date.now()}`,
+          id: `err-${crypto.randomUUID()}`,
           role: 'system',
           sender_name: 'SYSTEM',
           content: `Error: ${data.error}`,
