@@ -112,18 +112,6 @@ pub async fn ring_chat(
         });
     }
 
-    let _user_msg_id = chat::save_user_message(
-        &state.db,
-        Some(&ring_id),
-        &user.token_id,
-        &user_row.display_name,
-        &body.content,
-        &body.node_refs,
-        &body.tag_refs,
-        body.ephemeral,
-    )
-    .await?;
-
     let tools = crate::services::chat::get_group_ring_tools();
     let pool_c = state.db.clone();
     let user_row_tool = user_row.clone();
@@ -133,6 +121,19 @@ pub async fn ring_chat(
         let system_prompt = chat::build_system_prompt(Some(&ring_info.0), ring_info.1.as_deref());
         let history =
             chat::load_history_context(&state.db, Some(&ring_id), &user.token_id, 20).await?;
+
+        let _user_msg_id = chat::save_user_message(
+            &state.db,
+            Some(&ring_id),
+            &user.token_id,
+            &user_row.display_name,
+            &body.content,
+            &body.node_refs,
+            &body.tag_refs,
+            body.ephemeral,
+        )
+        .await?;
+
         let filters = user_row
             .privacy_filters
             .as_deref()
@@ -312,11 +313,25 @@ pub async fn self_chat(
     user: AuthUser,
     Json(body): Json<ChatRequest>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = std::result::Result<Event, Infallible>>>> {
+    let request_start = std::time::Instant::now();
+    tracing::info!(
+        "self_chat route: request started at {:?}",
+        request_start.elapsed().as_secs_f64()
+    );
+
     let user_row = state.get_user_decrypted(&user.token_id).await?;
+    tracing::info!(
+        "self_chat route: user decrypted at {:?}",
+        request_start.elapsed().as_secs_f64()
+    );
 
     if let Err(e) = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await {
         tracing::warn!("failed to auto compact history: {e}");
     }
+    tracing::info!(
+        "self_chat route: auto_compact_history done at {:?}",
+        request_start.elapsed().as_secs_f64()
+    );
 
     let mut rx = chat::start_chat_stream(
         &state,
@@ -345,7 +360,13 @@ pub async fn self_chat(
     let user_row_c = user_row.clone();
 
     let s = stream! {
+        tracing::info!("self_chat route: stream consumer started at {:?}", request_start.elapsed().as_secs_f64());
+        let mut event_count = 0;
         while let Some(event) = rx.recv().await {
+            event_count += 1;
+            if event_count == 1 {
+                tracing::info!("self_chat route: first event received at {:?}", request_start.elapsed().as_secs_f64());
+            }
             match event {
                 SseEvent::Start { message_id, role } => {
                     let data = serde_json::json!({"message_id": message_id, "role": role});
@@ -356,6 +377,7 @@ pub async fn self_chat(
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
                 SseEvent::End { message_id, full_content, token_usage } => {
+                    tracing::info!("self_chat route: End event received at {:?}, total_events={}", request_start.elapsed().as_secs_f64(), event_count);
                     let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
                     let data = serde_json::json!({
                         "message_id": message_id,

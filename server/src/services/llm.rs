@@ -119,6 +119,7 @@ impl LlmClient {
         let (tx, rx) = tokio::sync::mpsc::channel(32);
 
         tokio::spawn(async move {
+            let _start_time = std::time::Instant::now();
             let message_id = ulid::Ulid::new().to_string();
 
             let _ = tx
@@ -129,21 +130,47 @@ impl LlmClient {
                 .await;
 
             let messages = build_messages(system_prompt, history, user_message);
+            tracing::info!("self_chat: messages count = {}", messages.len());
 
             let request = CreateChatCompletionRequest {
-                messages,
-                model: self.model,
+                messages: messages.clone(),
+                model: self.model.clone(),
                 stream: Some(true),
                 ..Default::default()
             };
 
+            let api_start = std::time::Instant::now();
+            tracing::info!(
+                "self_chat: calling LLM API with model {} at {:?}",
+                self.model,
+                api_start.elapsed().as_secs_f64()
+            );
             match self.client.chat().create_stream(request).await {
                 Ok(mut stream) => {
+                    let stream_start = std::time::Instant::now();
+                    tracing::info!(
+                        "self_chat: stream started at {:?}",
+                        stream_start.elapsed().as_secs_f64()
+                    );
                     let mut full_content = String::new();
                     let mut token_usage: Option<String> = None;
+                    let mut chunk_count = 0;
+                    let mut first_chunk_time = None;
+                    let mut last_chunk_time = None;
                     while let Some(result) = stream.next().await {
                         match result {
                             Ok(chunk) => {
+                                let chunk_time = std::time::Instant::now();
+                                if chunk_count == 0 {
+                                    first_chunk_time = Some(chunk_time);
+                                    tracing::info!(
+                                        "self_chat: first chunk received at {:?}",
+                                        chunk_time.elapsed().as_secs_f64()
+                                    );
+                                }
+                                last_chunk_time = Some(chunk_time);
+                                chunk_count += 1;
+                                tracing::debug!("self_chat: received chunk");
                                 if let Some(choice) = chunk.choices.first() {
                                     if let Some(delta) = &choice.delta.content {
                                         full_content.push_str(delta);
@@ -160,11 +187,19 @@ impl LlmClient {
                                 }
                             }
                             Err(e) => {
+                                tracing::error!("self_chat: stream error: {}", e);
                                 let _ = tx.send(SseEvent::Error(e.to_string())).await;
                                 break;
                             }
                         }
                     }
+                    let stream_end = std::time::Instant::now();
+                    tracing::info!("self_chat: stream ended at {:?}, chunks={}, first_chunk_delay={:?}, last_chunk_delay={:?}", 
+                        stream_end.elapsed().as_secs_f64(),
+                        chunk_count,
+                        first_chunk_time.map(|t| t.elapsed().as_secs_f64()),
+                        last_chunk_time.map(|t| t.elapsed().as_secs_f64())
+                    );
                     let _ = tx
                         .send(SseEvent::End {
                             message_id: message_id.clone(),
@@ -174,6 +209,11 @@ impl LlmClient {
                         .await;
                 }
                 Err(e) => {
+                    tracing::error!(
+                        "self_chat: API call error at {:?}: {}",
+                        api_start.elapsed().as_secs_f64(),
+                        e
+                    );
                     let _ = tx.send(SseEvent::Error(e.to_string())).await;
                 }
             }
@@ -397,6 +437,7 @@ impl LlmClient {
                                         .await;
                                 }
                                 Err(e) => {
+                                    tracing::error!("self_chat: API call error: {}", e);
                                     let _ = tx.send(SseEvent::Error(e.to_string())).await;
                                 }
                             }

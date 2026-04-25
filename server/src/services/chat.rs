@@ -317,6 +317,13 @@ pub async fn start_chat_stream(
     user: &crate::models::user::UserRow,
     params: &ChatParams<'_>,
 ) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
+    let system_prompt = build_system_prompt(params.ring_name, params.role_description);
+    let history = if params.ephemeral {
+        vec![]
+    } else {
+        load_history_context(&state.db, params.ring_id, &user.token_id, 20).await?
+    };
+
     let _user_msg_id = save_user_message(
         &state.db,
         params.ring_id,
@@ -328,13 +335,6 @@ pub async fn start_chat_stream(
         params.ephemeral,
     )
     .await?;
-
-    let system_prompt = build_system_prompt(params.ring_name, params.role_description);
-    let history = if params.ephemeral {
-        vec![]
-    } else {
-        load_history_context(&state.db, params.ring_id, &user.token_id, 20).await?
-    };
 
     let filters = user
         .privacy_filters
