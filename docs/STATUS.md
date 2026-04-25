@@ -6,7 +6,7 @@
 
 - 后端 65 个 Rust 源文件，~12,000 行
 - 前端 84 个 TS/TSX 文件，~9,400 行
-- 13 个数据库迁移
+- 14 个数据库迁移
 - 69/69 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
@@ -224,9 +224,9 @@
 | 深度蓝图构建器（AI 对话式） | done（AI 引导多轮对话 + D3 实时预览 + 多图谱 + 边创建修复） | 中 |
 | 图谱 PNG/PDF 导出 | done（SVG → Canvas → PNG 2400×1600） | 低 |
 | Session 侧栏树形展示 | done（Ring 展开/折叠，嵌套 Session 列表，phase 色点 + skill 标签） | 中 |
-| **存储后端抽象** | **done（StorageBackend trait，Local + GitHub 两种模式，归档/审核流程一致）** | 中 |
+| **存储后端抽象** | **done（StorageBackend trait，Local + GitLab 两种模式，归档/审核流程一致）** | 中 |
 | **本地模式（无外部依赖）** | **done（本地 git init，pending_reviews 表审核队列，同步 API snapshot/delta）** | 中 |
-| **GitHub 模式** | **done（GitHub REST API PR 审核，替代 GitLab）** | 中 |
+| **GitLab 模式** | **done（GitLab REST API v4 MR 审核，PRIVATE-TOKEN 认证，公司内网）** | 中 |
 | 移动端适配 | 缺失 | 延后 |
 
 ## 技术债（审计记录，不阻塞）
