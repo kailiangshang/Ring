@@ -414,13 +414,12 @@ pub async fn init_repo(
     ring::reject_readonly(&role)?;
 
     let backend = get_backend(&state, &ring_id).await?;
-    let repo_url: Option<String> = sqlx::query_scalar(
-        "SELECT COALESCE(github_repo_url, gitlab_repo_url) FROM rings WHERE id = ?1",
-    )
-    .bind(&ring_id)
-    .fetch_optional(&state.db)
-    .await?
-    .flatten();
+    let repo_url: Option<String> =
+        sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+            .bind(&ring_id)
+            .fetch_optional(&state.db)
+            .await?
+            .flatten();
 
     let repo_path = backend.init_repo(&state.rings_dir, &ring_id, repo_url.as_deref())?;
     let has_remote = backend.has_remote(&repo_path);

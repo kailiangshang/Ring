@@ -1,8 +1,4 @@
-ALTER TABLE rings ADD COLUMN storage_mode TEXT NOT NULL DEFAULT 'github';
-ALTER TABLE rings ADD COLUMN github_repo_url TEXT;
-ALTER TABLE rings ADD COLUMN github_namespace TEXT;
-ALTER TABLE users ADD COLUMN github_url TEXT;
-ALTER TABLE users ADD COLUMN github_token TEXT;
+ALTER TABLE rings ADD COLUMN storage_mode TEXT NOT NULL DEFAULT 'local';
 
 CREATE TABLE IF NOT EXISTS pending_reviews (
     id TEXT PRIMARY KEY,
@@ -15,5 +11,5 @@ CREATE TABLE IF NOT EXISTS pending_reviews (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX idx_pending_reviews_ring ON pending_reviews(ring_id);
-CREATE INDEX idx_pending_reviews_status ON pending_reviews(status);
+CREATE INDEX IF NOT EXISTS idx_pending_reviews_ring ON pending_reviews(ring_id);
+CREATE INDEX IF NOT EXISTS idx_pending_reviews_status ON pending_reviews(status);

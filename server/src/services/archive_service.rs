@@ -24,7 +24,7 @@ pub async fn get_backend(
         .map_err(|e| RingError::Internal(e.to_string()))?;
 
     match mode.as_str() {
-        "github" => {
+        "gitlab" => {
             let creator_id: String =
                 sqlx::query_scalar("SELECT creator_id FROM rings WHERE id = ?1")
                     .bind(ring_id)
@@ -36,15 +36,23 @@ pub async fn get_backend(
                 u.clone()
             } else {
                 let mut user = crate::models::user::get_user(pool, &creator_id).await?;
-                if let (Some(enc), Some(ref encrypted)) = (encryption, &user.github_token) {
+                if let (Some(enc), Some(ref encrypted)) = (encryption, &user.gitlab_token) {
                     if let Some(decrypted) = enc.decrypt(encrypted) {
-                        user.github_token = Some(decrypted);
+                        user.gitlab_token = Some(decrypted);
                     }
                 }
                 user
             };
 
-            let github_token = match user_row.github_token {
+            let gitlab_url = match user_row.gitlab_url {
+                Some(u) => u,
+                None => {
+                    return Ok(Box::new(
+                        crate::services::storage::local::LocalBackend::new(pool.clone()),
+                    ));
+                }
+            };
+            let gitlab_token = match user_row.gitlab_token {
                 Some(t) => t,
                 None => {
                     return Ok(Box::new(
@@ -52,18 +60,18 @@ pub async fn get_backend(
                     ));
                 }
             };
-            let github_repo_url: String = sqlx::query_scalar(
-                "SELECT COALESCE(github_repo_url, gitlab_repo_url) FROM rings WHERE id = ?1",
-            )
-            .bind(ring_id)
-            .fetch_one(pool)
-            .await
-            .map_err(|e| RingError::Internal(e.to_string()))?;
+            let gitlab_repo_url: String =
+                sqlx::query_scalar("SELECT gitlab_repo_url FROM rings WHERE id = ?1")
+                    .bind(ring_id)
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| RingError::Internal(e.to_string()))?;
 
             Ok(Box::new(
-                crate::services::storage::github::GitHubBackend::new(
-                    &github_token,
-                    &github_repo_url,
+                crate::services::storage::gitlab::GitLabBackend::new(
+                    &gitlab_url,
+                    &gitlab_token,
+                    &gitlab_repo_url,
                 ),
             ))
         }
