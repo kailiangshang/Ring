@@ -34,3 +34,5 @@ flate2 = { version = "1.1.9", features = ["default"] }
 tar = "0.4.45"
 lopdf = "0.33"
 async-trait = "0.1.89"
+include_dir = { version = "0.7", features = ["glob"] }
+mime_guess = "2"

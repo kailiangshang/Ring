@@ -2,8 +2,19 @@ use axum::http::HeaderValue;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
+
+#[cfg(debug_assertions)]
+use tower_http::services::ServeDir;
+
+#[cfg(not(debug_assertions))]
+use axum::extract::Request;
+#[cfg(not(debug_assertions))]
+use axum::response::{IntoResponse, Response};
+#[cfg(not(debug_assertions))]
+use include_dir::{include_dir, Dir};
+#[cfg(not(debug_assertions))]
+static UI_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../ui/dist");
 
 use crate::state::AppState;
 
@@ -29,6 +40,48 @@ mod skills;
 mod super_chat;
 mod upload;
 mod ws;
+
+#[cfg(not(debug_assertions))]
+fn serve_embedded(path: &str) -> Response {
+    let file_path = if path.is_empty() || path == "/" {
+        "index.html"
+    } else {
+        path.trim_start_matches('/')
+    };
+
+    if let Some(file) = UI_DIR.get_file(file_path) {
+        let mime = mime_guess::from_path(file_path).first_or_octet_stream();
+        let body = file.contents();
+        (
+            axum::http::StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, mime.as_ref())],
+            body.to_vec(),
+        )
+            .into_response()
+    } else if !file_path.contains('.')
+        && !file_path.starts_with("assets/")
+        && !file_path.ends_with(".js")
+        && !file_path.ends_with(".css")
+    {
+        if let Some(index) = UI_DIR.get_file("index.html") {
+            (
+                axum::http::StatusCode::OK,
+                [(axum::http::header::CONTENT_TYPE, "text/html")],
+                index.contents().to_vec(),
+            )
+                .into_response()
+        } else {
+            axum::http::StatusCode::NOT_FOUND.into_response()
+        }
+    } else {
+        axum::http::StatusCode::NOT_FOUND.into_response()
+    }
+}
+
+#[cfg(not(debug_assertions))]
+async fn embedded_ui_handler(req: Request) -> Response {
+    serve_embedded(req.uri().path())
+}
 
 pub fn build_router(state: AppState) -> Router {
     let localhost = [
@@ -344,13 +397,19 @@ pub fn build_router(state: AppState) -> Router {
         )
         .with_state(state.clone());
 
-    let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
-
-    Router::new()
+    let app = Router::new()
         .nest("/api", api)
         .route("/ring/join", get(join_page::join_page_handler))
-        .with_state(state)
-        .fallback_service(ServeDir::new(&static_dir).append_index_html_on_directories(true))
-        .layer(cors)
-        .layer(TraceLayer::new_for_http())
+        .with_state(state);
+
+    #[cfg(debug_assertions)]
+    let static_dir = std::env::var("RING_STATIC_DIR").unwrap_or_else(|_| "../ui/dist".into());
+    #[cfg(debug_assertions)]
+    let app =
+        app.fallback_service(ServeDir::new(&static_dir).append_index_html_on_directories(true));
+
+    #[cfg(not(debug_assertions))]
+    let app = app.fallback(axum::routing::any(embedded_ui_handler));
+
+    app.layer(cors).layer(TraceLayer::new_for_http())
 }
