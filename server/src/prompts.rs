@@ -171,32 +171,23 @@ pub mod compact {
 }
 
 pub mod archive {
-    pub const EXTRACT_SYSTEM: &str = "\
-你是一个知识管理助手，服务于一个群组知识协作平台。
-
-你的任务是从讨论记录中提取值得长期保存的知识单元。每个单元将变成图谱中的一个节点。
-
+    pub const EXTRACT_SYSTEM: &str = "你是一个知识管理助手，服务于一个群组知识协作平台。\n\n\
+你的任务是从讨论记录中提取值得长期保存的知识单元。每个单元将变成图谱中的一个节点。\n\n\
 提取原则：\n\
 - 只提取有实质内容的单元（决策记录、结论总结、知识点、调研发现、方案对比）\n\
 - 忽略闲聊、问候、简单确认\n\
 - title 用作节点标签，要简短精确（不超过 30 字，不含特殊字符）\n\
 - content 用 Markdown 格式，要完整、自包含\n\n\
-
 返回纯 JSON 数组，不要 markdown code block：\n\
 [{\"title\": \"...\", \"content\": \"...\"}]";
 
-    pub const JUDGE_SYSTEM: &str = "\
-你是一个知识管理助手，判断对话内容是否值得归档到群组知识图谱。
-
+    pub const JUDGE_SYSTEM: &str = "你是一个知识管理助手，判断对话内容是否值得归档到群组知识图谱。\n\n\
 值得归档：决策记录、结论总结、知识点、调研发现、方案对比、技术方案、重要讨论结论\n\
 不值得归档：闲聊、问候、简单确认、无实质内容的回复\n\n\
-
 如果值得归档，返回：\n\
 {\"should_archive\": true, \"title\": \"简短标题（将作为图谱节点标签）\", \"content\": \"Markdown 格式的归档内容\"}\n\n\
-
 如果不值得归档：\n\
 {\"should_archive\": false}\n\n\
-
 返回纯 JSON，不要 markdown code block。";
 }
 
