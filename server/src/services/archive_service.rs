@@ -8,11 +8,74 @@ use crate::models::archive;
 use crate::models::archive::ArchiveRecord;
 use crate::models::graph;
 use crate::services::git_service::GitService;
-use crate::services::gitlab_service::GitLabClient;
+use crate::services::storage::StorageBackend;
 use crate::state::AppState;
+
+pub async fn get_backend(
+    pool: &SqlitePool,
+    ring_id: &str,
+    creator_user: Option<&crate::models::user::UserRow>,
+    encryption: Option<&crate::services::encryption::CredentialEncryption>,
+) -> Result<Box<dyn StorageBackend>> {
+    let mode: String = sqlx::query_scalar("SELECT storage_mode FROM rings WHERE id = ?1")
+        .bind(ring_id)
+        .fetch_one(pool)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    match mode.as_str() {
+        "github" => {
+            let creator_id: String =
+                sqlx::query_scalar("SELECT creator_id FROM rings WHERE id = ?1")
+                    .bind(ring_id)
+                    .fetch_one(pool)
+                    .await
+                    .map_err(|e| RingError::Internal(e.to_string()))?;
+
+            let user_row = if let Some(u) = creator_user {
+                u.clone()
+            } else {
+                let mut user = crate::models::user::get_user(pool, &creator_id).await?;
+                if let (Some(enc), Some(ref encrypted)) = (encryption, &user.github_token) {
+                    if let Some(decrypted) = enc.decrypt(encrypted) {
+                        user.github_token = Some(decrypted);
+                    }
+                }
+                user
+            };
+
+            let github_token = match user_row.github_token {
+                Some(t) => t,
+                None => {
+                    return Ok(Box::new(
+                        crate::services::storage::local::LocalBackend::new(pool.clone()),
+                    ));
+                }
+            };
+            let github_repo_url: String = sqlx::query_scalar(
+                "SELECT COALESCE(github_repo_url, gitlab_repo_url) FROM rings WHERE id = ?1",
+            )
+            .bind(ring_id)
+            .fetch_one(pool)
+            .await
+            .map_err(|e| RingError::Internal(e.to_string()))?;
+
+            Ok(Box::new(
+                crate::services::storage::github::GitHubBackend::new(
+                    &github_token,
+                    &github_repo_url,
+                ),
+            ))
+        }
+        _ => Ok(Box::new(
+            crate::services::storage::local::LocalBackend::new(pool.clone()),
+        )),
+    }
+}
 
 pub async fn quick_archive(
     state: &AppState,
+    backend: &dyn StorageBackend,
     ring_id: &str,
     user_id: &str,
     content: &str,
@@ -35,7 +98,6 @@ pub async fn quick_archive(
         content.to_string()
     };
 
-    let git = GitService::new();
     let repo_path = ring_repo_path(&state.rings_dir, ring_id);
 
     if !repo_path.join(".git").exists() {
@@ -44,7 +106,7 @@ pub async fn quick_archive(
         });
     }
 
-    let _ = git.pull(&repo_path);
+    let _ = backend.pull(&repo_path);
 
     let file_name = sanitize_filename(&title);
     let file_path = repo_path.join("archives").join(&file_name);
@@ -53,12 +115,12 @@ pub async fn quick_archive(
     let record_id = ulid::Ulid::new().to_string();
 
     if is_creator {
-        git.add_all(&repo_path)?;
-        let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
+        backend.add_all(&repo_path)?;
+        let sha = backend.commit(&repo_path, &format!("archive: {title}"))?;
 
-        let has_remote = git.has_remote(&repo_path);
+        let has_remote = backend.has_remote(&repo_path);
         if has_remote {
-            git.push(&repo_path, "origin", "main")?;
+            backend.push_main(&repo_path)?;
         }
 
         archive::insert_record(
@@ -69,68 +131,44 @@ pub async fn quick_archive(
         let status = if has_remote { "pushed" } else { "committed" };
         archive::update_status(&state.db, &record_id, status, Some(&sha), None, None).await?;
     } else {
-        let repo_url = sqlx::query_scalar::<_, Option<String>>(
-            "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
+        let record_id_for_desc = record_id.clone();
+        let title_for_desc = title.clone();
+        let user_id_for_desc = user_id.to_string();
+
+        backend.create_branch(&repo_path, &format!("archive/{record_id}"))?;
+        backend.add_all(&repo_path)?;
+        let sha = backend.commit(&repo_path, &format!("archive: {title}"))?;
+        let branch_name = format!("archive/{record_id}");
+        backend.push_branch(&repo_path, &branch_name)?;
+        backend.checkout(&repo_path, "main")?;
+
+        archive::insert_record(
+            &state.db, &record_id, ring_id, None, None, &file_name, user_id,
         )
-        .bind(ring_id)
-        .fetch_one(&state.db)
-        .await
-        .ok()
-        .flatten();
+        .await?;
+        archive::update_status(
+            &state.db,
+            &record_id,
+            "committed",
+            Some(&sha),
+            Some(&branch_name),
+            None,
+        )
+        .await?;
 
-        let user_row = state.get_user_decrypted(user_id).await?;
-        let (gitlab_url, gitlab_token) =
-            (user_row.gitlab_url.clone(), user_row.gitlab_token.clone());
+        let mr_iid = backend
+            .create_review(
+                &repo_path,
+                ring_id,
+                &record_id_for_desc,
+                &branch_name,
+                &format!("归档: {title_for_desc}"),
+                &format!("由 {user_id_for_desc} 提交的归档请求"),
+            )
+            .await?;
 
-        match (repo_url, gitlab_url, gitlab_token) {
-            (Some(url), Some(gl_url), Some(gl_token)) => {
-                let gitlab = GitLabClient::new(&gl_url, &gl_token);
-                let branch_name = format!("archive/{record_id}");
-
-                git.create_branch(&repo_path, &branch_name)?;
-                git.add_all(&repo_path)?;
-                let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
-                git.push(&repo_path, "origin", &branch_name)?;
-                git.checkout(&repo_path, "main")?;
-
-                archive::insert_record(
-                    &state.db, &record_id, ring_id, None, None, &file_name, user_id,
-                )
-                .await?;
-                archive::update_status(
-                    &state.db,
-                    &record_id,
-                    "committed",
-                    Some(&sha),
-                    Some(&branch_name),
-                    None,
-                )
-                .await?;
-
-                let mr = gitlab
-                    .create_mr(
-                        &url,
-                        &branch_name,
-                        "main",
-                        &format!("归档: {title}"),
-                        &format!("由 {user_id} 提交的归档请求"),
-                    )
-                    .await?;
-
-                archive::update_status(
-                    &state.db,
-                    &record_id,
-                    "mr_opened",
-                    None,
-                    None,
-                    Some(mr.iid),
-                )
-                .await?;
-            }
-            _ => {
-                return Err(RingError::GitlabNotConfigured);
-            }
-        }
+        archive::update_status(&state.db, &record_id, "mr_opened", None, None, Some(mr_iid))
+            .await?;
     }
 
     Ok(())
@@ -198,7 +236,7 @@ assets/
 #[allow(clippy::too_many_arguments)]
 pub async fn archive_content_creator(
     pool: &SqlitePool,
-    git: &GitService,
+    backend: &dyn StorageBackend,
     rings_dir: &std::path::Path,
     ring_id: &str,
     session_id: Option<&str>,
@@ -215,8 +253,8 @@ pub async fn archive_content_creator(
         });
     }
 
-    if git.has_remote(&repo_path) {
-        let _ = git.pull(&repo_path);
+    if backend.has_remote(&repo_path) {
+        let _ = backend.pull(&repo_path);
     }
 
     let file_name = sanitize_filename(title);
@@ -228,12 +266,12 @@ pub async fn archive_content_creator(
         let _ = graph::update_node_markdown_path(pool, nid, &relative).await;
     }
 
-    git.add_all(&repo_path)?;
-    let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
+    backend.add_all(&repo_path)?;
+    let sha = backend.commit(&repo_path, &format!("archive: {title}"))?;
 
-    let has_remote = git.has_remote(&repo_path);
+    let has_remote = backend.has_remote(&repo_path);
     if has_remote {
-        git.push(&repo_path, "origin", "main")?;
+        backend.push_main(&repo_path)?;
     }
 
     let record_id = ulid::Ulid::new().to_string();
@@ -265,11 +303,9 @@ pub async fn archive_content_creator(
 #[allow(clippy::too_many_arguments)]
 pub async fn archive_content_member(
     pool: &SqlitePool,
-    git: &GitService,
-    gitlab: &GitLabClient,
+    backend: &dyn StorageBackend,
     rings_dir: &std::path::Path,
     ring_id: &str,
-    gitlab_repo_url: &str,
     session_id: Option<&str>,
     node_id: Option<&str>,
     content: &str,
@@ -284,7 +320,7 @@ pub async fn archive_content_member(
         });
     }
 
-    let _ = git.pull(&repo_path);
+    let _ = backend.pull(&repo_path);
 
     let file_name = sanitize_filename(title);
     let file_path = repo_path.join("archives").join(&file_name);
@@ -298,11 +334,11 @@ pub async fn archive_content_member(
     let record_id = ulid::Ulid::new().to_string();
     let branch_name = format!("archive/{record_id}");
 
-    git.create_branch(&repo_path, &branch_name)?;
-    git.add_all(&repo_path)?;
-    let sha = git.commit(&repo_path, &format!("archive: {title}"))?;
-    git.push(&repo_path, "origin", &branch_name)?;
-    git.checkout(&repo_path, "main")?;
+    backend.create_branch(&repo_path, &branch_name)?;
+    backend.add_all(&repo_path)?;
+    let sha = backend.commit(&repo_path, &format!("archive: {title}"))?;
+    backend.push_branch(&repo_path, &branch_name)?;
+    backend.checkout(&repo_path, "main")?;
 
     archive::insert_record(
         pool, &record_id, ring_id, session_id, node_id, &file_name, user_id,
@@ -318,26 +354,25 @@ pub async fn archive_content_member(
     )
     .await?;
 
-    let mr = gitlab
-        .create_mr(
-            gitlab_repo_url,
+    let mr_iid = backend
+        .create_review(
+            &repo_path,
+            ring_id,
+            &record_id,
             &branch_name,
-            "main",
             &format!("归档: {title}"),
             &format!("由 {user_id} 提交的归档请求"),
         )
         .await?;
 
-    archive::update_status(pool, &record_id, "mr_opened", None, None, Some(mr.iid)).await
+    archive::update_status(pool, &record_id, "mr_opened", None, None, Some(mr_iid)).await
 }
 
 pub async fn review_mr(
     pool: &SqlitePool,
-    git: &GitService,
-    gitlab: &GitLabClient,
+    backend: &dyn StorageBackend,
     rings_dir: &std::path::Path,
     record_id: &str,
-    gitlab_repo_url: &str,
     action: archive::ReviewAction,
 ) -> Result<ArchiveRecord> {
     let record = archive::get_record(pool, record_id).await?;
@@ -358,12 +393,15 @@ pub async fn review_mr(
 
     match action {
         archive::ReviewAction::Merge => {
-            gitlab.merge_mr(gitlab_repo_url, mr_iid).await?;
-            let _ = git.pull(&repo_path);
+            backend
+                .merge_review(&repo_path, &record.ring_id, mr_iid)
+                .await?;
             archive::update_status(pool, record_id, "merged", None, None, None).await
         }
         archive::ReviewAction::Reject => {
-            gitlab.close_mr(gitlab_repo_url, mr_iid).await?;
+            backend
+                .reject_review(&repo_path, &record.ring_id, mr_iid)
+                .await?;
             archive::update_status(pool, record_id, "rejected", None, None, None).await
         }
     }
@@ -415,7 +453,7 @@ pub struct ArchiveUnit {
 #[allow(clippy::too_many_arguments)]
 pub async fn auto_archive_session(
     pool: &SqlitePool,
-    git: &GitService,
+    backend: Box<dyn StorageBackend>,
     rings_dir: &std::path::Path,
     ring_id: &str,
     session_id: &str,
@@ -501,7 +539,7 @@ pub async fn auto_archive_session(
         let title_with_ts = format!("{}_{}", chrono::Utc::now().format("%H%M%S"), unit.title);
         match archive_content_creator(
             pool,
-            git,
+            backend.as_ref(),
             rings_dir,
             ring_id,
             Some(session_id),
@@ -532,7 +570,7 @@ pub async fn auto_archive_session(
 #[allow(clippy::too_many_arguments)]
 pub async fn auto_archive_chat(
     pool: &SqlitePool,
-    git: &GitService,
+    backend: Box<dyn StorageBackend>,
     rings_dir: &std::path::Path,
     ring_id: &str,
     user_message: &str,
@@ -627,7 +665,7 @@ pub async fn auto_archive_chat(
     if is_creator {
         match archive_content_creator(
             pool,
-            git,
+            backend.as_ref(),
             rings_dir,
             ring_id,
             None,
@@ -646,57 +684,24 @@ pub async fn auto_archive_chat(
             }
         }
     } else {
-        let repo_url = match sqlx::query_scalar::<_, Option<String>>(
-            "SELECT gitlab_repo_url FROM rings WHERE id = ?1",
+        match archive_content_member(
+            pool,
+            backend.as_ref(),
+            rings_dir,
+            ring_id,
+            None,
+            None,
+            &content,
+            &title_with_ts,
+            user_id,
         )
-        .bind(ring_id)
-        .fetch_one(pool)
         .await
         {
-            Ok(url) => url,
+            Ok(_) => {
+                tracing::info!("auto_archive_chat: created MR for '{}'", title);
+            }
             Err(e) => {
-                tracing::warn!("auto_archive_chat failed to get repo url: {e}");
-                return;
-            }
-        };
-
-        let (gitlab_url, gitlab_token) = match (&user_row.gitlab_url, &user_row.gitlab_token) {
-            (Some(url), Some(token)) => (url.clone(), token.clone()),
-            _ => {
-                tracing::warn!("auto_archive_chat: GitLab not configured for member");
-                return;
-            }
-        };
-
-        match repo_url {
-            Some(url) => {
-                let gitlab =
-                    crate::services::gitlab_service::GitLabClient::new(&gitlab_url, &gitlab_token);
-                match archive_content_member(
-                    pool,
-                    git,
-                    &gitlab,
-                    rings_dir,
-                    ring_id,
-                    &url,
-                    None,
-                    None,
-                    &content,
-                    &title_with_ts,
-                    user_id,
-                )
-                .await
-                {
-                    Ok(_) => {
-                        tracing::info!("auto_archive_chat: created MR for '{}'", title);
-                    }
-                    Err(e) => {
-                        tracing::warn!("auto_archive_chat failed to create MR: {e}");
-                    }
-                }
-            }
-            None => {
-                tracing::warn!("auto_archive_chat: no GitLab repo configured");
+                tracing::warn!("auto_archive_chat failed to create MR: {e}");
             }
         }
     }

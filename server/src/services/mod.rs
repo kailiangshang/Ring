@@ -23,6 +23,7 @@ pub mod self_memory;
 pub mod session;
 pub mod setup;
 pub mod skill;
+pub mod storage;
 pub mod super_chat;
 pub mod upload;
 pub mod workflow;

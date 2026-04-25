@@ -57,6 +57,12 @@ impl AppState {
             }
         }
 
+        if let Some(ref encrypted) = user.github_token {
+            if let Some(decrypted) = self.encryption.decrypt(encrypted) {
+                user.github_token = Some(decrypted);
+            }
+        }
+
         Ok(user)
     }
 }

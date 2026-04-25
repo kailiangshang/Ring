@@ -232,10 +232,25 @@ pub async fn close_session(
                 }
             };
 
-            let git = crate::services::git_service::GitService::new();
+            let backend: Box<dyn crate::services::storage::StorageBackend> =
+                match crate::services::archive_service::get_backend(
+                    &pool,
+                    &ring_id,
+                    Some(&creator_user),
+                    None,
+                )
+                .await
+                {
+                    Ok(b) => b,
+                    Err(e) => {
+                        tracing::warn!("auto_archive: failed to get backend: {e}");
+                        return;
+                    }
+                };
+
             crate::services::archive_service::auto_archive_session(
                 &pool,
-                &git,
+                backend,
                 &rings_dir,
                 &ring_id,
                 &session_id,

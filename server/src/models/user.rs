@@ -15,6 +15,8 @@ pub struct UserRow {
     pub llm_base_url: Option<String>,
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
+    pub github_url: Option<String>,
+    pub github_token: Option<String>,
     pub privacy_filters: Option<String>,
     pub created_at: String,
 }

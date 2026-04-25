@@ -76,13 +76,20 @@ pub async fn ring_chat(
         let state_c = state.clone();
         let content_c = body.content.clone();
         let self_dir_c = crate::services::self_data::get_self_dir(&user.token_id);
+        let backend_c = crate::services::archive_service::get_backend(
+            &state.db,
+            &ring_id,
+            None,
+            Some(&state.encryption),
+        )
+        .await?;
         let s = stream! {
             let message_id = ulid::Ulid::new().to_string();
             yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
             yield Ok(Event::default().event("delta").data(serde_json::json!({"content": "检测到归档意图，正在启动归档流程..."}).to_string()));
             yield Ok(Event::default().event("message_end").data(serde_json::json!({"message_id": message_id, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}).to_string()));
             if let Err(e) = crate::services::archive_service::quick_archive(
-                &state_c, &ring_id_c, &user_id_c, &content_c,
+                &state_c, backend_c.as_ref(), &ring_id_c, &user_id_c, &content_c,
             ).await {
                 tracing::warn!("failed to quick archive: {e}");
             }
@@ -230,6 +237,13 @@ pub async fn ring_chat(
                     let content_auto = full_content.clone();
                     let user_message_auto = user_message.clone();
                     let rings_dir_auto = state_c.rings_dir.clone();
+                    let backend_auto = match crate::services::archive_service::get_backend(&state_c.db, &ring_id_auto, Some(&user_row_c), Some(&state_c.encryption)).await {
+                        Ok(b) => b,
+                        Err(e) => {
+                            tracing::warn!("auto_archive_chat: failed to get backend: {e}");
+                            return;
+                        }
+                    };
                     tokio::spawn(async move {
                         let auto_archive: bool = sqlx::query_scalar(
                             "SELECT auto_archive FROM rings WHERE id = ?1",
@@ -240,10 +254,9 @@ pub async fn ring_chat(
                         .unwrap_or(false);
 
                         if auto_archive {
-                            let git = crate::services::git_service::GitService::new();
                             crate::services::archive_service::auto_archive_chat(
                                 &pool_auto,
-                                &git,
+                                backend_auto,
                                 &rings_dir_auto,
                                 &ring_id_auto,
                                 &user_message_auto,
