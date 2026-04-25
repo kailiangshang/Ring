@@ -137,17 +137,17 @@ export function MessageItem({ message }: MessageItemProps) {
   const [overflowing, setOverflowing] = useState(false)
 
   useEffect(() => {
+    if (isStreaming) {
+      setCollapsed(false)
+      return
+    }
     const el = contentRef.current
     if (!el) return
     if (el.scrollHeight > COLLAPSE_HEIGHT + 40) {
       setOverflowing(true)
       setCollapsed(true)
     }
-  }, [message.content])
-
-  useEffect(() => {
-    if (isStreaming) setCollapsed(false)
-  }, [isStreaming])
+  }, [message.content, isStreaming])
 
   const isAi = !isUser && message.role !== 'system'
 

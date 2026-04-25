@@ -9,6 +9,7 @@ export default defineConfig({
       '/api': {
         target: `http://localhost:${process.env.VITE_API_PORT || '7420'}`,
         changeOrigin: true,
+        ws: true,
       },
     },
   },
