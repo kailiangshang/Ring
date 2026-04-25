@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type PanelType = 'graph' | 'archive' | 'config' | 'session' | 'super_skills' | 'super_settings' | 'blueprint' | 'prompts'
+export type PanelType = 'graph' | 'archive' | 'config' | 'session' | 'super_skills' | 'super_settings' | 'blueprint'
 
 export interface Panel {
   type: PanelType
