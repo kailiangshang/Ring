@@ -14,6 +14,54 @@ import { useAppStore } from './app-store'
 import { useGraphStore } from './graph-store'
 import { useInviteStore } from './invite-store'
 
+const SCOPE_LABELS: Record<string, string> = {
+  super: 'Super',
+  ring: 'Ring',
+  session: 'Session',
+}
+
+function buildHelpContent(): string {
+  type CmdInfo = { prefix: string; cmd: string; desc: string; scopes: string[] }
+
+  const slashCmds: CmdInfo[] = [
+    { prefix: '/', cmd: 'graph', desc: 'Open graph panel', scopes: ['ring'] },
+    { prefix: '/', cmd: 'archive', desc: 'Open archive panel', scopes: ['ring'] },
+    { prefix: '/', cmd: 'config', desc: 'Open config panel', scopes: ['ring'] },
+    { prefix: '/', cmd: 'session [create/close/start/summarize]', desc: 'Session operations', scopes: ['ring', 'session'] },
+    { prefix: '/', cmd: 'new <name>', desc: 'Create new ring', scopes: ['ring'] },
+    { prefix: '/', cmd: 'save', desc: 'Archive conversation', scopes: ['ring', 'session'] },
+    { prefix: '/', cmd: 'node [add/link]', desc: 'Graph node operations', scopes: ['ring'] },
+    { prefix: '/', cmd: 'mode [auto/normal]', desc: 'Set interaction mode', scopes: ['ring'] },
+    { prefix: '/', cmd: 'prefs [set key value]', desc: 'Show/set preferences', scopes: ['super', 'ring'] },
+    { prefix: '/', cmd: 'skill [list/install/remove]', desc: 'Manage skills', scopes: ['super', 'ring'] },
+    { prefix: '/', cmd: 'members', desc: 'Show members', scopes: ['ring'] },
+    { prefix: '/', cmd: 'invite [open/audit]', desc: 'Create invite', scopes: ['ring'] },
+    { prefix: '/', cmd: 'help [command]', desc: 'Show help', scopes: ['super', 'ring', 'session'] },
+  ]
+
+  const atCmds: CmdInfo[] = [
+    { prefix: '@', cmd: 'self [message]', desc: 'Talk to Self', scopes: ['super', 'ring', 'session'] },
+    { prefix: '@', cmd: 'ring [message]', desc: 'Talk to Ring AI', scopes: ['ring'] },
+    { prefix: '@', cmd: 'super [message]', desc: 'Talk to Super Ring', scopes: ['super', 'ring'] },
+    { prefix: '@', cmd: 'node <name>', desc: 'Reference graph node', scopes: ['ring'] },
+  ]
+
+  const currentContext = useAppStore.getState().current_context
+
+  const renderTable = (cmds: CmdInfo[]) => {
+    const header = '| Command | Description | Scope |'
+    const sep = '|---------|-------------|-------|'
+    const rows = cmds.map(c => {
+      const scopeStr = c.scopes.map(s => SCOPE_LABELS[s] ?? s).join(', ')
+      const marker = c.scopes.includes(currentContext) ? '' : ' 🔒'
+      return `| ${c.prefix}${c.cmd}${marker} | ${c.desc} | ${scopeStr} |`
+    })
+    return [header, sep, ...rows].join('\n')
+  }
+
+  return `## Commands\n\n> Scope: **Super** = Super Ring only · **Ring** = Group Ring · **Session** = Active session · 🔒 = not available in current view\n\n### Slash Commands (/ prefix)\n${renderTable(slashCmds)}\n\n### Addressing (@ prefix)\n${renderTable(atCmds)}`
+}
+
 function getCommandHelp(command: string): string {
   const helpMap: Record<string, string> = {
     graph: '### /graph\n\nOpen the graph panel to view and edit the knowledge graph.\n\n**Usage:** `/graph`',
@@ -376,7 +424,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 id: `sys-help-${Date.now()}`,
                 role: 'system',
                 sender_name: 'SYSTEM',
-                content: `## Commands\n\n### Environment (/ prefix)\n| Command | Description |\n|---------|-------------|\n| /graph | Open graph panel |\n| /archive | Open archive panel |\n| /config | Open config panel |\n| /session [create/close/start/summarize] | Session operations |\n| /new <name> | Create new ring |\n| /save | Archive conversation |\n| /node [add/link] | Graph node operations |\n| /mode [auto/normal] | Set interaction mode |\n| /prefs [set key value] | Show/set preferences |\n| /skill [list/install/remove] | Manage skills |\n| /members | Show members |\n| /invite [open/audit] | Create invite |\n| /help [command] | Show help |\n\n### Addressing (@ prefix)\n| Command | Description |\n|---------|-------------|\n| @self [message] | Talk to Self |\n| @ring [message] | Talk to Ring AI |\n| @super [message] | Talk to Super Ring |\n| @node <name> | Reference graph node |`,
+                content: buildHelpContent(),
                 created_at: new Date().toISOString(),
               })
             }

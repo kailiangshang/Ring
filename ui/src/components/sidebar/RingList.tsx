@@ -16,6 +16,7 @@ export function RingList() {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
+  const [startBlueprint, setStartBlueprint] = useState(true)
 
   const handleCreate = async () => {
     if (!newName.trim()) return
@@ -26,7 +27,9 @@ export function RingList() {
       setCreating(false)
       selectRing(ring_id)
       setContext('ring')
-      openPanel('graph')
+      if (startBlueprint) {
+        openPanel('graph')
+      }
     } else {
       setCreateError('Failed to create ring. Name may already exist.')
     }
@@ -82,6 +85,23 @@ export function RingList() {
               {createError}
             </div>
           )}
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            fontSize: 10,
+            color: 'var(--text-secondary)',
+            marginBottom: 6,
+            cursor: 'pointer',
+          }}>
+            <input
+              type="checkbox"
+              checked={startBlueprint}
+              onChange={(e) => setStartBlueprint(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            Start with blueprint
+          </label>
           <div style={{ display: 'flex', gap: 4 }}>
             <button
               onClick={handleCreate}

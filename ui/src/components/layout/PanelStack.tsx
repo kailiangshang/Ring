@@ -8,6 +8,7 @@ import { SessionPanel } from '../panels/SessionPanel'
 import { SuperSkillsPanel } from '../panels/SuperSkillsPanel'
 import { SuperSettingsPanel } from '../panels/SuperSettingsPanel'
 import { BlueprintPanel } from '../panels/BlueprintPanel'
+import { PromptsPanel } from '../panels/PromptsPanel'
 
 const PANEL_CONTENT: Record<string, () => ReactElement | null> = {
   graph: GraphPanel,
@@ -17,6 +18,7 @@ const PANEL_CONTENT: Record<string, () => ReactElement | null> = {
   super_skills: SuperSkillsPanel,
   super_settings: SuperSettingsPanel,
   blueprint: BlueprintPanel,
+  prompts: PromptsPanel,
 }
 
 const PANEL_TITLES: Record<string, string> = {
@@ -27,6 +29,7 @@ const PANEL_TITLES: Record<string, string> = {
   super_skills: 'Skills',
   super_settings: 'Settings',
   blueprint: 'Blueprint',
+  prompts: 'Prompts',
 }
 
 export function PanelStack() {

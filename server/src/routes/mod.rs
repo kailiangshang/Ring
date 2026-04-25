@@ -19,6 +19,7 @@ mod join_page;
 mod members;
 mod mode;
 mod notification;
+mod prompts;
 mod rings;
 mod self_data;
 mod session;
@@ -36,6 +37,7 @@ pub fn build_router(state: AppState) -> Router {
 
     let api = Router::new()
         .route("/health", get(health::health_check))
+        .route("/prompts", get(prompts::list_prompts))
         .route("/ws", get(ws::ws_handler))
         .route("/setup/status", get(setup::get_status))
         .route("/setup/recover", get(setup::recover_token))
