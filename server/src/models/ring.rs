@@ -21,8 +21,15 @@ pub struct RingRow {
 pub struct CreateRing {
     pub name: String,
     pub role_description: String,
+    #[serde(default = "default_storage_mode")]
+    pub storage_mode: String,
     pub gitlab_repo_url: Option<String>,
     pub gitlab_namespace: Option<String>,
+    pub github_repo_url: Option<String>,
+}
+
+fn default_storage_mode() -> String {
+    "local".into()
 }
 
 #[derive(Debug, FromRow, Serialize)]
@@ -74,16 +81,18 @@ pub async fn create_ring(
     }
 
     let ring = sqlx::query_as::<_, RingRow>(
-        "INSERT INTO rings (id, name, creator_id, role_description, gitlab_repo_url, gitlab_namespace)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+        "INSERT INTO rings (id, name, creator_id, role_description, storage_mode, gitlab_repo_url, gitlab_namespace, github_repo_url)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
          RETURNING *"
     )
         .bind(ring_id)
         .bind(&input.name)
         .bind(creator_id)
         .bind(&input.role_description)
+        .bind(&input.storage_mode)
         .bind(&input.gitlab_repo_url)
         .bind(&input.gitlab_namespace)
+        .bind(&input.github_repo_url)
         .fetch_one(pool)
         .await?;
 
