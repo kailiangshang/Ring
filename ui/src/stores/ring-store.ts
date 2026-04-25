@@ -5,8 +5,8 @@ import { api } from '../services/api'
 interface CreateRingInput {
   name: string
   role_description: string
-  storage_mode: 'local' | 'github'
-  github_repo_url?: string
+  storage_mode: 'local' | 'gitlab'
+  gitlab_repo_url?: string
 }
 
 interface RingState {
@@ -41,8 +41,8 @@ export const useRingStore = create<RingState>((set, get) => ({
         role_description: input.role_description,
         storage_mode: input.storage_mode,
       }
-      if (input.storage_mode === 'github' && input.github_repo_url) {
-        body.github_repo_url = input.github_repo_url
+      if (input.storage_mode === 'gitlab' && input.gitlab_repo_url) {
+        body.gitlab_repo_url = input.gitlab_repo_url
       }
       const res = await api.post<{ id: string; name: string; role: string }>('/rings', body)
       await get().fetchRings()

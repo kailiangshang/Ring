@@ -126,7 +126,7 @@ export function SuperSettingsPanel() {
       const res = await fetch('/api/config/gitlab/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: gitlabUrl, token: gitlabToken, github_url: gitlabUrl, github_token: gitlabToken }),
+        body: JSON.stringify({ url: gitlabUrl, token: gitlabToken }),
       })
       const data = await res.json()
       setGitlabResult(data)
@@ -176,11 +176,11 @@ export function SuperSettingsPanel() {
       </div>
       <ResultMsg result={llmResult} />
 
-      <p style={sectionTitle}>GitHub Config <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(Optional)</span></p>
-      <label htmlFor="ss-gitlab-url" style={{ fontSize: 10, color: 'var(--text-dim)' }}>GitHub URL</label>
-      <input id="ss-gitlab-url" value={gitlabUrl} onChange={(e) => setGitlabUrl(e.target.value)} placeholder="https://github.com" style={inputStyle} />
+      <p style={sectionTitle}>GitLab Config <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(Optional)</span></p>
+      <label htmlFor="ss-gitlab-url" style={{ fontSize: 10, color: 'var(--text-dim)' }}>GitLab URL</label>
+      <input id="ss-gitlab-url" value={gitlabUrl} onChange={(e) => setGitlabUrl(e.target.value)} placeholder="https://gitlab.company.com" style={inputStyle} />
       <label htmlFor="ss-gitlab-token" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Personal Access Token</label>
-      <input id="ss-gitlab-token" type="password" value={gitlabToken} onChange={(e) => setGitlabToken(e.target.value)} placeholder="ghp_xxx" style={inputStyle} />
+      <input id="ss-gitlab-token" type="password" value={gitlabToken} onChange={(e) => setGitlabToken(e.target.value)} placeholder="glpat-xxx" style={inputStyle} />
       <button onClick={handleGitlabTest} disabled={gitlabTesting} style={{ ...smallBtn, border: '1px solid var(--accent-cyan)', color: 'var(--accent-cyan)', background: 'transparent', marginBottom: 8, opacity: gitlabTesting ? 0.5 : 1 }}>
         {gitlabTesting ? 'TESTING...' : 'TEST CONNECTION'}
       </button>

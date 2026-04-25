@@ -37,39 +37,39 @@ export function StepGitLab({ data, onChange, onNext, onBack, error }: StepProps)
   return (
     <div style={{ padding: '20px', maxWidth: 420, margin: '0 auto' }}>
       <h2 style={{ fontSize: 16, color: 'var(--accent-ice)', marginBottom: 4 }}>
-        Step 3: GitHub Config
+        Step 3: GitLab Config
         <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>(Optional)</span>
       </h2>
 
       <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: 16 }}>
-        GitHub 用于归档对话记录、创建合并请求和团队协作。配置后你可以：
+        GitLab 用于归档对话记录、创建合并请求和团队协作。配置后你可以：
         <ul style={{ margin: '4px 0', paddingLeft: 16 }}>
           <li>将 AI 对话自动归档为 Markdown 文件</li>
           <li>通过 Git 管理知识图谱的变更</li>
           <li>团队成员提交归档审核</li>
         </ul>
-        不配置 GitHub 仍可正常使用 Ring，但归档功能将不可用。
+        不配置 GitLab 仍可正常使用 Ring，但归档功能将不可用。
       </div>
 
-      <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>GitHub URL</label>
+      <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>GitLab URL</label>
       <input
-        value={data.github_url}
-        onChange={(e) => onChange({ github_url: e.target.value, gitlab_url: e.target.value })}
-        placeholder="https://github.com"
+        value={data.gitlab_url}
+        onChange={(e) => onChange({ gitlab_url: e.target.value })}
+        placeholder="https://gitlab.company.com"
         style={inputStyle}
       />
 
       <label style={{ fontSize: 11, color: 'var(--text-dim)' }}>
         Personal Access Token
         <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
-          {' '}— 在 GitHub Settings → Developer settings → Personal access tokens 中创建，需勾选 <strong>repo</strong> 权限
+          {' '}— 在 GitLab Settings → Access Tokens 中创建，需勾选 <strong>api</strong> 权限
         </span>
       </label>
       <input
         type="password"
-        value={data.github_token}
-        onChange={(e) => onChange({ github_token: e.target.value, gitlab_token: e.target.value })}
-        placeholder="ghp_xxx"
+        value={data.gitlab_token}
+        onChange={(e) => onChange({ gitlab_token: e.target.value })}
+        placeholder="glpat-xxx"
         style={inputStyle}
       />
 

@@ -1,5 +1,5 @@
 export type Role = 'creator' | 'admin' | 'member' | 'readonly'
-export type StorageMode = 'local' | 'github'
+export type StorageMode = 'local' | 'gitlab'
 
 export interface Ring {
   id: string

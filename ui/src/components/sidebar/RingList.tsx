@@ -71,8 +71,8 @@ export function RingList() {
   const [createError, setCreateError] = useState<string | null>(null)
   const [startBlueprint, setStartBlueprint] = useState(true)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
-  const [storageMode, setStorageMode] = useState<'local' | 'github'>('local')
-  const [githubRepoUrl, setGithubRepoUrl] = useState('')
+  const [storageMode, setStorageMode] = useState<'local' | 'gitlab'>('local')
+  const [gitlabRepoUrl, setGitlabRepoUrl] = useState('')
 
   const toggle_expand = useCallback((ring_id: string) => {
     setExpanded((prev) => ({ ...prev, [ring_id]: !prev[ring_id] }))
@@ -86,19 +86,19 @@ export function RingList() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return
-    if (storageMode === 'github' && !githubRepoUrl.trim()) return
+    if (storageMode === 'gitlab' && !gitlabRepoUrl.trim()) return
     setCreateError(null)
     const ring_id = await createRing({
       name: newName.trim(),
       role_description: `You are a ${newName.trim()} assistant`,
       storage_mode: storageMode,
-      github_repo_url: storageMode === 'github' ? githubRepoUrl.trim() : undefined,
+      gitlab_repo_url: storageMode === 'gitlab' ? gitlabRepoUrl.trim() : undefined,
     })
     if (ring_id) {
       setNewName('')
       setCreating(false)
       setStorageMode('local')
-      setGithubRepoUrl('')
+      setGitlabRepoUrl('')
       selectRing(ring_id)
       setContext('ring')
       if (startBlueprint) {
@@ -245,7 +245,7 @@ export function RingList() {
             </div>
           )}
           <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
-            {(['local', 'github'] as const).map((m) => (
+            {(['local', 'gitlab'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setStorageMode(m)}
@@ -266,15 +266,15 @@ export function RingList() {
               </button>
             ))}
           </div>
-          {storageMode === 'github' && (
+          {storageMode === 'gitlab' && (
             <input
-              value={githubRepoUrl}
-              onChange={(e) => setGithubRepoUrl(e.target.value)}
+              value={gitlabRepoUrl}
+              onChange={(e) => setGitlabRepoUrl(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreate()
                 if (e.key === 'Escape') setCreating(false)
               }}
-              placeholder="https://github.com/owner/repo"
+              placeholder="https://gitlab.company.com/group/project"
               style={{
                 width: '100%',
                 background: 'var(--bg-input)',
