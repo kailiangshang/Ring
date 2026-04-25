@@ -69,46 +69,36 @@ fn render_join_page(
     host_ip: Option<&str>,
     detected_os: &str,
 ) -> Html<String> {
-    let owner = std::env::var("RING_GITHUB_OWNER").unwrap_or_else(|_| "ring-hub".into());
-
-    let platforms = [
-        ("windows", "Windows", "ring-server-windows-amd64.zip"),
-        (
-            "macos-arm64",
-            "macOS (Apple Silicon)",
-            "ring-server-macos-arm64.tar.gz",
-        ),
-        (
-            "macos-amd64",
-            "macOS (Intel)",
-            "ring-server-macos-amd64.tar.gz",
-        ),
-        ("linux", "Linux", "ring-server-linux-amd64.tar.gz"),
-    ];
-
-    let download_buttons = platforms
-        .iter()
-        .map(|(id, label, filename)| {
-            let is_detected = *id == detected_os;
-            let bg = if is_detected { "#238636" } else { "#21262d" };
-            let border = if is_detected { "#2ea043" } else { "#30363d" };
-            let badge = if is_detected {
-                r##"<span style="font-size:0.7rem;background:#238636;padding:2px 8px;border-radius:9999px;margin-left:8px;">Recommended</span>"##
-            } else {
-                ""
-            };
+    let download_section = match std::env::var("RING_DOWNLOAD_URL") {
+        Ok(base_url) => {
+            let platforms = [
+                ("windows", "Windows", "ring-server-windows-amd64.zip", detected_os == "windows"),
+                ("macos-arm64", "macOS (Apple Silicon)", "ring-server-macos-arm64.tar.gz", detected_os == "macos-arm64"),
+                ("macos-amd64", "macOS (Intel)", "ring-server-macos-amd64.tar.gz", detected_os == "macos-amd64"),
+                ("linux", "Linux", "ring-server-linux-amd64.tar.gz", detected_os == "linux"),
+            ];
+            let buttons = platforms.iter().map(|(_, label, filename, detected)| {
+                let bg = if *detected { "#238636" } else { "#21262d" };
+                let border = if *detected { "#2ea043" } else { "#30363d" };
+                let badge = if *detected { r##"<span style="font-size:0.7rem;background:#238636;padding:2px 8px;border-radius:9999px;margin-left:8px;">Recommended</span>"## } else { "" };
+                format!(
+                    r##"<a href="{base}/{file}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:{bg};border:1px solid {border};color:#e6edf3;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:0.9rem;margin-bottom:8px;width:100%;max-width:340px;">{label} {badge}</a>"##,
+                    base = base_url.trim_end_matches('/'),
+                    file = filename,
+                    bg = bg,
+                    border = border,
+                    label = label,
+                    badge = badge,
+                )
+            }).collect::<Vec<_>>().join("\n");
             format!(
-                r##"<a href="https://github.com/{owner}/ring/releases/latest/download/{filename}" style="display:flex;align-items:center;justify-content:center;gap:8px;background:{bg};border:1px solid {border};color:#e6edf3;padding:10px 20px;border-radius:6px;text-decoration:none;font-size:0.9rem;margin-bottom:8px;width:100%;max-width:340px;">{label} {badge}</a>"##,
-                owner = owner,
-                filename = filename,
-                bg = bg,
-                border = border,
-                label = label,
-                badge = badge,
+                r##"<h2 class="section-title">Download Ring</h2><div class="downloads">{buttons}</div>"##
             )
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+        }
+        Err(_) => {
+            r##"<div class="info-box" style="text-align:center;"><p style="color:#8b949e;">请联系 Ring 管理员获取安装包</p></div>"##.to_string()
+        }
+    };
 
     let creator_ip_param = match host_ip {
         Some(ip) => format!("&creator_ip={}", ip),
@@ -155,10 +145,7 @@ h1 {{ font-size: 1.8rem; margin-bottom: 0.5rem; }}
 <div class="info-row"><span class="info-label">Invite type</span><span class="info-value">{token_type}</span></div>
 </div>
 
-<h2 class="section-title">Download Ring</h2>
-<div class="downloads">
-{download_buttons}
-</div>
+{download_section}
 
 <div class="steps">
 <div class="step"><div class="step-num">1</div><div class="step-text">Download and install Ring for your platform</div></div>
@@ -174,7 +161,7 @@ h1 {{ font-size: 1.8rem; margin-bottom: 0.5rem; }}
         member_count = member_count,
         role = role,
         token_type = token_type,
-        download_buttons = download_buttons,
+        download_section = download_section,
         token = token,
         creator_ip_param = creator_ip_param,
     ))

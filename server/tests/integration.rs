@@ -1738,6 +1738,7 @@ async fn test_join_page_valid_token() {
     let json = read_body(resp).await;
     let invite_token = json["token"].as_str().unwrap();
 
+    std::env::set_var("RING_DOWNLOAD_URL", "https://internal.example.com/ring");
     let resp = app
         .clone()
         .oneshot(make_request(
@@ -1748,6 +1749,7 @@ async fn test_join_page_valid_token() {
         ))
         .await
         .unwrap();
+    std::env::remove_var("RING_DOWNLOAD_URL");
     assert_eq!(resp.status(), StatusCode::OK);
     let html = read_body_string(resp).await;
     assert!(html.contains("Test Ring"));
@@ -1838,6 +1840,7 @@ async fn test_join_page_os_detection_windows() {
     let json = read_body(resp).await;
     let invite_token = json["token"].as_str().unwrap();
 
+    std::env::set_var("RING_DOWNLOAD_URL", "https://internal.example.com/ring");
     let req = make_request_with_ua(
         "GET",
         &format!("/ring/join?token={invite_token}"),
@@ -1846,6 +1849,7 @@ async fn test_join_page_os_detection_windows() {
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
     );
     let resp = app.clone().oneshot(req).await.unwrap();
+    std::env::remove_var("RING_DOWNLOAD_URL");
     let html = read_body_string(resp).await;
     assert!(html.contains("Recommended"));
     assert!(html.contains("Windows"));
@@ -1872,6 +1876,7 @@ async fn test_join_page_os_detection_macos() {
     let json = read_body(resp).await;
     let invite_token = json["token"].as_str().unwrap();
 
+    std::env::set_var("RING_DOWNLOAD_URL", "https://internal.example.com/ring");
     let req = make_request_with_ua(
         "GET",
         &format!("/ring/join?token={invite_token}"),
@@ -1880,6 +1885,7 @@ async fn test_join_page_os_detection_macos() {
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)",
     );
     let resp = app.clone().oneshot(req).await.unwrap();
+    std::env::remove_var("RING_DOWNLOAD_URL");
     let html = read_body_string(resp).await;
     assert!(html.contains("Recommended"));
     assert!(html.contains("macOS"));
