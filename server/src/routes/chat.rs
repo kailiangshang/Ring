@@ -69,24 +69,6 @@ pub async fn ring_chat(
     .map_err(|e| RingError::Internal(e.to_string()))?
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
-    if let Ok(Some(result)) = crate::services::graph_chat_command::try_handle_graph_command(
-        &state,
-        &ring_id,
-        &user_row,
-        &body.content,
-    )
-    .await
-    {
-        let result_clone = result.clone();
-        let s = stream! {
-            let message_id = ulid::Ulid::new().to_string();
-            yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
-            yield Ok(Event::default().event("delta").data(serde_json::json!({"content": result_clone}).to_string()));
-            yield Ok(Event::default().event("message_end").data(serde_json::json!({"message_id": message_id, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}).to_string()));
-        }.boxed();
-        return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
-    }
-
     if chat::detect_archive_intent(&body.content) {
         let ring_id_c = ring_id.clone();
         let user_id_c = user.token_id.clone();
@@ -106,7 +88,15 @@ pub async fn ring_chat(
         return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
     }
 
-    let _ = chat::auto_compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await;
+    {
+        let state_c = state.clone();
+        let user_row_c = user_row.clone();
+        let ring_id_c = ring_id.clone();
+        let token_id_c = user.token_id.clone();
+        tokio::spawn(async move {
+            let _ = chat::auto_compact_history(&state_c, &user_row_c, Some(&ring_id_c), &token_id_c).await;
+        });
+    }
 
     let user_msg_id = ulid::Ulid::new().to_string();
     if !body.ephemeral {
