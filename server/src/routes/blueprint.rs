@@ -81,7 +81,9 @@ pub async fn confirm_blueprint_handler(
     crate::services::blueprint_service::confirm_with_blueprint(&state, &ring_id, &body).await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "blueprint");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "blueprint") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(serde_json::json!({ "status": "confirmed" })))
 }
@@ -198,7 +200,7 @@ pub async fn blueprint_chat(
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
 
-                    let _ = message::insert_message(
+                    if let Err(e) = message::insert_message(
                         &pool,
                         &message::NewMessage {
                             id: &message_id,
@@ -211,10 +213,14 @@ pub async fn blueprint_chat(
                             tag_refs: &[],
                             token_usage: token_usage.as_deref(),
                         },
-                    ).await;
+                    ).await {
+                        tracing::warn!("failed to insert message: {e}");
+                    }
 
                     let self_dir = crate::services::self_data::get_self_dir(&user_id);
-                    let _ = crate::services::self_data::record_tool_usage(&self_dir, "blueprint");
+                    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "blueprint") {
+                        tracing::warn!("failed to record tool usage: {e}");
+                    }
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });

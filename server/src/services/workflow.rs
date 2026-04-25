@@ -22,13 +22,11 @@ pub async fn execute_file_parse(
     user: &UserRow,
     args: &FileParseArgs,
 ) -> Result<String> {
-    let row = sqlx::query_as::<_, (String,)>(
-        "SELECT content FROM messages WHERE id = ?1",
-    )
-    .bind(&args.file_reference)
-    .fetch_optional(pool)
-    .await?
-    .ok_or_else(|| RingError::NotFound(format!("message {} not found", args.file_reference)))?;
+    let row = sqlx::query_as::<_, (String,)>("SELECT content FROM messages WHERE id = ?1")
+        .bind(&args.file_reference)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| RingError::NotFound(format!("message {} not found", args.file_reference)))?;
 
     let file_text = row.0;
     let truncated: String = file_text.chars().take(30000).collect();

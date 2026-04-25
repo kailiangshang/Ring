@@ -69,9 +69,7 @@ pub fn build_messages(
                 messages.push(ChatCompletionRequestMessage::Assistant(
                     #[allow(deprecated)]
                     ChatCompletionRequestAssistantMessage {
-                        content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                            content,
-                        )),
+                        content: Some(ChatCompletionRequestAssistantMessageContent::Text(content)),
                         name: None,
                         tool_calls: None,
                         refusal: None,
@@ -249,7 +247,7 @@ impl LlmClient {
         }
     }
 
-    pub fn chat_stream_with_tools<F, Fut>(
+    pub fn chat_stream_with_tools<F>(
         self,
         system_prompt: String,
         history: Vec<(String, String)>,
@@ -259,8 +257,13 @@ impl LlmClient {
         tool_executor: F,
     ) -> tokio::sync::mpsc::Receiver<SseEvent>
     where
-        F: Fn(String, serde_json::Value) -> Fut + Send + 'static,
-        Fut: std::future::Future<Output = crate::error::Result<String>> + Send,
+        F: Fn(
+                String,
+                serde_json::Value,
+            ) -> std::pin::Pin<
+                Box<dyn std::future::Future<Output = crate::error::Result<String>> + Send>,
+            > + Send
+            + 'static,
     {
         let (tx, rx) = tokio::sync::mpsc::channel(32);
 
@@ -280,9 +283,7 @@ impl LlmClient {
                 messages: messages.clone(),
                 model: self.model.clone(),
                 tools: Some(tools),
-                tool_choice: Some(
-                    async_openai::types::ChatCompletionToolChoiceOption::Auto,
-                ),
+                tool_choice: Some(async_openai::types::ChatCompletionToolChoiceOption::Auto),
                 ..Default::default()
             };
 
@@ -310,16 +311,14 @@ impl LlmClient {
                                     Err(e) => format!("Error: {e}"),
                                 };
 
-                                tc_list.push(
-                                    async_openai::types::ChatCompletionMessageToolCall {
-                                        id: tc.id.clone(),
-                                        r#type: async_openai::types::ChatCompletionToolType::Function,
-                                        function: async_openai::types::FunctionCall {
-                                            name: tc.function.name.clone(),
-                                            arguments: tc.function.arguments.clone(),
-                                        },
+                                tc_list.push(async_openai::types::ChatCompletionMessageToolCall {
+                                    id: tc.id.clone(),
+                                    r#type: async_openai::types::ChatCompletionToolType::Function,
+                                    function: async_openai::types::FunctionCall {
+                                        name: tc.function.name.clone(),
+                                        arguments: tc.function.arguments.clone(),
                                     },
-                                );
+                                });
 
                                 tool_messages.push(ChatCompletionRequestMessage::Tool(
                                     ChatCompletionRequestToolMessage {
@@ -334,9 +333,11 @@ impl LlmClient {
                             messages.push(ChatCompletionRequestMessage::Assistant(
                                 #[allow(deprecated)]
                                 ChatCompletionRequestAssistantMessage {
-                                    content: Some(ChatCompletionRequestAssistantMessageContent::Text(
-                                        assistant_content,
-                                    )),
+                                    content: Some(
+                                        ChatCompletionRequestAssistantMessageContent::Text(
+                                            assistant_content,
+                                        ),
+                                    ),
                                     name: None,
                                     tool_calls: Some(tc_list),
                                     refusal: None,
@@ -381,7 +382,8 @@ impl LlmClient {
                                                 }
                                             }
                                             Err(e) => {
-                                                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                                let _ =
+                                                    tx.send(SseEvent::Error(e.to_string())).await;
                                                 break;
                                             }
                                         }

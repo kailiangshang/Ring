@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, lazy, Suspense } from 'react'
 import { SuperRingEntry } from '../sidebar/SuperRingEntry'
 import { RingList } from '../sidebar/RingList'
+
+const PromptsModal = lazy(() => import('../panels/PromptsPanel').then(m => ({ default: m.PromptsModal })))
 
 export function Sidebar() {
   const [showPrompts, setShowPrompts] = useState(false)
@@ -44,10 +46,10 @@ export function Sidebar() {
         </div>
       </div>
       {showPrompts && (
-        <PromptsModal onClose={() => setShowPrompts(false)} />
+        <Suspense fallback={null}>
+          <PromptsModal onClose={() => setShowPrompts(false)} />
+        </Suspense>
       )}
     </>
   )
 }
-
-import { PromptsModal } from '../panels/PromptsPanel'

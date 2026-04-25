@@ -10,7 +10,7 @@
 - 69/69 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
-## 本轮完成（2026-04-24）
+## 本轮完成（2026-04-25）
 
 ### 交互优化（36 项）
 
@@ -222,16 +222,17 @@
 | Self 完整文件体系（knowledge/goals/growth） | done（Tier 1 记忆文件已实现） | 中 |
 | Self metrics（dwell_time/tool_usage） | done（心跳式 dwell_time + 全路由 tool_usage + Self AI 注入） | 中 |
 | 深度蓝图构建器（AI 对话式） | done（AI 引导多轮对话 + D3 实时预览 + 多图谱 + 边创建修复） | 中 |
-| 图谱 PNG/PDF 导出 | 缺失 | 低 |
+| 图谱 PNG/PDF 导出 | done（SVG → Canvas → PNG 2400×1600） | 低 |
+| Session 侧栏树形展示 | done（Ring 展开/折叠，嵌套 Session 列表，phase 色点 + skill 标签） | 中 |
 | 移动端适配 | 缺失 | 延后 |
 
 ## 技术债（审计记录，不阻塞）
 
-- `chat-store.ts` 685 行 god object，导入 10 个 store
-- SSE 流式回调逻辑复制 5 次（~250 行）
+- `chat-store.ts` 733 行 god object，导入 10 个 store
+- `super_chat.rs` 流式循环 3 份重复（~300 行），待统一到 LlmClient
 - 非 stream 请求无 AbortController
 - ~~`active_ring_id` 双份状态（app-store + ring-store）~~ — **已修复**
 - ~~Token 获取方式 4 种不统一~~ — **已修复**
 - ~~16 个 `.unwrap()` 在路由 handler 中~~ — **已修复**
 - `readonly` 角色权限未执行
-- CORS 允许所有 Origin
+- ~~CORS 允许所有 Origin~~ — **已修复**（仅 localhost）

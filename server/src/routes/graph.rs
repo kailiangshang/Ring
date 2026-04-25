@@ -41,15 +41,20 @@ pub async fn create_node_handler(
     let token_id_c = user.token_id.clone();
     tokio::spawn(async move {
         if let Ok(user_row) = state_c.get_user_decrypted(&token_id_c).await {
-            let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
+            if let Err(e) = crate::services::group_doc_maintenance::update_knowledge_summary(
                 &state_c, &ring_id_c, &user_row,
             )
-            .await;
+            .await
+            {
+                tracing::warn!("failed to update knowledge summary: {e}");
+            }
         }
     });
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(node))
 }
@@ -63,7 +68,9 @@ pub async fn update_node(
     let node = services::graph::update_node(&state, &node_id, &body).await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&_user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(node))
 }
@@ -94,15 +101,20 @@ pub async fn delete_node(
     let user_id = user.token_id.clone();
     tokio::spawn(async move {
         if let Ok(user_row) = state_c.get_user_decrypted(&user_id).await {
-            let _ = crate::services::group_doc_maintenance::update_knowledge_summary(
+            if let Err(e) = crate::services::group_doc_maintenance::update_knowledge_summary(
                 &state_c, &ring_id_c, &user_row,
             )
-            .await;
+            .await
+            {
+                tracing::warn!("failed to update knowledge summary: {e}");
+            }
         }
     });
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(serde_json::json!({"status": "deleted"})))
 }
@@ -125,7 +137,9 @@ pub async fn create_edge_handler(
     }
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(edge))
 }
@@ -152,7 +166,9 @@ pub async fn delete_edge(
     }
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(serde_json::json!({"status": "deleted"})))
 }

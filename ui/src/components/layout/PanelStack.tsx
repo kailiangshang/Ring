@@ -1,15 +1,16 @@
-import { type ReactElement } from 'react'
+import { type ComponentType, Suspense, lazy } from 'react'
 import { usePanelStore } from '../../stores/panel-store'
 import { PanelWrapper } from '../panels/PanelWrapper'
-import { GraphPanel } from '../panels/GraphPanel'
-import { ArchivePanel } from '../panels/ArchivePanel'
-import { ConfigPanel } from '../panels/ConfigPanel'
-import { SessionPanel } from '../panels/SessionPanel'
-import { SuperSkillsPanel } from '../panels/SuperSkillsPanel'
-import { SuperSettingsPanel } from '../panels/SuperSettingsPanel'
-import { BlueprintPanel } from '../panels/BlueprintPanel'
 
-const PANEL_CONTENT: Record<string, () => ReactElement | null> = {
+const GraphPanel = lazy(() => import('../panels/GraphPanel').then(m => ({ default: m.GraphPanel })))
+const ArchivePanel = lazy(() => import('../panels/ArchivePanel').then(m => ({ default: m.ArchivePanel })))
+const ConfigPanel = lazy(() => import('../panels/ConfigPanel').then(m => ({ default: m.ConfigPanel })))
+const SessionPanel = lazy(() => import('../panels/SessionPanel').then(m => ({ default: m.SessionPanel })))
+const SuperSkillsPanel = lazy(() => import('../panels/SuperSkillsPanel').then(m => ({ default: m.SuperSkillsPanel })))
+const SuperSettingsPanel = lazy(() => import('../panels/SuperSettingsPanel').then(m => ({ default: m.SuperSettingsPanel })))
+const BlueprintPanel = lazy(() => import('../panels/BlueprintPanel').then(m => ({ default: m.BlueprintPanel })))
+
+const PANEL_CONTENT: Record<string, ComponentType> = {
   graph: GraphPanel,
   archive: ArchivePanel,
   config: ConfigPanel,
@@ -29,6 +30,14 @@ const PANEL_TITLES: Record<string, string> = {
   blueprint: 'Blueprint',
 }
 
+function PanelFallback() {
+  return (
+    <div style={{ padding: 20, color: 'var(--text-dim)', fontSize: 11 }}>
+      Loading...
+    </div>
+  )
+}
+
 export function PanelStack() {
   const panels = usePanelStore((s) => s.panels)
   const close = usePanelStore((s) => s.close)
@@ -46,7 +55,9 @@ export function PanelStack() {
             depth={panel.depth}
             onClose={() => close(index)}
           >
-            {Content ? <Content /> : null}
+            <Suspense fallback={<PanelFallback />}>
+              {Content ? <Content /> : null}
+            </Suspense>
           </PanelWrapper>
         )
       })}

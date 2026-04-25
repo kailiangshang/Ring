@@ -160,8 +160,14 @@ pub async fn quick_archive_handler(
     }
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "archive");
-    let _ = crate::services::self_data::record_archive_operation(&self_dir, &ring_id, &file_name);
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "archive") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
+    if let Err(e) =
+        crate::services::self_data::record_archive_operation(&self_dir, &ring_id, &file_name)
+    {
+        tracing::warn!("failed to record archive operation: {e}");
+    }
 
     {
         let cache = state.cross_ring_cache.clone();
@@ -234,9 +240,11 @@ pub async fn trigger_archive(
                     let _ = tx.send(ArchiveStep::Complete).await;
 
                     let self_dir = crate::services::self_data::get_self_dir(&token_id);
-                    let _ = crate::services::self_data::record_archive_operation(
+                    if let Err(e) = crate::services::self_data::record_archive_operation(
                         &self_dir, &ring_id_c, &title,
-                    );
+                    ) {
+                        tracing::warn!("failed to record archive operation: {e}");
+                    }
 
                     let state = state_c.clone();
                     let ring_id = ring_id_c.clone();
@@ -250,13 +258,17 @@ pub async fn trigger_archive(
                         content.chars().take(200).collect::<String>()
                     );
                     tokio::spawn(async move {
-                        let _ = crate::services::group_doc_maintenance::update_archive_patterns(
-                            &state,
-                            &ring_id,
-                            &user_row,
-                            &archive_detail,
-                        )
-                        .await;
+                        if let Err(e) =
+                            crate::services::group_doc_maintenance::update_archive_patterns(
+                                &state,
+                                &ring_id,
+                                &user_row,
+                                &archive_detail,
+                            )
+                            .await
+                        {
+                            tracing::warn!("failed to update archive patterns: {e}");
+                        }
                     });
                 }
                 Err(e) => {
@@ -389,8 +401,11 @@ pub async fn review_archive(
 
     if let ReviewAction::Reject = body.action {
         let detail = format!("归档 {} 被拒绝（文件: {}）", archive_id, record.file_name);
-        let _ =
-            crate::services::group_doc_maintenance::add_correction(&state, &ring_id, &detail).await;
+        if let Err(e) =
+            crate::services::group_doc_maintenance::add_correction(&state, &ring_id, &detail).await
+        {
+            tracing::warn!("failed to add correction: {e}");
+        }
     }
 
     Ok(Json(record))

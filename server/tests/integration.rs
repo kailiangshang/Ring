@@ -2426,7 +2426,9 @@ async fn test_group_ring_tools_defined(pool: SqlitePool) {
 async fn test_cross_ring_cache_summary_and_invalidation(pool: SqlitePool) {
     let cache = ring_server::services::cross_ring_cache::new_cache();
 
-    let summary = ring_server::services::cross_ring_cache::get_summary(&cache, &pool, "nonexistent-user").await;
+    let summary =
+        ring_server::services::cross_ring_cache::get_summary(&cache, &pool, "nonexistent-user")
+            .await;
     assert!(summary.contains("没有任何 Ring"));
 
     let mut map = cache.lock().await;
@@ -2448,9 +2450,18 @@ async fn test_cross_ring_cache_invalidate_ring(pool: SqlitePool) {
     drop(map);
 
     let mut map = cache.lock().await;
-    map.insert("detail:test-ring-id".to_string(), ("test data".to_string(), std::time::Instant::now()));
-    map.insert("graph:test-ring-id".to_string(), ("graph data".to_string(), std::time::Instant::now()));
-    map.insert("summary:user-1".to_string(), ("summary data".to_string(), std::time::Instant::now()));
+    map.insert(
+        "detail:test-ring-id".to_string(),
+        ("test data".to_string(), std::time::Instant::now()),
+    );
+    map.insert(
+        "graph:test-ring-id".to_string(),
+        ("graph data".to_string(), std::time::Instant::now()),
+    );
+    map.insert(
+        "summary:user-1".to_string(),
+        ("summary data".to_string(), std::time::Instant::now()),
+    );
     drop(map);
 
     ring_server::services::cross_ring_cache::invalidate_ring(&cache, "test-ring-id").await;

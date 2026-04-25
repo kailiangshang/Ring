@@ -148,13 +148,17 @@ pub async fn extract_memories(
                 }
                 content.push_str(&fact_line);
                 content.push('\n');
-                let _ = write_memory_file(&self_dir, file_name, &content);
+                if let Err(e) = write_memory_file(&self_dir, file_name, &content) {
+                    tracing::warn!("failed to write memory file: {e}");
+                }
             }
         }
     }
 
     let self_dir = crate::services::self_data::get_self_dir(user_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "memory_extract");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "memory_extract") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(())
 }
@@ -196,6 +200,8 @@ async fn compress_memory_file(llm: LlmClient, self_dir: &Path, name: &str, conte
         )
         .await
     {
-        let _ = write_memory_file(self_dir, name, &compressed);
+        if let Err(e) = write_memory_file(self_dir, name, &compressed) {
+            tracing::warn!("failed to write compressed memory: {e}");
+        }
     }
 }

@@ -147,7 +147,7 @@ pub async fn auto_compact_history(
         let ring_name = crate::services::search::get_ring_name(&state.db, ring_id)
             .await
             .unwrap_or_default();
-        let _ = crate::services::search::upsert_search_index(
+        if let Err(e) = crate::services::search::upsert_search_index(
             &state.db,
             "message",
             &summary_id,
@@ -157,7 +157,10 @@ pub async fn auto_compact_history(
             &format!("[历史摘要] {}", summary),
             &serde_json::json!({"role": "system"}).to_string(),
         )
-        .await;
+        .await
+        {
+            tracing::warn!("failed to update search index: {e}");
+        }
     }
 
     for msg in old_messages {
@@ -287,11 +290,10 @@ pub async fn save_user_message(
     }
 
     if let Some(rid) = ring_id {
-        let ring_name =
-            crate::services::search::get_ring_name(pool, rid)
-                .await
-                .unwrap_or_default();
-        let _ = crate::services::search::upsert_search_index(
+        let ring_name = crate::services::search::get_ring_name(pool, rid)
+            .await
+            .unwrap_or_default();
+        if let Err(e) = crate::services::search::upsert_search_index(
             pool,
             "message",
             &msg_id,
@@ -301,7 +303,10 @@ pub async fn save_user_message(
             content,
             &serde_json::json!({"role": "user"}).to_string(),
         )
-        .await;
+        .await
+        {
+            tracing::warn!("failed to update search index: {e}");
+        }
     }
 
     Ok(msg_id)
@@ -393,9 +398,8 @@ pub async fn execute_group_tool(
 ) -> crate::error::Result<String> {
     match tool_name.as_str() {
         "file_parse" => {
-            let parsed: crate::services::workflow::FileParseArgs =
-                serde_json::from_value(args)
-                    .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
+            let parsed: crate::services::workflow::FileParseArgs = serde_json::from_value(args)
+                .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
             crate::services::workflow::execute_file_parse(pool, user, &parsed).await
         }
         "knowledge_extract" => {

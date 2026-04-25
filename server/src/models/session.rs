@@ -215,13 +215,12 @@ pub async fn is_participant(
 }
 
 pub async fn is_owner(pool: &sqlx::SqlitePool, session_id: &str, token_id: &str) -> Result<bool> {
-    let count: i64 = sqlx::query_scalar(
-        "SELECT COUNT(*) FROM sessions WHERE id = ?1 AND owner = ?2",
-    )
-    .bind(session_id)
-    .bind(token_id)
-    .fetch_one(pool)
-    .await?;
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM sessions WHERE id = ?1 AND owner = ?2")
+            .bind(session_id)
+            .bind(token_id)
+            .fetch_one(pool)
+            .await?;
     Ok(count > 0)
 }
 

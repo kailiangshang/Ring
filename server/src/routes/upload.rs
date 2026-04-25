@@ -30,7 +30,9 @@ pub async fn upload_ring_file(
     .await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "upload") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(msg))
 }
@@ -55,7 +57,9 @@ pub async fn upload_super_file(
     .await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "upload") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(msg))
 }
@@ -93,7 +97,9 @@ pub async fn upload_session_file(
         .broadcast_to_session(&session_id, &broadcast.to_string());
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "upload");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "upload") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     Ok(Json(material))
 }

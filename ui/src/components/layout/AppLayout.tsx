@@ -1,9 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import { Sidebar } from './Sidebar'
 import { HeaderTabBar } from './HeaderTabBar'
 import { PanelStack } from './PanelStack'
 import { ChatArea } from '../chat/ChatArea'
-import { SelfFloat } from '../self/SelfFloat'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { CreateInviteModal } from '../invite/CreateInviteModal'
 import { NotificationBell } from '../NotificationBell'
@@ -13,6 +12,8 @@ import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
 import { usePanelStore } from '../../stores/panel-store'
 import { TabItem } from '../header/TabItem'
+
+const SelfFloat = lazy(() => import('../self/SelfFloat').then(m => ({ default: m.SelfFloat })))
 
 function SuperRingHeader() {
   const panels = usePanelStore((s) => s.panels)
@@ -100,7 +101,7 @@ export function AppLayout() {
           </>
         )}
       </div>
-      <SelfFloat />
+      <Suspense fallback={null}><SelfFloat /></Suspense>
       <SelfTrigger />
       <CreateInviteModal />
     </div>

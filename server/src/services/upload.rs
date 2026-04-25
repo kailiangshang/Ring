@@ -98,7 +98,7 @@ pub async fn upload_to_chat(
         let ring_name = crate::services::search::get_ring_name(db, rid)
             .await
             .unwrap_or_default();
-        let _ = crate::services::search::upsert_search_index(
+        if let Err(e) = crate::services::search::upsert_search_index(
             db,
             "message",
             &msg_id,
@@ -108,7 +108,10 @@ pub async fn upload_to_chat(
             &content,
             &serde_json::json!({"role": "system", "filename": filename}).to_string(),
         )
-        .await;
+        .await
+        {
+            tracing::warn!("failed to update search index: {e}");
+        }
     }
 
     Ok(msg)
@@ -129,7 +132,7 @@ pub async fn upload_to_session(
         session::create_material(db, &material_id, session_id, "document", filename, &content)
             .await?;
 
-    let _ = crate::services::search::upsert_search_index(
+    if let Err(e) = crate::services::search::upsert_search_index(
         db,
         "session_message",
         &material_id,
@@ -139,7 +142,10 @@ pub async fn upload_to_session(
         &content,
         &serde_json::json!({"session_id": session_id, "item_type": "document"}).to_string(),
     )
-    .await;
+    .await
+    {
+        tracing::warn!("failed to update search index: {e}");
+    }
 
     Ok(material)
 }

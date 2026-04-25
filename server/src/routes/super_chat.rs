@@ -68,7 +68,9 @@ pub async fn super_chat_handler(
     let mut rx = super_chat::stream_super_chat(state, user_row, body.content);
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_tool_usage(&self_dir, "search");
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "search") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
 
     let s: BoxedSseStream = Box::pin(stream! {
         while let Some(event) = rx.recv().await {

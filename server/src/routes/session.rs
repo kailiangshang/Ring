@@ -37,7 +37,9 @@ pub async fn create_session(
     let result = session::create_session(&state, &ring_id, &user.token_id, body).await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    let _ = crate::services::self_data::record_session_created(&self_dir);
+    if let Err(e) = crate::services::self_data::record_session_created(&self_dir) {
+        tracing::warn!("failed to record session created: {e}");
+    }
 
     Ok((axum::http::StatusCode::CREATED, Json(result)))
 }
@@ -267,23 +269,33 @@ pub async fn summarize_session(
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
 
-                    let _ = session_model::set_summary(&pool, &sid, &full_content).await;
-                    let _ = session_model::update_phase(&pool, &sid, "closed").await;
+                    if let Err(e) = session_model::set_summary(&pool, &sid, &full_content).await {
+                        tracing::warn!("failed to update session summary: {e}");
+                    }
+                    if let Err(e) = session_model::update_phase(&pool, &sid, "closed").await {
+                        tracing::warn!("failed to update session phase: {e}");
+                    }
 
-                    let _ = crate::services::self_data::record_tool_usage(&self_dir, "session_summarize");
+                    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "session_summarize") {
+                        tracing::warn!("failed to record tool usage: {e}");
+                    }
 
                     if let Ok(updated_sess) = session_model::get_session(&pool, &sid).await {
                         let ring_name = crate::services::search::get_ring_name(&pool, &updated_sess.ring_id).await.unwrap_or_default();
                         let content = format!("{} {}", &updated_sess.description, updated_sess.summary.as_deref().unwrap_or(""));
                         let metadata = serde_json::json!({"skill": &updated_sess.skill, "phase": &updated_sess.phase}).to_string();
-                        let _ = crate::services::search::upsert_search_index(
+                        if let Err(e) = crate::services::search::upsert_search_index(
                             &pool, "session", &updated_sess.id, &updated_sess.ring_id, &ring_name,
                             &updated_sess.title, &content, &metadata,
-                        ).await;
+                        ).await {
+                            tracing::warn!("failed to update search index: {e}");
+                        }
                     }
                 }
                 SseEvent::Error(msg) => {
-                    let _ = session_model::update_phase(&pool, &sid, "discussion").await;
+                    if let Err(e) = session_model::update_phase(&pool, &sid, "discussion").await {
+                        tracing::warn!("failed to update session phase: {e}");
+                    }
                     let data = serde_json::json!({ "error": msg });
                     yield Ok(Event::default().event("error").data(data.to_string()));
                 }

@@ -1,9 +1,59 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRingStore } from '../../stores/ring-store'
-import { RingListItem } from './RingListItem'
-import { SessionIndicator } from './SessionIndicator'
+import { useSessionStore } from '../../stores/session-store'
 import { useAppStore } from '../../stores/app-store'
 import { usePanelStore } from '../../stores/panel-store'
+import type { Session, SessionPhase } from '../../types/session'
+
+const phase_color: Record<SessionPhase, string> = {
+  material_prep: 'var(--accent-amber)',
+  discussion: 'var(--accent-green)',
+  summary: 'var(--accent-cyan)',
+  closed: 'var(--text-dim)',
+}
+
+function SessionRow({ session, is_active }: { session: Session; is_active: boolean }) {
+  const openPanel = usePanelStore((s) => s.open)
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation()
+        openPanel('session')
+      }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        padding: '3px 8px 3px 36px',
+        cursor: 'pointer',
+        background: is_active ? 'var(--bg-active)' : 'transparent',
+        borderRadius: 3,
+        margin: '1px 6px',
+        fontSize: 11,
+        color: is_active ? 'var(--accent-ice)' : 'var(--text-secondary)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+      }}
+      title={`${session.title} (${session.phase})`}
+    >
+      <span
+        style={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: phase_color[session.phase],
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{session.title}</span>
+      <span style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-dim)', flexShrink: 0 }}>
+        {session.skill.replace('_', ' ')}
+      </span>
+    </div>
+  )
+}
 
 export function RingList() {
   const rings = useRingStore((s) => s.rings)
@@ -13,10 +63,24 @@ export function RingList() {
   const setContext = useAppStore((s) => s.setContext)
   const selectRing = useRingStore((s) => s.selectRing)
   const openPanel = usePanelStore((s) => s.open)
+  const sessions_by_ring = useSessionStore((s) => s.sessions_by_ring)
+  const fetchSessionsForSidebar = useSessionStore((s) => s.fetchSessionsForSidebar)
+  const active_session = useSessionStore((s) => s.active_session)
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
   const [startBlueprint, setStartBlueprint] = useState(true)
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  const toggle_expand = useCallback((ring_id: string) => {
+    setExpanded((prev) => ({ ...prev, [ring_id]: !prev[ring_id] }))
+  }, [])
+
+  useEffect(() => {
+    if (!active_ring_id) return
+    fetchSessionsForSidebar(active_ring_id)
+    setExpanded((prev) => ({ ...prev, [active_ring_id]: true }))
+  }, [active_ring_id, fetchSessionsForSidebar])
 
   const handleCreate = async () => {
     if (!newName.trim()) return
@@ -45,16 +109,101 @@ export function RingList() {
           No rings yet. Create one below.
         </div>
       )}
-      {rings.map((ring) => (
-        <div key={ring.id}>
-          <div onClick={() => { selectRing(ring.id); setContext('ring') }}>
-            <RingListItem ring={ring} isActive={active_ring_id === ring.id} />
+      {rings.map((ring) => {
+        const is_expanded = expanded[ring.id]
+        const sessions = sessions_by_ring[ring.id] ?? []
+        const is_active_ring = ring.id === active_ring_id
+
+        return (
+          <div key={ring.id}>
+            <div
+              onClick={() => {
+                selectRing(ring.id)
+                setContext('ring')
+                if (!is_expanded) toggle_expand(ring.id)
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                cursor: 'pointer',
+                background: is_active_ring ? 'var(--bg-active)' : 'transparent',
+                borderRadius: 4,
+                margin: '2px 6px',
+              }}
+              onMouseEnter={(e) => {
+                if (!is_active_ring) (e.currentTarget as HTMLDivElement).style.background = 'var(--bg-hover)'
+              }}
+              onMouseLeave={(e) => {
+                if (!is_active_ring) (e.currentTarget as HTMLDivElement).style.background = 'transparent'
+              }}
+            >
+              <span
+                onClick={(e) => {
+                  e.stopPropagation()
+                  toggle_expand(ring.id)
+                }}
+                style={{
+                  fontSize: 8,
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  width: 10,
+                  textAlign: 'center',
+                  flexShrink: 0,
+                  transition: 'transform 0.15s',
+                  transform: is_expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                  userSelect: 'none',
+                }}
+              >
+                ▶
+              </span>
+              <span
+                style={{
+                  color: is_active_ring ? 'var(--accent-ice)' : 'var(--text-primary)',
+                  fontWeight: is_active_ring ? 700 : 400,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {ring.name}
+              </span>
+              <span style={{ marginLeft: 'auto', color: 'var(--text-dim)', fontSize: 11 }}>
+                {ring.member_count}
+              </span>
+              {ring.has_active_session && (
+                <span
+                  title="Active session"
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    background: 'var(--accent-green)',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+            </div>
+            {is_expanded && sessions.length > 0 && (
+              <div>
+                {sessions.map((s) => (
+                  <SessionRow
+                    key={s.id}
+                    session={s}
+                    is_active={active_session?.id === s.id}
+                  />
+                ))}
+              </div>
+            )}
+            {is_expanded && sessions.length === 0 && (
+              <div style={{ padding: '2px 8px 2px 36px', fontSize: 10, color: 'var(--text-dim)' }}>
+                No sessions
+              </div>
+            )}
           </div>
-          {ring.id === active_ring_id && ring.has_active_session && (
-            <SessionIndicator />
-          )}
-        </div>
-      ))}
+        )
+      })}
 
       {creating ? (
         <div style={{ padding: '8px 12px' }}>

@@ -17,11 +17,7 @@ pub fn new_cache() -> CrossRingCache {
     Arc::new(Mutex::new(HashMap::new()))
 }
 
-pub async fn get_summary(
-    cache: &CrossRingCache,
-    pool: &SqlitePool,
-    user_id: &str,
-) -> String {
+pub async fn get_summary(cache: &CrossRingCache, pool: &SqlitePool, user_id: &str) -> String {
     let key = format!("summary:{user_id}");
     {
         let map = cache.lock().await;

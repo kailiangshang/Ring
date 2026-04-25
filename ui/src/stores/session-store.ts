@@ -45,9 +45,11 @@ interface SessionState {
   loading: boolean
   error: string | null
   list: Session[]
+  sessions_by_ring: Record<string, Session[]>
   createSession: (input: CreateSessionInput) => Promise<Session | null>
   fetchActiveSession: (ring_id: string) => Promise<void>
   fetchSessions: (ring_id: string) => Promise<void>
+  fetchSessionsForSidebar: (ring_id: string) => Promise<void>
   closeSession: (ring_id: string, session_id: string) => Promise<void>
   reopenSession: (ring_id: string, session_id: string) => Promise<void>
   deleteSession: (ring_id: string, session_id: string) => Promise<void>
@@ -71,6 +73,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   loading: false,
   error: null,
   list: [],
+  sessions_by_ring: {},
 
   createSession: async (input) => {
     const ring_id = useRingStore.getState().active_ring_id
@@ -116,6 +119,16 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions`)
       set({ list: (res.sessions ?? []).map(toSession) })
+    } catch {
+      // keep existing
+    }
+  },
+
+  fetchSessionsForSidebar: async (ring_id) => {
+    try {
+      const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions`)
+      const sessions = (res.sessions ?? []).map(toSession)
+      set((s) => ({ sessions_by_ring: { ...s.sessions_by_ring, [ring_id]: sessions } }))
     } catch {
       // keep existing
     }
