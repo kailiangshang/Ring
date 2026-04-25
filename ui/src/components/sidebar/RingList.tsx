@@ -28,7 +28,7 @@ export function RingList() {
       selectRing(ring_id)
       setContext('ring')
       if (startBlueprint) {
-        openPanel('graph')
+        openPanel('blueprint')
       }
     } else {
       setCreateError('Failed to create ring. Name may already exist.')
