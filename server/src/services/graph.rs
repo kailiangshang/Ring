@@ -1,8 +1,10 @@
 use crate::error::Result;
 use crate::models::graph;
+use crate::services::git_service::GitService;
 use crate::state::AppState;
 
 use serde::Serialize;
+use std::path::PathBuf;
 
 #[derive(Debug, Serialize)]
 pub struct GraphResponse {
@@ -13,6 +15,72 @@ pub struct GraphResponse {
     pub edges: Vec<graph::GraphEdgeRow>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+async fn persist_graph_snapshot(state: &AppState, ring_id: &str) {
+    let graphs = match graph::list_graphs(&state.db, ring_id).await {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::error!("persist_graph_snapshot: list_graphs failed: {e}");
+            return;
+        }
+    };
+
+    let mut graph_data = Vec::new();
+    for g in &graphs {
+        let nodes = graph::list_nodes(&state.db, &g.id)
+            .await
+            .unwrap_or_default();
+        let edges = graph::list_edges(&state.db, &g.id)
+            .await
+            .unwrap_or_default();
+        graph_data.push(serde_json::json!({
+            "graph": g,
+            "nodes": nodes,
+            "edges": edges,
+        }));
+    }
+
+    let snapshot = serde_json::json!({
+        "version": "1.0",
+        "ring_id": ring_id,
+        "graphs": graph_data,
+    });
+
+    let json_str = match serde_json::to_string_pretty(&snapshot) {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!("persist_graph_snapshot: serialization failed: {e}");
+            return;
+        }
+    };
+
+    let graphs_dir = state.rings_dir.join(ring_id).join("graphs");
+    if let Err(e) = std::fs::create_dir_all(&graphs_dir) {
+        tracing::error!("persist_graph_snapshot: create_dir_all failed: {e}");
+        return;
+    }
+
+    let file_path = graphs_dir.join("main.json");
+    if let Err(e) = std::fs::write(&file_path, &json_str) {
+        tracing::error!("persist_graph_snapshot: write failed: {e}");
+        return;
+    }
+
+    let ring_path: PathBuf = state.rings_dir.join(ring_id);
+    if ring_path.join(".git").exists() {
+        let git = GitService::new();
+        if let Err(e) = git.add_all(&ring_path) {
+            tracing::error!("persist_graph_snapshot: git add failed: {e}");
+            return;
+        }
+        if let Err(e) = git.commit(
+            &ring_path,
+            &format!("sync: update graph snapshot for ring {ring_id}"),
+        ) {
+            tracing::error!("persist_graph_snapshot: git commit failed: {e}");
+        }
+    }
 }
 
 pub async fn get_full_graph(state: &AppState, ring_id: &str) -> Result<GraphResponse> {
@@ -55,6 +123,7 @@ pub async fn create_node(
         &metadata,
     )
     .await;
+    persist_graph_snapshot(state, ring_id).await;
     Ok(node)
 }
 
@@ -81,12 +150,20 @@ pub async fn update_node(
         &metadata,
     )
     .await;
+    persist_graph_snapshot(state, &node.ring_id).await;
     Ok(node)
 }
 
 pub async fn delete_node(state: &AppState, node_id: &str) -> Result<()> {
+    let ring_id: String = sqlx::query_scalar("SELECT ring_id FROM graph_nodes WHERE id = ?1")
+        .bind(node_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
     let _ = crate::services::search::delete_search_index(&state.db, "graph_node", node_id).await;
-    graph::delete_node(&state.db, node_id).await
+    graph::delete_node(&state.db, node_id).await?;
+    persist_graph_snapshot(state, &ring_id).await;
+    Ok(())
 }
 
 pub async fn create_edge(
@@ -96,9 +173,18 @@ pub async fn create_edge(
 ) -> Result<graph::GraphEdgeRow> {
     let g = graph::ensure_default_graph(&state.db, ring_id).await?;
     let id = ulid::Ulid::new().to_string();
-    graph::create_edge(&state.db, &id, &g.id, ring_id, input).await
+    let edge = graph::create_edge(&state.db, &id, &g.id, ring_id, input).await?;
+    persist_graph_snapshot(state, ring_id).await;
+    Ok(edge)
 }
 
 pub async fn delete_edge(state: &AppState, edge_id: &str) -> Result<()> {
-    graph::delete_edge(&state.db, edge_id).await
+    let ring_id: String = sqlx::query_scalar("SELECT ring_id FROM graph_edges WHERE id = ?1")
+        .bind(edge_id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    graph::delete_edge(&state.db, edge_id).await?;
+    persist_graph_snapshot(state, &ring_id).await;
+    Ok(())
 }
