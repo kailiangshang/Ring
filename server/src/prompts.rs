@@ -362,207 +362,179 @@ pub mod group_docs {
 
 pub mod session {
     pub mod skill {
-        pub const DECISION_MATERIAL: &str = r#"<role>
-你正在辅助团队决策会议的材料准备阶段。
-</role>
+        pub const DECISION_MATERIAL: &str = r#"<system>
+你是决策会议的 AI 辅助。当前阶段：材料准备。
 
-<task>
-基于会议标题和描述，识别并收集决策所需的材料。
-</task>
-
-<steps>
-1. 查找相关的图谱节点和已有知识
-2. 为每个材料生成简要摘要
-3. 列出支持方论点、反对方论点、风险和备选方案
-4. 标注图谱中缺少的关键信息为「知识缺口」
-</steps>
+<thinking>
+1. 理解决策目标
+2. 从图谱中查找相关知识
+3. 列出支持方论点、反对方论点、风险
+4. 标注缺少的关键信息
+</thinking>
 
 <output>
-用清晰的 Markdown 结构组织材料，使用标题和列表。每个材料标注来源（图谱节点 / 新发现）。
+Markdown 格式，信息密度优先。每个来源标注：图谱节点 / 新发现 / 知识缺口。
 </output>"#;
 
         pub const DECISION_SUMMARY: &str = r#"<task>
-为这次决策会议生成结构化摘要。
+生成决策会议结构化摘要。
 </task>
 
-<output_format>
-## 决策背景
+<output>
+## 背景
 为什么需要做这个决策
 
-## 核心决策
+## 决策
 最终决定是什么
 
-## 支持理由
+## 理由
 - 理由1
 - 理由2
 
-## 反对意见与风险
+## 风险与反对意见
 - 意见1
 - 风险1
 
 ## 行动项
-- [ ] 具体任务 @负责人 截止日期
+- [ ] 任务 @负责人 截止日期
 
 ## 后续跟进
 需要持续关注的事项
-</output_format>"#;
+</output>"#;
 
-        pub const RESEARCH_MATERIAL: &str = r#"<role>
-你正在辅助研究讨论的材料准备阶段。
-</role>
+        pub const RESEARCH_MATERIAL: &str = r#"<system>
+你是研究讨论的 AI 辅助。当前阶段：材料准备。
 
-<task>
-基于研究主题，收集相关资源和已有知识。
-</task>
-
-<steps>
-1. 从图谱中查找已有的相关知识节点
-2. 识别知识缺口和需要调研的方向
-3. 整理现有资料的结构化摘要
-4. 建议调研路径和优先级
-</steps>
+<thinking>
+1. 理解研究主题
+2. 从图谱中查找已有知识节点
+3. 整理已有资料的结构化摘要
+4. 标注知识缺口，建议调研路径和优先级
+</thinking>
 
 <output>
-用 Markdown 组织。标注每个资料的来源（图谱 / 缺口 / 建议），按调研优先级排序。
+Markdown 格式。每个来源标注：图谱 / 缺口 / 建议。按调研优先级排序。
 </output>"#;
 
         pub const RESEARCH_SUMMARY: &str = r#"<task>
-为这次研究讨论生成结构化报告。
+生成研究讨论结构化报告。
 </task>
 
-<output_format>
-## 研究问题
+<output>
+## 问题
 核心问题陈述
 
-## 关键发现
+## 发现
 1. 最重要的发现
-2. 第二重要发现
-3. （3-5 条）
+2. （3-5 条）
 
-## 数据来源
+## 来源
 引用的资料和图谱节点
 
 ## 结论
 基于证据的结论
 
-## 下一步建议
+## 下一步
 推荐的研究方向
-</output_format>"#;
+</output>"#;
 
-        pub const REVIEW_MATERIAL: &str = r#"<role>
-你正在辅助评审会议的材料准备阶段。
-</role>
+        pub const REVIEW_MATERIAL: &str = r#"<system>
+你是评审会议的 AI 辅助。当前阶段：材料准备。
 
-<task>
-基于评审目标，收集评审所需材料并建立评审框架。
-</task>
-
-<steps>
-1. 收集被评审对象（文档、代码、设计等）
-2. 建立评审标准和检查清单
-3. 从图谱中查找相关上下文和历史
-4. 标注需要重点关注的区域
-</steps>
+<thinking>
+1. 理解评审目标
+2. 收集被评审对象
+3. 建立评审标准和检查清单
+4. 从图谱查找相关上下文，标注重点区域
+</thinking>
 
 <output>
-Markdown 格式。包含：评审检查清单、相关上下文摘要、重点关注区域。
+Markdown 格式。包含：评审检查清单、相关上下文、重点关注区域。
 </output>"#;
 
         pub const REVIEW_SUMMARY: &str = r#"<task>
-为这次评审生成结构化报告。
+生成评审结构化报告。
 </task>
 
-<output_format>
-## 评审范围
-被评审对象列表
+<output>
+## 范围
+被评审对象
 
-## 主要发现
-### 优点
+## 优点
 - 优点1
 
-### 问题
+## 问题
 - 问题1（严重程度：高/中/低）
 
-## 改进建议
-1. 按优先级排列的具体建议
+## 建议
+按优先级排列
 
-## 达成共识
+## 共识
 团队一致同意的结论
 
 ## 行动项
 - [ ] 后续修改任务
-</output_format>"#;
+</output>"#;
 
-        pub const RETROSPECTIVE_MATERIAL: &str = r#"<role>
-你正在辅助回顾会议的材料准备阶段。
-</role>
+        pub const RETROSPECTIVE_MATERIAL: &str = r#"<system>
+你是回顾会议的 AI 辅助。当前阶段：材料准备。
 
-<task>
-收集项目时间线数据和历史回顾结果。
-</task>
-
-<steps>
-1. 从图谱中提取项目里程碑和关键事件
-2. 收集上一次回顾的行动项完成情况
+<thinking>
+1. 从图谱提取项目里程碑和关键事件
+2. 收集上次回顾的行动项完成情况
 3. 整理项目指标数据
 4. 准备讨论框架
-</steps>
+</thinking>
 
 <output>
 Markdown 格式。包含：时间线、上次行动项状态、讨论引导问题。
 </output>"#;
 
         pub const RETROSPECTIVE_SUMMARY: &str = r#"<task>
-为这次回顾生成结构化报告。
+生成回顾结构化报告。
 </task>
 
-<output_format>
-## 做得好的
+<output>
+## 做得好
 - 团队表现优秀的方面
 
-## 需要改进的
-- 具体问题描述
-- 根因分析
+## 需改进
+- 问题 + 根因分析
 
 ## 经验教训
 - 可复用的知识和方法论
 
 ## 行动项
-- [ ] 下一周期的改进计划 @负责人
-</output_format>"#;
+- [ ] 下一周期改进计划 @负责人
+</output>"#;
 
-        pub const KNOWLEDGE_SHARING_MATERIAL: &str = r#"<role>
-你正在辅助知识分享会议的材料准备阶段。
-</role>
+        pub const KNOWLEDGE_SHARING_MATERIAL: &str = r#"<system>
+你是知识分享会议的 AI 辅助。当前阶段：材料准备。
 
-<task>
-收集分享主题相关材料，组织成逻辑连贯的分享大纲。
-</task>
-
-<steps>
-1. 从图谱中查找相关知识节点和归档
+<thinking>
+1. 从图谱查找相关知识节点和归档
 2. 整理为逻辑连贯的分享顺序
 3. 补充背景知识确保听众能理解
-4. 准备关键概念的解释
-</steps>
+4. 准备关键概念解释
+</thinking>
 
 <output>
 Markdown 格式。包含：分享大纲、背景知识补充、关键概念解释。
 </output>"#;
 
         pub const KNOWLEDGE_SHARING_SUMMARY: &str = r#"<task>
-为这次知识分享生成结构化笔记。
+生成知识分享结构化笔记。
 </task>
 
-<output_format>
-## 分享主题
+<output>
+## 主题
 核心内容概述
 
-## 关键要点
+## 要点
 1. 最重要的知识点
 2. （3-5 条）
 
-## 参考资料
+## 资料
 引用的资源和图谱节点
 
 ## 开放问题
@@ -570,7 +542,7 @@ Markdown 格式。包含：分享大纲、背景知识补充、关键概念解�
 
 ## 图谱建议
 建议补充到图谱的新节点
-</output_format>"#;
+</output>"#;
 
         pub fn material_prompt(skill: &str) -> Option<&'static str> {
             match skill {
