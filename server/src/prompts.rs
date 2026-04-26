@@ -569,26 +569,12 @@ Markdown 格式。包含：分享大纲、背景知识补充、关键概念解�
 }
 
 pub mod export {
-    pub const AI_REPORT_SYSTEM: &str = r#"<role>
-你是知识分析助手，基于图谱节点信息生成结构化分析报告。
-</role>
+    pub const AI_REPORT_SYSTEM: &str = r#"<system>
+基于图谱节点生成分析报告。
 
-<output_format>
-## 概述
-这些节点构成的知识版图简介
-
-## 关键发现
-每个节点的核心内容和价值
-
-## 关系分析
-节点之间的关联和相互影响
-
-## 知识缺口
-图谱中可能缺少的关键信息
-
-## 建议
-下一步应补充的节点或深入研究的方向
-</output_format>"#;
+输出：概述 → 关键发现 → 关系分析 → 缺口 → 建议。
+信息密度优先，每条发现一个核心洞察。
+</system>"#;
 }
 
 pub mod search {
@@ -614,31 +600,21 @@ pub mod blueprint {
         current_blueprint: Option<&str>,
     ) -> String {
         let mut prompt = format!(
-            r#"<role>
-你是 {ring_name} 的 Group Ring，正在帮助用户设计知识图谱蓝图。
-</role>
+            r#"<system>
+你是 Ring「{ring_name}」的 AI，帮助设计知识图谱蓝图。
 
-<task>
-通过多轮对话了解需求，逐步构建图谱蓝图。每次提出或调整结构时，输出完整的 blueprint JSON。
-</task>
+<thinking>
+1. 先了解需求，不要一上来就生成
+2. 每轮 1-2 个问题
+3. 调整时输出完整 blueprint JSON（不是增量）
+</thinking>
 
 <blueprint_schema>
-<blueprint>
-{{"graphs": [{{"name": "图谱名", "nodes": [{{"label": "节点名", "node_type": "category", "tags": []}}], "edges": [{{"from": "节点A", "to": "节点B", "relation": "related_to"}}]}}]}}
-</blueprint>
+{{"graphs": [{{"name": "...", "nodes": [{{"label": "...", "node_type": "category|topic|leaf", "tags": []}}], "edges": [{{"from": "A", "to": "B", "relation": "..."}}]}}]}}
 </blueprint_schema>
 
-<field_definitions>
-- node_type: category（顶层分类）/ topic（具体主题）/ leaf（细节）
-- relation: depends_on / related_to / derives_from / contradicts
-- 最多 3 个图谱
-</field_definitions>
-
-<rules>
-- 先了解需求，不要一上来就生成图谱
-- 每次调整输出完整 blueprint JSON（不是增量）
-- 简洁对话，每轮 1-2 个问题
-</rules>"#
+最多 3 个图谱。relation: depends_on / related_to / derives_from / contradicts。
+</system>"#
         );
         if let Some(rd) = role_description {
             if !rd.is_empty() {
@@ -648,7 +624,7 @@ pub mod blueprint {
         if let Some(bp) = current_blueprint {
             if !bp.is_empty() {
                 prompt.push_str(&format!(
-                    "\n\n<current_blueprint>\n{bp}\n</current_blueprint>\n\n注意：每次调整必须输出完整的 <blueprint> JSON，不是增量。"
+                    "\n\n<current_blueprint>\n{bp}\n</current_blueprint>\n\n每次调整必须输出完整 <blueprint> JSON。"
                 ));
             }
         }
@@ -659,29 +635,21 @@ pub mod blueprint {
 pub mod workflow {
     pub fn file_parse_extraction(focus: Option<&str>) -> String {
         let mut prompt = String::from(
-            r#"<task>
+            r#"<system>
 分析文件内容，提取结构化知识。
-</task>
 
-<output_format>
+<output>
 <file_analysis>
-{{"summary": "3 句以内的文件摘要", "concepts": [{{"label": "概念名", "node_type": "category|topic|leaf", "tags": ["标签"]}}], "relations": [{{"from": "概念A", "to": "概念B", "relation": "related_to"}}]}}
+{"summary": "≤3句", "concepts": [{"label": "概念名", "node_type": "category|topic|leaf", "tags": [...]}], "relations": [{"from": "A", "to": "B", "relation": "depends_on|related_to|derives_from|contradicts"}]}
 </file_analysis>
-</output_format>
+</output>
 
 <rules>
-- 提取 3-10 个核心概念
-- node_type: category（顶层分类）/ topic（具体主题）/ leaf（细节）
-- relation: depends_on / related_to / derives_from / contradicts
-- 每个概念附加有意义的标签
-- summary 不超过 3 句
+- 3-10 个概念，优先高频/核心
+- 标签要具体（"gRPC" 而不是 "技术"）
+- relation 必须有语义，不要都填 related_to
 </rules>
-
-<example>
-<file_analysis>
-{{"summary": "本文档描述了微服务架构中服务间通信的设计方案，包括同步和异步两种模式。", "concepts": [{{"label": "微服务通信", "node_type": "category", "tags": ["架构", "通信"]}}, {{"label": "同步调用", "node_type": "topic", "tags": ["gRPC", "REST"]}}], "relations": [{{"from": "同步调用", "to": "微服务通信", "relation": "derives_from"}}]}}
-</file_analysis>
-</example>"#,
+</system>"#,
         );
         if let Some(f) = focus {
             if !f.is_empty() {
@@ -693,28 +661,21 @@ pub mod workflow {
 
     pub fn knowledge_extraction_prompt(target_graph: Option<&str>) -> String {
         let mut prompt = String::from(
-            r#"<task>
-从文本内容中提取知识概念和关系，生成适合图谱的节点和边。
-</task>
+            r#"<system>
+从文本提取知识概念和关系，生成图谱节点和边。
 
-<output_format>
+<output>
 <knowledge_extraction>
-{{"concepts": [{{"label": "概念名", "node_type": "category|topic|leaf", "tags": ["标签"]}}], "relations": [{{"from": "概念A", "to": "概念B", "relation": "related_to"}}], "suggested_graph": "图谱名"}}
+{"concepts": [...], "relations": [...], "suggested_graph": "..."}
 </knowledge_extraction>
-</output_format>
+</output>
 
 <rules>
-- 识别核心实体、概念和它们之间的关系
-- relation: depends_on / related_to / derives_from / contradicts
-- 每个概念附加有意义的标签
-- suggested_graph 推荐放入哪个图谱
+- 概念粒度：一个概念 = 一个可独立理解的实体
+- relation 必须有语义，不要都填 related_to
+- suggested_graph 推荐最合适的图谱名
 </rules>
-
-<example>
-<knowledge_extraction>
-{{"concepts": [{{"label": "JWT 认证", "node_type": "topic", "tags": ["安全", "认证"]}}, {{"label": "Token 刷新", "node_type": "leaf", "tags": ["安全"]}}], "relations": [{{"from": "Token 刷新", "to": "JWT 认证", "relation": "depends_on"}}], "suggested_graph": "安全架构"}}
-</knowledge_extraction>
-</example>"#,
+</system>"#,
         );
         if let Some(g) = target_graph {
             if !g.is_empty() {
