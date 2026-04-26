@@ -335,16 +335,91 @@ export async function resetSelfData(): Promise<{ ok: boolean }> {
   return api.post('/self/reset', {})
 }
 
-export async function getSyncSnapshot(ringId: string, signal?: AbortSignal): Promise<Blob> {
-  const token = await getToken()
-  const res = await fetch(`${API_BASE}/rings/${ringId}/sync/snapshot`, {
-    headers: { 'X-Ring-Token': token || '' },
-    signal,
-  })
-  if (!res.ok) throw new ApiError(res.status, 'sync', 'snapshot failed')
-  return res.blob()
+export async function getSyncBundle(
+  ringId: string,
+  signal?: AbortSignal,
+): Promise<SyncBundle> {
+  return api.get(`/rings/${ringId}/sync/bundle`, signal)
 }
 
-export async function getSyncDelta(ringId: string, sinceCommit: string, signal?: AbortSignal): Promise<{ since_commit: string; current_commit: string; files: Array<{ action: string; path: string; content: string }> }> {
-  return api.get(`/rings/${ringId}/sync/delta?since=${encodeURIComponent(sinceCommit)}`, signal)
+export interface SyncBundle {
+  version: string
+  ring_id: string
+  exported_at: string
+  graphs: Array<{
+    graph: {
+      id: string
+      ring_id: string
+      name: string
+      created_at: string
+      updated_at: string
+    }
+    nodes: Array<{
+      id: string
+      graph_id: string
+      ring_id: string
+      label: string
+      parent_id: string | null
+      node_type: string
+      content: string
+      tags: string
+      markdown_path: string | null
+      metadata: string
+      created_at: string
+      updated_at: string
+    }>
+    edges: Array<{
+      id: string
+      graph_id: string
+      ring_id: string
+      source_id: string
+      target_id: string
+      relation: string
+      label: string
+      created_at: string
+    }>
+  }>
+  archive_records: Array<{
+    id: string
+    ring_id: string
+    session_id: string | null
+    node_id: string | null
+    file_name: string
+    commit_sha: string | null
+    status: string
+    archived_by: string
+    created_at: string
+    updated_at: string
+  }>
+  group_docs: Array<{
+    doc_name: string
+    content: string
+    updated_at: string
+  }>
+  archive_files: Array<{
+    file_name: string
+    content: string
+  }>
+}
+
+export async function postSyncImport(
+  ringId: string,
+  creatorIp: string,
+  signal?: AbortSignal,
+): Promise<{
+  imported: {
+    graphs: number
+    nodes: number
+    edges: number
+    archive_records: number
+    group_docs: number
+    archive_files: number
+  }
+  exported_at: string
+}> {
+  return api.post(
+    `/rings/sync/import`,
+    { ring_id: ringId, creator_ip: creatorIp },
+    signal,
+  )
 }
