@@ -260,6 +260,7 @@ pub struct ChatParams<'a> {
     pub ephemeral: bool,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn save_user_message(
     pool: &sqlx::SqlitePool,
     ring_id: Option<&str>,

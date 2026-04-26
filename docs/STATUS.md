@@ -1,16 +1,39 @@
 # Ring 项目状态
 
-> 最后更新：2026-04-25
+> 最后更新：2026-04-26
 
 ## 开发概况
 
-- 后端 65 个 Rust 源文件，~12,000 行
+- 后端 66 个 Rust 源文件，~13,000 行
 - 前端 84 个 TS/TSX 文件，~9,400 行
-- 14 个数据库迁移
-- 69/69 集成测试通过
+- 15 个数据库迁移
+- 69 集成测试通过
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
 
-## 本轮完成（2026-04-25）
+## 本轮完成（2026-04-26）
+
+### 提示词优化（6 commits）
+
+- Chat: Group Ring / Self / Super Ring — `<thinking>` + `<output_rules>`
+- Archive: extract/judge/compact/group_docs — 粒度约束
+- Session: 5 skills 统一框架
+- Workflow/export/blueprint — 关系语义约束
+- Blueprint: 追问式头脑风暴提示词（挑战模糊需求）
+
+### 数据同步（6 commits）
+
+- **Migration 015**: `sync_meta` 表（per-ring sync state tracking）
+- **sync service**: `export_bundle`（graphs + archive_records + group_docs + archive_files 序列化为 JSON）+ `import_bundle`（upsert with creator-wins）
+- **Routes**: `GET /rings/{id}/sync/bundle` + `POST /rings/sync/import`（member backend fetches from creator）
+- **Auto-sync**: `local_join` 后自动从 creator 拉取 bundle
+- **Graph auto-persist**: 每次图谱变更后写 `graphs/main.json` + git commit
+- **Frontend API**: `getSyncBundle` + `postSyncImport` 替换旧的 `getSyncSnapshot`/`getSyncDelta`
+
+### 架构文档
+
+- `docs/ARCHITECTURE.md` — 全量数据模型、请求流程、多人协作现状、同步缺口分析
+
+## 上轮完成（2026-04-25）
 
 ### 交互优化（36 项）
 
@@ -225,8 +248,9 @@
 | 图谱 PNG/PDF 导出 | done（SVG → Canvas → PNG 2400×1600） | 低 |
 | Session 侧栏树形展示 | done（Ring 展开/折叠，嵌套 Session 列表，phase 色点 + skill 标签） | 中 |
 | **存储后端抽象** | **done（StorageBackend trait，Local + GitLab 两种模式，归档/审核流程一致）** | 中 |
-| **本地模式（无外部依赖）** | **done（本地 git init，pending_reviews 表审核队列，同步 API snapshot/delta）** | 中 |
+| **本地模式（无外部依赖）** | **done（本地 git init，pending_reviews 表审核队列，bundle sync API）** | 中 |
 | **GitLab 模式** | **done（GitLab REST API v4 MR 审核，PRIVATE-TOKEN 认证，公司内网）** | 中 |
+| **多人数据同步** | **done（HTTP bundle sync，creator-wins upsert，auto-sync after join，graph auto-persist）** | 高 |
 | 移动端适配 | 缺失 | 延后 |
 
 ## 技术债（审计记录，不阻塞）
