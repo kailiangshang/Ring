@@ -30,6 +30,8 @@ interface GraphState {
   selectNode: (nodeId: string | null) => void
   toggleCollapse: (nodeId: string) => void
   isCollapsed: (nodeId: string) => boolean
+  expandAll: (parentIds: string[]) => void
+  collapseAll: (parentIds: string[]) => void
   createNodesFromExtraction: (
     ringId: string,
     concepts: { label: string; node_type: string; tags: string[] }[],
@@ -211,6 +213,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   isCollapsed: (nodeId: string) => {
     return get().collapsed_nodes.has(nodeId)
+  },
+
+  expandAll: (parentIds: string[]) => {
+    const newCollapsed = new Set(get().collapsed_nodes)
+    for (const id of parentIds) newCollapsed.delete(id)
+    set({ collapsed_nodes: newCollapsed })
+  },
+
+  collapseAll: (parentIds: string[]) => {
+    const newCollapsed = new Set(get().collapsed_nodes)
+    for (const id of parentIds) newCollapsed.add(id)
+    set({ collapsed_nodes: newCollapsed })
   },
 
   createNodesFromExtraction: async (ringId, concepts, relations) => {

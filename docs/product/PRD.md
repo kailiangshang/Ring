@@ -1125,7 +1125,7 @@ Session owner 离线
 |------|---------|--------|------|
 | `.group/` 文档落盘为 `.group/*.md` 文件 + git 版本管理 | 2.6 | HIGH | 当前仅存 SQLite group_docs 表 |
 | `.group/` 分层加载注入 Group Ring system prompt | 2.6 | HIGH | 当前 Group Ring 对话不消费 .group/ 文档 |
-| 左侧图谱节点树导航 | 2.2 | MED | 点击节点跳转对应内容 |
+| Graph Panel 节点树列表视图 | 2.2 / 7.3 | ~~MED~~ DONE | Canvas/Tree 双模式切换，缩进层级展示，Expand/Collapse All |
 | 深度调研工作流 — 网页爬取能力 | 2.7 | MED | 当前 research skill 仅基于已有知识 |
 | PDF 导出格式 | 2.8 | LOW | 当前所有导出为 Markdown/PNG/SVG/JSON |
 | 归档视图 Git revert | 6.8 | LOW | 查看提交历史 + 回滚 |

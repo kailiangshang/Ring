@@ -3,6 +3,9 @@ import { useGraphStore } from '../../stores/graph-store'
 import { useRingStore } from '../../stores/ring-store'
 import { exportRingGraph } from '../../services/api'
 import { GraphCanvas } from './GraphCanvas'
+import { NodeTreeList } from './NodeTreeList'
+
+type ViewMode = 'canvas' | 'tree'
 
 export function GraphPanel() {
   const active_ring_id = useRingStore((s) => s.active_ring_id)
@@ -16,6 +19,8 @@ export function GraphPanel() {
   const selectNode = useGraphStore((s) => s.selectNode)
   const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
   const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
+  const expandAll = useGraphStore((s) => s.expandAll)
+  const collapseAll = useGraphStore((s) => s.collapseAll)
 
   const graphs = useGraphStore((s) => s.graphs)
   const createGraph = useGraphStore((s) => s.createGraph)
@@ -27,6 +32,7 @@ export function GraphPanel() {
   const [newGraphName, setNewGraphName] = useState('')
   const [showNewGraph, setShowNewGraph] = useState(false)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<ViewMode>('canvas')
 
   useEffect(() => {
     if (active_ring_id) {
@@ -48,6 +54,10 @@ export function GraphPanel() {
   }, [nodes, selectedTags])
 
   const selectedNode = nodes.find((n) => n.id === selected_node_id)
+
+  const parentNodeIds = useMemo(() => {
+    return nodes.filter((n) => nodes.some((c) => c.parent_id === n.id)).map((n) => n.id)
+  }, [nodes])
 
   const handleCreateNode = () => {
     if (!newNodeLabel.trim() || !active_ring_id) return
@@ -98,6 +108,28 @@ export function GraphPanel() {
             ))}
           </div>
         )}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
+          {(['canvas', 'tree'] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setViewMode(m)}
+              style={{
+                flex: 1,
+                fontSize: 10,
+                padding: '3px 0',
+                borderRadius: 3,
+                border: `1px solid ${viewMode === m ? 'var(--accent-cyan)' : 'var(--border)'}`,
+                background: viewMode === m ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                color: viewMode === m ? 'var(--bg-base)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontWeight: viewMode === m ? 700 : 400,
+                textTransform: 'capitalize',
+              }}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input
             value={newNodeLabel}
@@ -281,7 +313,7 @@ export function GraphPanel() {
           }}>
             No nodes yet. Type a label above and click +Node to get started.
           </div>
-        ) : (
+        ) : viewMode === 'canvas' ? (
           <GraphCanvas
             nodes={filteredNodes}
             edges={edges}
@@ -289,6 +321,16 @@ export function GraphPanel() {
             collapsedNodes={collapsed_nodes}
             onSelectNode={selectNode}
             onToggleCollapse={toggleCollapse}
+          />
+        ) : (
+          <NodeTreeList
+            nodes={filteredNodes}
+            selectedNodeId={selected_node_id}
+            collapsedNodes={collapsed_nodes}
+            onSelectNode={selectNode}
+            onToggleCollapse={toggleCollapse}
+            onExpandAll={() => expandAll(parentNodeIds)}
+            onCollapseAll={() => collapseAll(parentNodeIds)}
           />
         )}
       </div>
