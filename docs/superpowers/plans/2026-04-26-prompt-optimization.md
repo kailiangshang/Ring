@@ -1,3 +1,49 @@
+# Prompt Optimization Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 按领域优化所有 AI 提示词，提升信息密度和逻辑性。
+
+**Architecture:** 纯文本替换 `server/src/prompts.rs` 中的提示词字符串。不改变函数签名、模块结构、调用方式。只改字符串内容。
+
+**Tech Stack:** Rust（字符串常量和函数返回值）
+
+---
+
+## File Structure
+
+只改一个文件：`server/src/prompts.rs`（775 行）
+
+| 模块 | 行范围 | Task |
+|------|--------|------|
+| `group_ring::system` | 1-30 | Task 1 |
+| `self_chat::system` | 32-67 | Task 1 |
+| `self_chat::metrics_context` | 69-127 | 不变 |
+| `super_ring::DEFAULT_SYSTEM` | 131-147 | Task 1 |
+| `super_ring::cross_ring_query` | 149-173 | Task 1 |
+| `super_ring::cross_ring_analysis` | 175-261 | 不变（已经够好） |
+| `archive::EXTRACT_SYSTEM` | 287-306 | Task 2 |
+| `archive::JUDGE_SYSTEM` | 308-334 | Task 2 |
+| `compact::SYSTEM` + `user` | 264-283 | Task 2 |
+| `group_docs::*` | 337-381 | Task 2 |
+| `session::skill::*` | 384-617 | Task 3 |
+| `workflow::*` | 708-774 | Task 4 |
+| `export::AI_REPORT_SYSTEM` | 621-641 | Task 4 |
+| `search::cross_ring_context_instruction` | 643-657 | 不变 |
+| `blueprint::system` | 659-706 | Task 4 |
+
+---
+
+### Task 1: 对话领域 — Group Ring / Self / Super Ring
+
+**Files:**
+- Modify: `server/src/prompts.rs` — modules `group_ring`, `self_chat`, `super_ring`
+
+- [ ] **Step 1: 替换 `group_ring::system`**
+
+Replace lines 1-30 with:
+
+```rust
 pub mod group_ring {
     pub fn system(name: &str, role_description: Option<&str>) -> String {
         let mut prompt = format!(
@@ -29,7 +75,13 @@ pub mod group_ring {
         prompt
     }
 }
+```
 
+- [ ] **Step 2: 替换 `self_chat::system`**
+
+Replace lines 32-67 with:
+
+```rust
 pub mod self_chat {
     pub fn system(identity: Option<&str>, style: Option<&str>, tone: Option<&str>) -> String {
         let mut prompt = String::from(
@@ -70,69 +122,15 @@ pub mod self_chat {
         }
         prompt
     }
+```
 
-    pub fn metrics_context(metrics: &serde_json::Value) -> String {
-        let cp = metrics.get("chat_patterns");
-        let total_msgs = cp
-            .and_then(|m| m.get("total_messages"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let self_msgs = cp
-            .and_then(|m| m.get("self_messages"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let total_rings = metrics
-            .get("ring_activity")
-            .and_then(|m| m.get("total_rings"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let total_archives = metrics
-            .get("archive_patterns")
-            .and_then(|m| m.get("total_archives"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let total_sessions = metrics
-            .get("session_stats")
-            .and_then(|m| m.get("total_sessions"))
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
+Keep `metrics_context` function unchanged (lines 69-127).
 
-        let tools = metrics
-            .get("tool_usage")
-            .and_then(|m| m.get("tools"))
-            .and_then(|t| t.as_object());
-        let tools_summary = if let Some(tools) = tools {
-            let mut entries: Vec<(String, i64)> = tools
-                .iter()
-                .filter_map(|(k, v)| v.as_i64().map(|i| (k.clone(), i)))
-                .collect();
-            entries.sort_by(|a, b| b.1.cmp(&a.1));
-            entries
-                .iter()
-                .take(5)
-                .map(|(k, v)| format!("{k}({v})"))
-                .collect::<Vec<_>>()
-                .join(", ")
-        } else {
-            String::new()
-        };
+- [ ] **Step 3: 替换 `super_ring::DEFAULT_SYSTEM`**
 
-        if total_msgs == 0 && total_rings == 0 {
-            return String::new();
-        }
+Replace lines 131-147 with:
 
-        let mut ctx = format!(
-            "<user_metrics>\n- 总消息: {total_msgs}（Self 对话: {self_msgs}）\n- 活跃 Ring: {total_rings}\n- Session: {total_sessions}\n- 归档: {total_archives}"
-        );
-        if !tools_summary.is_empty() {
-            ctx.push_str(&format!("\n- 常用功能: {tools_summary}"));
-        }
-        ctx.push_str("\n</user_metrics>");
-        ctx
-    }
-}
-
-pub mod super_ring {
+```rust
     pub const DEFAULT_SYSTEM: &str = r#"<system>
 你是 Super Ring，全局 AI。掌握用户所有 Ring 的信息。
 
@@ -150,7 +148,13 @@ pub mod super_ring {
 - 引导用户归档有价值内容
 </output_rules>
 </system>"#;
+```
 
+- [ ] **Step 4: 替换 `super_ring::cross_ring_query`**
+
+Replace lines 149-173 with:
+
+```rust
     pub fn cross_ring_query(ring_summary: &str, details: &str) -> String {
         format!(
             r#"<system>
@@ -173,96 +177,83 @@ pub mod super_ring {
 </system>"#
         )
     }
+```
 
-    pub fn cross_ring_analysis(analysis_type: &str, details: &str) -> String {
-        match analysis_type {
-            "compare" => format!(
-                r#"<task>
-对比以下 Ring 的差异和共同点。
-</task>
+- [ ] **Step 5: `cargo test`**
 
-<ring_data>
-{details}
-</ring_data>
+```bash
+cd server && cargo test 2>&1 | grep "test result"
+```
 
-<output_structure>
-## 对比维度
-按以下维度逐一对比：目标定位、成员构成、图谱结构、知识沉淀、当前进展
+Expected: all pass
 
-## 共同点
-列出各 Ring 共有的要素
+- [ ] **Step 6: `cargo fmt` + commit**
 
-## 差异点
-列出关键差异和各自特色
+```bash
+cargo fmt && git add -A && git commit -m "feat: optimize chat prompts — group_ring, self, super_ring"
+```
 
-## 知识重叠
-标注内容重叠的部分，评估整合可行性
+---
 
-## 互补机会
-标注知识互补的部分
-</output_structure>"#
-            ),
-            "merge" => format!(
-                r#"<task>
-分析以下 Ring 的内容，提出整合建议。
-</task>
+### Task 2: 归档领域 — Archive / Compact / Group Docs
 
-<ring_data>
-{details}
-</ring_data>
+**Files:**
+- Modify: `server/src/prompts.rs` — modules `archive`, `compact`, `group_docs`
 
-<output_structure>
-## 整合可行性评估
-评估合并的可行性和收益
+- [ ] **Step 1: 替换 `archive::EXTRACT_SYSTEM`**
 
-## 图谱合并方案
-提出节点和边如何合并的具体方案
+Replace the `EXTRACT_SYSTEM` const (lines 287-306) with:
 
-## 文档重组方案
-提出归档文档如何重新组织
+```rust
+    pub const EXTRACT_SYSTEM: &str = r##"<system>
+从讨论中提取可归档的知识单元。
 
-## 风险和注意事项
-标注合并过程中可能丢失的信息
-</output_structure>"#
-            ),
-            "summary" => format!(
-                r#"<task>
-对以下 Ring 的内容进行汇总分析。
-</task>
+<extraction_rules>
+值得提取：决策记录（含理由）、结论总结、技术方案、调研发现、方案对比
+忽略：闲聊、确认、重复、未定论
 
-<ring_data>
-{details}
-</ring_data>
+每条单元必须：
+- title：≤20字，可作图谱节点标签
+- content：自包含 Markdown，不看上下文能理解
+- 粒度：一条单元 = 一个独立知识点
+</extraction_rules>
 
-<output_structure>
-## 总体概况
-简要概括所有 Ring 的知识版图
+<output>
+纯 JSON 数组，不要 code block：
+[{"title": "...", "content": "..."}]
+</output>
+</system>"##;
+```
 
-## 各 Ring 摘要
-为每个 Ring 提供 2-3 句核心摘要
+- [ ] **Step 2: 替换 `archive::JUDGE_SYSTEM`**
 
-## 关键洞察
-提取 3-5 个跨 Ring 的重要发现
+Replace the `JUDGE_SYSTEM` const (lines 308-334) with:
 
-## 知识成熟度
-标注各 Ring 的知识积累程度：初期/成长期/成熟期
-</output_structure>"#
-            ),
-            _ => format!(
-                r#"<task>
-分析以下 Ring 的内容。
-</task>
+```rust
+    pub const JUDGE_SYSTEM: &str = r#"<system>
+判断对话是否值得归档到群组知识图谱。
 
-<ring_data>
-{details}
-</ring_data>
+<worthy>
+决策记录、结论总结、可复用知识、调研发现、技术方案、团队共识
+</worthy>
 
-请提供你的分析。"#
-            ),
-        }
-    }
-}
+<not_worthy>
+闲聊、确认、无实质短回复、未得出结论
+</not_worthy>
 
+<output>
+纯 JSON，不要 code block：
+值得：{"should_archive": true, "title": "≤20字", "content": "Markdown"}
+不值得：{"should_archive": false}
+</output>
+</system>"#;
+```
+
+- [ ] **Step 3: 替换 `compact::SYSTEM` 和 `user`**
+
+Replace lines 264-283 with:
+
+```rust
 pub mod compact {
     pub const SYSTEM: &str = "压缩对话历史，保留所有实质信息。";
     pub fn user(history: &str, max_tokens: i64) -> String {
@@ -292,48 +283,16 @@ pub mod compact {
         )
     }
 }
+```
 
-pub mod archive {
-    pub const EXTRACT_SYSTEM: &str = r##"<system>
-从讨论中提取可归档的知识单元。
+- [ ] **Step 4: 替换 `group_docs::*`**
 
-<extraction_rules>
-值得提取：决策记录（含理由）、结论总结、技术方案、调研发现、方案对比
-忽略：闲聊、确认、重复、未定论
+Replace lines 337-381 with:
 
-每条单元必须：
-- title：≤20字，可作图谱节点标签
-- content：自包含 Markdown，不看上下文能理解
-- 粒度：一条单元 = 一个独立知识点
-</extraction_rules>
-
-<output>
-纯 JSON 数组，不要 code block：
-[{"title": "...", "content": "..."}]
-</output>
-</system>"##;
-
-    pub const JUDGE_SYSTEM: &str = r#"<system>
-判断对话是否值得归档到群组知识图谱。
-
-<worthy>
-决策记录、结论总结、可复用知识、调研发现、技术方案、团队共识
-</worthy>
-
-<not_worthy>
-闲聊、确认、无实质短回复、未得出结论
-</not_worthy>
-
-<output>
-纯 JSON，不要 code block：
-值得：{"should_archive": true, "title": "≤20字", "content": "Markdown"}
-不值得：{"should_archive": false}
-</output>
-</system>"#;
-}
-
+```rust
 pub mod group_docs {
-    pub const ACTIVE_CONTEXT_SYSTEM: &str = "分析最近对话，提取活跃上下文。";
+    pub const ACTIVE_CONTEXT_SYSTEM: &str =
+        "分析最近对话，提取活跃上下文。";
     pub const ACTIVE_CONTEXT_USER: &str = r#"<task>
 提取活跃上下文。
 </task>
@@ -346,7 +305,8 @@ pub mod group_docs {
 
 <conversation_history>"#;
 
-    pub const ARCHIVE_PATTERNS_SYSTEM: &str = "分析归档记录，提取归档模式。";
+    pub const ARCHIVE_PATTERNS_SYSTEM: &str =
+        "分析归档记录，提取归档模式。";
     pub const ARCHIVE_PATTERNS_USER: &str = r#"<task>
 提取归档行为模式。
 </task>
@@ -359,7 +319,32 @@ pub mod group_docs {
 
 <archive_records>"#;
 }
+```
 
+- [ ] **Step 5: `cargo test`**
+
+```bash
+cd server && cargo test 2>&1 | grep "test result"
+```
+
+- [ ] **Step 6: `cargo fmt` + commit**
+
+```bash
+cargo fmt && git add -A && git commit -m "feat: optimize archive/compact/group_docs prompts"
+```
+
+---
+
+### Task 3: Session 领域 — 5 Skills Material + Summary
+
+**Files:**
+- Modify: `server/src/prompts.rs` — module `session::skill`
+
+- [ ] **Step 1: 替换所有 Session skill prompts**
+
+Replace lines 384-617 (the entire `session::skill` module) with:
+
+```rust
 pub mod session {
     pub mod skill {
         pub const DECISION_MATERIAL: &str = r#"<system>
@@ -567,7 +552,32 @@ Markdown 格式。包含：分享大纲、背景知识补充、关键概念解�
         }
     }
 }
+```
 
+- [ ] **Step 2: `cargo test`**
+
+```bash
+cd server && cargo test 2>&1 | grep "test result"
+```
+
+- [ ] **Step 3: `cargo fmt` + commit**
+
+```bash
+cargo fmt && git add -A && git commit -m "feat: optimize session skill prompts — unified framework"
+```
+
+---
+
+### Task 4: 工具 + 导出 + 蓝图
+
+**Files:**
+- Modify: `server/src/prompts.rs` — modules `workflow`, `export`, `blueprint`
+
+- [ ] **Step 1: 替换 `export::AI_REPORT_SYSTEM`**
+
+Replace lines 621-641 with:
+
+```rust
 pub mod export {
     pub const AI_REPORT_SYSTEM: &str = r#"<system>
 基于图谱节点生成分析报告。
@@ -576,78 +586,13 @@ pub mod export {
 信息密度优先，每条发现一个核心洞察。
 </system>"#;
 }
+```
 
-pub mod search {
-    pub fn cross_ring_context_instruction() -> String {
-        r#"<cross_ring_search>
-系统已根据用户问题自动搜索了所有 Ring 中的相关内容，结果在 <cross_ring_context> 标签中。
-</cross_ring_search>
+- [ ] **Step 2: 替换 `workflow::file_parse_extraction`**
 
-<citation_rules>
-- 引用格式：[Ring名 > 标题]，例如：[后端团队 > API 设计]
-- 在回答中自然嵌入引用，不要单独列出引用列表
-- 检索结果与问题无关时忽略
-- 基于检索结果回答，用自己的语言组织
-</citation_rules>"#
-            .to_string()
-    }
-}
+Replace the function (lines 709-741) with:
 
-pub mod blueprint {
-    pub fn system(
-        ring_name: &str,
-        role_description: Option<&str>,
-        current_blueprint: Option<&str>,
-    ) -> String {
-        let mut prompt = format!(
-            r#"<system>
-你是 Ring「{ring_name}」的 AI，通过头脑风暴帮用户设计知识图谱蓝图。
-
-<principles>
-- 用户通常对需求是模糊的，你的任务是逼他们想清楚
-- 每轮只问 1-2 个问题，但必须是锐利的问题，不是泛泛而谈
-- 用户回答模糊时，追问具体场景、边界、优先级
-- 用户过于宽泛时，主动收窄范围，给出你的判断和理由
-- 用户过于狭隘时，挑战他的假设，提出他没想到的角度
-</principles>
-
-<brainstorm_flow>
-第 1 轮：这个 Ring 解决什么问题？给谁用？核心场景是什么？
-第 2 轮：基于用户的回答，提出你的结构化理解和补充建议，问"有没有漏掉什么？"
-第 3 轮+：反复拷打细节 — 边界在哪？哪些是核心哪些是边缘？概念之间的关系是什么？
-达成共识后：输出完整 blueprint JSON
-</brainstorm_flow>
-
-<blueprint_schema>
-{{"graphs": [{{"name": "...", "nodes": [{{"label": "...", "node_type": "category|topic|leaf", "tags": []}}], "edges": [{{"from": "A", "to": "B", "relation": "..."}}]}}]}}
-</blueprint_schema>
-
-最多 3 个图谱。relation: depends_on / related_to / derives_from / contradicts。
-
-<output_rules>
-- 提问时不要客气，直接指出模糊和矛盾
-- 每次提出结构调整时输出完整 blueprint JSON（不是增量）
-- 信息密度优先，不重复用户说过的话
-</output_rules>
-</system>"#
-        );
-        if let Some(rd) = role_description {
-            if !rd.is_empty() {
-                prompt.push_str(&format!("\n\n<ring_role>{rd}</ring_role>"));
-            }
-        }
-        if let Some(bp) = current_blueprint {
-            if !bp.is_empty() {
-                prompt.push_str(&format!(
-                    "\n\n<current_blueprint>\n{bp}\n</current_blueprint>\n\n每次调整必须输出完整 <blueprint> JSON。"
-                ));
-            }
-        }
-        prompt
-    }
-}
-
-pub mod workflow {
+```rust
     pub fn file_parse_extraction(focus: Option<&str>) -> String {
         let mut prompt = String::from(
             r#"<system>
@@ -673,7 +618,13 @@ pub mod workflow {
         }
         prompt
     }
+```
 
+- [ ] **Step 3: 替换 `workflow::knowledge_extraction_prompt`**
+
+Replace the function (lines 743-774) with:
+
+```rust
     pub fn knowledge_extraction_prompt(target_graph: Option<&str>) -> String {
         let mut prompt = String::from(
             r#"<system>
@@ -699,4 +650,120 @@ pub mod workflow {
         }
         prompt
     }
+```
+
+- [ ] **Step 4: 替换 `blueprint::system`**
+
+Replace lines 659-706 with:
+
+```rust
+pub mod blueprint {
+    pub fn system(
+        ring_name: &str,
+        role_description: Option<&str>,
+        current_blueprint: Option<&str>,
+    ) -> String {
+        let mut prompt = format!(
+            r#"<system>
+你是 Ring「{ring_name}」的 AI，帮助设计知识图谱蓝图。
+
+<thinking>
+1. 先了解需求，不要一上来就生成
+2. 每轮 1-2 个问题
+3. 调整时输出完整 blueprint JSON（不是增量）
+</thinking>
+
+<blueprint_schema>
+{"graphs": [{"name": "...", "nodes": [{"label": "...", "node_type": "category|topic|leaf", "tags": []}], "edges": [{"from": "A", "to": "B", "relation": "..."}]}]}
+</blueprint_schema>
+
+最多 3 个图谱。relation: depends_on / related_to / derives_from / contradicts。
+</system>"#
+        );
+        if let Some(rd) = role_description {
+            if !rd.is_empty() {
+                prompt.push_str(&format!("\n\n<ring_role>{rd}</ring_role>"));
+            }
+        }
+        if let Some(bp) = current_blueprint {
+            if !bp.is_empty() {
+                prompt.push_str(&format!(
+                    "\n\n<current_blueprint>\n{bp}\n</current_blueprint>\n\n每次调整必须输出完整 <blueprint> JSON。"
+                ));
+            }
+        }
+        prompt
+    }
 }
+```
+
+- [ ] **Step 5: `cargo test`**
+
+```bash
+cd server && cargo test 2>&1 | grep "test result"
+```
+
+- [ ] **Step 6: `cargo fmt` + commit**
+
+```bash
+cargo fmt && git add -A && git commit -m "feat: optimize workflow/export/blueprint prompts"
+```
+
+---
+
+### Task 5: 全量验证 + push
+
+- [ ] **Step 1: `cargo test`**
+
+```bash
+cd server && cargo test 2>&1 | grep "test result"
+```
+
+Expected: 74/74 pass
+
+- [ ] **Step 2: `cargo fmt --check`**
+
+```bash
+cd server && cargo fmt --check
+```
+
+- [ ] **Step 3: `npm run build`**
+
+```bash
+cd ui && npm run build 2>&1 | tail -5
+```
+
+- [ ] **Step 4: git push**
+
+```bash
+git push origin main
+```
+
+---
+
+## Self-Review
+
+### 1. Spec Coverage
+- ✅ Group Ring: thinking + output_rules
+- ✅ Self: 去掉"老朋友"，按消息类型分
+- ✅ Super Ring: 意图判断 + 跨 Ring 分析
+- ✅ Super Ring cross_ring_query: 精简
+- ✅ Super Ring cross_ring_analysis: 不变（spec 说不变）
+- ✅ Archive extract: 加粒度约束
+- ✅ Archive judge: 精简
+- ✅ Compact: keep/drop 明确列表
+- ✅ Group docs: 精简模板
+- ✅ Session 5 skills × 2: 统一框架
+- ✅ Workflow file_parse: 加 relation 语义约束
+- ✅ Workflow knowledge_extract: 加 relation 语义约束
+- ✅ Export AI report: 精简
+- ✅ Blueprint: 精简
+- ✅ Search citation: 不变
+
+### 2. Placeholder Scan
+- 无 TBD/TODO
+
+### 3. Type Consistency
+- 所有函数签名不变（参数和返回值类型相同）
+- `material_prompt()` 和 `summary_prompt()` 的 match arms 不变
+- `metrics_context` 不变
