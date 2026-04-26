@@ -327,6 +327,81 @@ pub async fn local_join(
         }
     }
 
+    {
+        let sync_ring_id = join_result["ring_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let sync_creator_ip = input.creator_ip.clone();
+        let sync_db = state.db.clone();
+        let sync_rings_dir = state.rings_dir.clone();
+        if !sync_ring_id.is_empty() {
+            tokio::spawn(async move {
+                let url = format!(
+                    "http://{}:7420/api/rings/{}/sync/bundle",
+                    sync_creator_ip, sync_ring_id
+                );
+                match reqwest::get(&url).await {
+                    Ok(resp) if resp.status().is_success() => {
+                        match resp.json::<crate::services::sync::SyncBundle>().await {
+                            Ok(bundle) => {
+                                let sync_state = crate::state::AppState {
+                                    db: sync_db,
+                                    ws_hub: crate::ws_hub::WsHub::new(),
+                                    rings_dir: sync_rings_dir,
+                                    hub_dir: std::path::PathBuf::new(),
+                                    skills_dir: std::path::PathBuf::new(),
+                                    encryption:
+                                        crate::services::encryption::CredentialEncryption::new(
+                                            std::path::Path::new(""),
+                                        ),
+                                    dwell_buffer: std::sync::Arc::new(tokio::sync::Mutex::new(
+                                        std::collections::HashMap::new(),
+                                    )),
+                                    cross_ring_cache: crate::services::cross_ring_cache::new_cache(
+                                    ),
+                                };
+                                match crate::services::sync::import_bundle(&sync_state, &bundle)
+                                    .await
+                                {
+                                    Ok(result) => {
+                                        tracing::info!(
+                                            "auto-sync after join: ring={} graphs={} nodes={} edges={} archives={} docs={} files={}",
+                                            sync_ring_id, result.graphs, result.nodes, result.edges,
+                                            result.archive_records, result.group_docs, result.archive_files
+                                        );
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "auto-sync import failed for ring {}: {e}",
+                                            sync_ring_id
+                                        );
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(
+                                    "auto-sync parse failed for ring {}: {e}",
+                                    sync_ring_id
+                                );
+                            }
+                        }
+                    }
+                    Ok(resp) => {
+                        tracing::warn!(
+                            "auto-sync fetch failed for ring {}: status {}",
+                            sync_ring_id,
+                            resp.status()
+                        );
+                    }
+                    Err(e) => {
+                        tracing::warn!("auto-sync request failed for ring {}: {e}", sync_ring_id);
+                    }
+                }
+            });
+        }
+    }
+
     Ok(join_result)
 }
 
