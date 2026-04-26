@@ -2,7 +2,7 @@
 
 > **Affects**: [ai-behavior.md](ai-behavior.md) · [api-design.md](../technical/api-design.md) · [permissions.md](permissions.md) · [user-flow.md](user-flow.md)
 > **Depends on**: (none — this is the root product definition)
-> **Last verified**: 2026-04-16
+> **Last verified**: 2026-04-26
 
 ## 1. 产品概述
 
@@ -77,12 +77,14 @@ Ring 不为特定角色（行政/技术/管理）硬编码功能，而是通过�
 
 **功能点**：
 - 顶部导航栏：Ring 名称、成员头像列表、邀请按钮
-- 左侧图谱导航：节点树，点击跳转对应 Markdown 内容
+- 左侧面板：Ring 列表 + Session 展开（图谱节点树导航待实现）
 - 中央主区域：始终为对话视图（和 Group Ring 交互）
 - 右侧面板（可叠加，点击 tab 切换）：
   - 图谱面板：D3.js 可视化，节点可拖拽
   - 归档面板：Markdown 文件列表 + PR 队列 + Git Diff 查看
-- 工具栏（底部或侧边）：预设工作流入口 + 未来扩展
+  - 蓝图面板：蓝图构建引导
+  - Config 面板：LLM / 隐私 / 导出 / 同步设置
+- 预设工作流通过 AI tool_calls 自动触发，无需独立工具栏
 
 ### 2.3 知识图谱
 
@@ -195,7 +197,7 @@ Ring 不为特定角色（行政/技术/管理）硬编码功能，而是通过�
 **仓库结构**：
 - 每个 Ring（Group Ring）一个独立 GitLab 仓库
 - 用户可创建/加入多个 Ring，本地管理多个仓库
-- 用户身份通过本地 `.ring-local/identity.json` 管理（不进 Git，跨设备时重新 Setup）
+- 用户身份通过 `~/.ring/self/{user_id}/identity.md` 管理（不进 Git，跨设备时重新 Setup）
 
 **Git 操作在 Ring 内完成**：
 - 创建者/管理员直接归档 → 后端自动 commit + push
@@ -207,10 +209,10 @@ Ring 不为特定角色（行政/技术/管理）硬编码功能，而是通过�
 ```
 ring-{name}/
 ├── .ring-local/            # .gitignore 排除，纯本地
-│   └── identity.json       # 当前用户身份（不进 Git）
 ├── blueprint.json
-├── .group/                 # AI 上下文文档（进 Git）
-├── graphs/
+├── archives/               # 归档 Markdown 文件
+├── graphs/                 # 图谱 JSON 快照（main.json）
+├── .group/                 # AI 上下文文档目录（预留，当前数据在 SQLite group_docs 表）
 ├── nodes/
 └── assets/
 ```
@@ -241,13 +243,14 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 - 群组专属 AI，每个 Ring 一个实例
 - 单人对话时默认激活（不需要 Session）
 - 负责图谱操作、归档管理、内容问答、工具调用
-- **行为由 `.group/` 文档体系驱动**（6 个持久化 MD 文档，随 Git 版本管理，可长期进化）
+- **行为由 `.group/` 文档体系驱动**（6 个持久化文档，当前存储于 SQLite `group_docs` 表，通过数据同步跨设备传播；后续将落盘为 `.group/*.md` 文件纳入 Git 版本管理）
 - `.group/` 只有创建者和管理员可写入（直接 commit），成员完全只读
 - `.group/role.md`（角色定义）+ `.group/conventions.md`（团队约定）由创建者/管理员编辑
 - `.group/archive-patterns.md`（归档偏好）+ `.group/corrections.md`（修正记录）由 AI 自动积累
 - `.group/knowledge-summary.md`（知识总结）由 AI 定期生成
 - `.group/active-context.md`（活跃上下文）由 AI 动态维护
-- 按需加载策略：核心层（role + conventions + active-context）始终加载，扩展层按场景加载
+- 按需加载策略：核心层（role + conventions + active-context）始终加载注入 Group Ring system prompt，扩展层按场景加载
+- **注意**：当前实现中 `.group/` 文档尚未注入 Group Ring 对话上下文，此功能待实现
 
 **`.group/` 文档详细定义**：
 
@@ -287,15 +290,19 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
   - 可召唤：在 Ring 对话中 `@self` 召唤，Self 基于私有知识辅助回答（回答仅召唤者可见）
 - 数据存储在 `~/.ring/self/`，不进 Git
 - **数据内容**：
-  - `.self/identity.md` - 身份定义
+  - `.self/identity.md` - 身份定义（Setup 时创建，可编辑）
   - `.self/style.md` - 对话风格
-  - `.self/knowledge.md` - 知识结构（用户上传文档抽象而来）
-  - `.self/goals.md` - 目标和偏好
-  - `.self/growth.md` - 成长记录
+  - `.self/personality.md` - 性格特征
+  - `.self/privacy.md` - 隐私配置（含 allow_proactive 开关）
+  - `memory/user_profile.md` - AI 自动提取的用户画像
+  - `memory/preferences.md` - AI 自动提取的用户偏好
+  - `memory/active_goals.md` - AI 自动提取的当前目标
   - `metrics/session_stats.json` - Session 参与统计
   - `metrics/tool_usage.json` - 工具调用统计
   - `metrics/dwell_time.json` - 屏幕停留时长
   - `metrics/archive_patterns.json` - 归档行为模式
+  - `metrics/chat_patterns.json` - 对话行为模式
+  - `metrics/ring_activity.json` - Ring 活跃度
 - **行为**：信息收集、行为统计、给用户提建议，用户在时作为助手，可配置自主行动边界
 
 **层级调用规则**：
@@ -311,8 +318,8 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 | 工具 | 原子能力组合 | 使用方式 |
 |------|------------|---------|
 | 文件解析 | 文件解析 + 文本清洗 + 结构化提取 + Markdown 生成 | 对话中上传文件 → AI 提取关键信息 → 推荐挂载到图谱节点 |
-| 知识提取 | PDF 解析 + 知识图谱生成 + 文档解读 | 上传 PDF → AI 生成解读 + 提取概念 → 推荐创建/更新图谱节点 |
-| 深度调研 | 本地检索 + 网页爬取 + 报告生成 | 对话中说"调研 XX 主题" → AI 聚合资源 → 生成报告 Markdown → 挂载到图谱 |
+| 知识提取 | 文本分析 + 知识图谱生成 + 概念提取 | 输入文本 → AI 提取概念 → 推荐创建/更新图谱节点 |
+| 深度调研 | 本地检索 + 报告生成 | Session `research` skill 基于已有知识图谱内容生成调研报告（网页爬取能力待实现） |
 
 > **注意**：这些是 Group Ring 的通用工具能力，Session 场景中的专用行为由对应 Skill 定义。
 
@@ -322,15 +329,17 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 **导出选项**：
 
-| # | 导出类型 | 格式 | 描述 |
-|---|---------|------|------|
-| 1 | 图谱图片 | PNG / SVG / PDF | 将 D3.js 图谱导出为静态图片 |
-| 2 | 单篇 Markdown | .md | 导出某个节点的 Markdown 文件 |
-| 3 | 对话记录 | Markdown / PDF | 导出完整对话历史 |
-| 4 | AI 结构化报告 | Markdown / PDF | AI 基于指定节点内容生成结构化报告 |
-| 5 | Session 讨论记录 | Markdown / PDF | 导出多人讨论的完整记录 |
-| 6 | 整 Ring 数据备份 | .tar.gz | 完整备份（graph.json + Markdown + 元数据 + assets） |
-| 7 | graph.json 原始数据 | JSON | 导出图谱的 JSON 原始数据 |
+| # | 导出类型 | 格式 | 描述 | 状态 |
+|---|---------|------|------|------|
+| 1 | 图谱图片 | PNG / SVG | 将 D3.js 图谱导出为静态图片（SVG→Canvas→PNG） | ✅ |
+| 2 | 单篇 Markdown | .md | 导出某个节点的 Markdown 文件 | ✅ |
+| 3 | 对话记录 | Markdown | 导出完整对话历史（Group Ring / Self / Super Ring） | ✅ |
+| 4 | AI 结构化报告 | Markdown | AI 基于指定节点内容生成结构化报告 | ✅ |
+| 5 | Session 讨论记录 | Markdown | 导出多人讨论的完整记录 | ✅ |
+| 6 | 整 Ring 数据备份 | .tar.gz | 完整备份（graph.json + Markdown + 元数据 + assets） | ✅ |
+| 7 | graph.json 原始数据 | JSON | 导出图谱的 JSON 原始数据 | ✅ |
+
+> **PDF 导出**：当前所有导出为 Markdown / JSON / PNG / SVG 格式。PDF 导出待实现。
 
 **可视化**：
 - 图谱视图为静态查看模式（D3.js 力导向图渲染）
@@ -348,7 +357,7 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 **两种会话模式**：
 - **storage（持久会话）**：消息存入 SQLite，支持历史回溯、归档、compact。默认模式
-- **ephemeral（临时会话）**：消息仅存内存，关闭对话后丢失。适合快速问答
+- **ephemeral（临时会话）**：消息不写入 SQLite，仅在前端会话期间可见。关闭对话后丢失。通过 ConfigPanel Chat Mode 切换。
 
 **Token 管理（仅 storage 模式）**：
 - 系统追踪每个会话的累计 LLM token 消耗
@@ -374,7 +383,40 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 - **active**：正常运行（Ring 创建后始终为 active，无归档冻结机制）
 - Ring 的内容归档（对话→图谱节点+Markdown+Git commit）是持续性操作，不冻结 Ring 本身
 
-### 2.12 Session 多人讨论
+### 2.12 数据同步
+
+**描述**：多人协作场景下，成员从创建者拉取共享数据。
+
+**存储模式**：
+
+| 模式 | 归档协作 | 数据同步方式 |
+|------|---------|-------------|
+| local | 本地 git init + pending_reviews 审核队列 | HTTP bundle sync（全量 JSON） |
+| gitlab | GitLab MR 审核 | git clone/pull + HTTP bundle sync |
+
+**同步数据范围**：
+
+| 数据 | 同步方式 |
+|------|---------|
+| 归档 Markdown 文件 | git (gitlab) 或 bundle (local) |
+| 图谱 nodes/edges | HTTP bundle sync |
+| archive_records | HTTP bundle sync |
+| group_docs | HTTP bundle sync |
+| .group/ 目录 | git (gitlab) |
+| messages | **不同步**（每个用户私有对话） |
+
+**同步流程**：
+1. 加入 Ring 时：`local_join` 自动从创建者拉取初始 bundle
+2. 后续同步：成员通过 ConfigPanel "Sync from Creator" 按钮手动触发
+3. 创建者的 `creator_ip` 在加入时存入 `sync_meta` 表，供后续同步使用
+
+**API**：
+- `GET /rings/{ring_id}/sync/bundle` — 创建者导出全量 bundle
+- `POST /rings/sync/import` — 成员拉取并导入（member backend → creator backend → import）
+
+**Upsert 策略**：创建者为 source of truth — 导入时 `INSERT OR REPLACE`（graphs/nodes/edges），`ON CONFLICT DO UPDATE`（group_docs），`INSERT OR REPLACE`（archive_records）。
+
+### 2.13 Session 多人讨论
 
 **描述**：Ring 内的多人实时讨论空间，区别于 Ring 级的仓库同步邀请。
 
@@ -392,7 +434,7 @@ Ring 的 AI 系统分为四个层级，严格分层，各自独立运行：
 
 | 层级 | 目的 | 邀请范围 | 鉴权方式 | 数据同步 |
 |------|------|---------|---------|---------|
-| Ring 级 | 加入 Ring，获得仓库完整数据 | 任何人（通过 token） | API Key + invite token | Git clone/push/pull |
+| Ring 级 | 加入 Ring，获得仓库完整数据 | 任何人（通过 token） | API Key + invite token | Git clone (gitlab) 或 HTTP bundle sync (local) |
 | Session 级 | 加入具体讨论，实时协作 | 仅 Ring 内已有成员 | Ring 成员身份验证 | 创建者后端 WebSocket 中转 |
 
 **功能点**：
@@ -777,7 +819,7 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
   → 生成 Markdown 文件 + 更新 graph.json
   → 创建者/管理员：直接 commit + push
   → 成员：创建分支 → commit → push → GitLab API 创建 MR → 进入审核队列
-  → 所有成员自动 pull 最新内容
+  → 其他成员通过"Sync from Creator"按钮手动拉取最新内容（自动合并待实现）
 ```
 
 **PR 审核队列**：
@@ -834,15 +876,15 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
   → 本地后端处理：
      ├── 未 Setup → 先走 Setup 向导 → 完成后自动 join
      └── 已 Setup → 直接走 join 流程
-  → 输入 display_name
-  → Ring 自动从 GitLab clone 仓库到本地
-  → 分配 token_id（自增长）
-  → 加载图谱和归档内容
-  → 同步其他成员名称列表
-  → 加入 Ring，获得对应角色权限
+   → 输入 display_name
+   → Ring 自动从 GitLab clone 仓库到本地（gitlab 模式）
+   → 后端自动从创建者拉取数据 bundle（图谱 + 归档 + 文档）
+   → 分配 token_id（自增长）
+   → 加载图谱和归档内容
+   → 加入 Ring，获得对应角色权限
 ```
 
-> **创建者托管的 P2P 模式**：安装导航页由分享链接的创建者 ring-server 提供，无需中央安装服务器。每个用户运行自己的 ring-server 实例，但 Ring 的协作以创建者为托管节点。二进制文件统一从 GitHub Releases 下载。
+> **创建者托管的 P2P 模式**：安装导航页由分享链接的创建者 ring-server 提供，无需中央安装服务器。每个用户运行自己的 ring-server 实例，但 Ring 的协作以创建者为托管节点。二进制下载地址通过 `RING_DOWNLOAD_URL` 环境变量配置。
 
 #### 6.3.2 审核链接加入
 
@@ -1047,3 +1089,45 @@ Session owner 离线
 ```
 
 > **图谱可视化**：支持展开/折叠节点（查看或隐藏子节点），支持缩放、平移、高亮。不支持在可视化界面上直接编辑。
+
+---
+
+## 7. 实现状态附录
+
+> **Last updated**: 2026-04-26
+
+### 7.1 已完成功能
+
+| 模块 | 状态 |
+|------|------|
+| Ring Hub（列表/创建/Super Ring入口/全局设置/隐私提示） | ✅ |
+| Ring 空间（三栏布局 + 右侧面板切换 + Config 面板） | ✅ |
+| 知识图谱（蓝图快速/深度路径 + 多图谱 + D3.js + PNG/SVG 导出） | ✅ |
+| 归档机制（手动/Auto/AI推荐 + creator commit + member MR + 审核队列） | ✅ |
+| 存储后端（StorageBackend trait + Local + GitLab 两种模式） | ✅ |
+| 数据同步（HTTP bundle sync + 加入自动同步 + 手动 Sync 按钮 + creator_ip 持久化） | ✅ |
+| 四层 AI（Super Ring 跨 Ring 查询 + Group Ring tool_calls + Session Ring 6 skills + Self 记忆提取） | ✅ |
+| 预设工作流（file_parse + knowledge_extract） | ✅ |
+| 导出中心（7 种导出类型，PNG/SVG/MD/JSON/tar.gz） | ✅ |
+| 对话管理（storage/ephemeral 模式 + 100k token 阈值 + auto compact） | ✅ |
+| 通知系统（CRUD + WebSocket 推送 + 离线缓存 + 归档/成员/Session 事件触发） | ✅ |
+| Session 系统（完整生命周期 + 材料准备/高亮 + 讨论广播 + 暂停/恢复 + catch-up） | ✅ |
+| 权限模型（4 角色 + 权限矩阵 + invite open/audit + session grant/revoke + ownership transfer） | ✅ |
+| 邀请/加入（安装导航页 + OS 检测 + local/guest join + 审核流程） | ✅ |
+| Self 系统（记忆提取/压缩 + metrics 6 类 + @self 召唤 + SelfFloat UI） | ✅ |
+| 跨 Ring 全文搜索（FTS5 + Super Chat 注入 + 可点击引用） | ✅ |
+| 图谱自动落盘（mutations → graphs/main.json + git commit） | ✅ |
+| 成员移除 Session ownership 保护 | ✅ |
+
+### 7.2 待实现功能
+
+| 功能 | PRD 章节 | 优先级 | 说明 |
+|------|---------|--------|------|
+| `.group/` 文档落盘为 `.group/*.md` 文件 + git 版本管理 | 2.6 | HIGH | 当前仅存 SQLite group_docs 表 |
+| `.group/` 分层加载注入 Group Ring system prompt | 2.6 | HIGH | 当前 Group Ring 对话不消费 .group/ 文档 |
+| 左侧图谱节点树导航 | 2.2 | MED | 点击节点跳转对应内容 |
+| 深度调研工作流 — 网页爬取能力 | 2.7 | MED | 当前 research skill 仅基于已有知识 |
+| PDF 导出格式 | 2.8 | LOW | 当前所有导出为 Markdown/PNG/SVG/JSON |
+| 归档视图 Git revert | 6.8 | LOW | 查看提交历史 + 回滚 |
+| Super Ring create_ring tool | 2.6 | LOW | 当前 Super Ring 只能对话引导，不能通过 tool 创建 Ring |
+| Self growth.md 成长日志 | 2.6 | LOW | 当前有 active_goals，缺少成长轨迹记录 |
