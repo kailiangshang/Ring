@@ -40,6 +40,7 @@ pub struct RingListItem {
     pub node_count: i64,
     pub last_activity_at: String,
     pub has_active_session: bool,
+    pub creator_ip: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -128,6 +129,15 @@ pub async fn list_rings_for_user(
                 .await
                 .unwrap_or(0);
 
+        let creator_ip: Option<String> = sqlx::query_scalar(
+            "SELECT value FROM sync_meta WHERE ring_id = ?1 AND key = 'creator_ip'",
+        )
+        .bind(&id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+
         result.push(RingListItem {
             id,
             name,
@@ -136,6 +146,7 @@ pub async fn list_rings_for_user(
             node_count,
             last_activity_at,
             has_active_session: false,
+            creator_ip,
         });
     }
     Ok(result)

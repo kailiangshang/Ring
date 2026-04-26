@@ -402,6 +402,26 @@ pub async fn local_join(
         }
     }
 
+    {
+        let sync_ring_id = join_result["ring_id"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        let sync_db = state.db.clone();
+        let sync_creator_ip = input.creator_ip.clone();
+        if !sync_ring_id.is_empty() {
+            let _ = sqlx::query(
+                "INSERT INTO sync_meta (ring_id, key, value, updated_at)
+                 VALUES (?1, 'creator_ip', ?2, datetime('now'))
+                 ON CONFLICT(ring_id, key) DO UPDATE SET value = ?2, updated_at = datetime('now')",
+            )
+            .bind(&sync_ring_id)
+            .bind(&sync_creator_ip)
+            .execute(&sync_db)
+            .await;
+        }
+    }
+
     Ok(join_result)
 }
 

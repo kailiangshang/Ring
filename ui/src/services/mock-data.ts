@@ -12,6 +12,7 @@ export const MOCK_RINGS: Ring[] = [
     node_count: 13,
     last_activity_at: '2026-04-17T08:00:00Z',
     has_active_session: true,
+    creator_ip: null,
   },
   {
     id: '01JTYRING2',
@@ -22,6 +23,7 @@ export const MOCK_RINGS: Ring[] = [
     node_count: 8,
     last_activity_at: '2026-04-16T14:00:00Z',
     has_active_session: false,
+    creator_ip: '192.168.1.100',
   },
   {
     id: '01JTYRING3',
@@ -32,6 +34,7 @@ export const MOCK_RINGS: Ring[] = [
     node_count: 21,
     last_activity_at: '2026-04-15T10:00:00Z',
     has_active_session: false,
+    creator_ip: null,
   },
 ]
 

@@ -10,6 +10,7 @@ export interface Ring {
   node_count: number
   last_activity_at: string
   has_active_session: boolean
+  creator_ip: string | null
 }
 
 export interface Member {

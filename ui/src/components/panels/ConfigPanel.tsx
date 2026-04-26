@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Member } from '../../types/ring'
 import type { LLMConfig, LLMProvider } from '../../types/config'
-import { api, testLLMConfig, exportRingBackup } from '../../services/api'
+import { api, testLLMConfig, exportRingBackup, postSyncImport } from '../../services/api'
 import { useRingStore } from '../../stores/ring-store'
 import { useInviteStore } from '../../stores/invite-store'
 
@@ -45,6 +45,8 @@ export function ConfigPanel() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [autoCompact, setAutoCompact] = useState<boolean | null>(null)
   const [autoCompactError, setAutoCompactError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
 
   const tokens = useInviteStore((s) => s.tokens)
   const join_requests = useInviteStore((s) => s.join_requests)
@@ -373,6 +375,46 @@ export function ConfigPanel() {
           Full Ring Backup (JSON)
         </button>
       </div>
+
+      {active_ring && active_ring.role !== 'creator' && active_ring.creator_ip && (
+        <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+          <p style={{ marginBottom: 8, color: 'var(--text-secondary)', fontWeight: 700 }}>
+            Sync
+          </p>
+          <button
+            onClick={async () => {
+              if (!active_ring_id || !active_ring.creator_ip) return
+              setSyncing(true)
+              setSyncResult(null)
+              try {
+                const res = await postSyncImport(active_ring_id, active_ring.creator_ip)
+                setSyncResult(
+                  `Synced: ${res.imported.nodes} nodes, ${res.imported.edges} edges, ${res.imported.archive_records} archives, ${res.imported.group_docs} docs`
+                )
+              } catch (e: any) {
+                setSyncResult(`Sync failed: ${e?.message || e}`)
+              } finally {
+                setSyncing(false)
+              }
+            }}
+            disabled={syncing}
+            style={{
+              ...smallBtn,
+              width: '100%',
+              marginBottom: 4,
+              cursor: syncing ? 'not-allowed' : 'pointer',
+              opacity: syncing ? 0.6 : 1,
+            }}
+          >
+            {syncing ? 'Syncing...' : 'Sync from Creator'}
+          </button>
+          {syncResult && (
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 4 }}>
+              {syncResult}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
