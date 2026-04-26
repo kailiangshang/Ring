@@ -3,7 +3,7 @@ use sqlx::FromRow;
 
 use crate::error::{Result, RingError};
 
-#[derive(Debug, FromRow, Serialize, Clone)]
+#[derive(Debug, FromRow, Serialize, Deserialize, Clone)]
 pub struct GraphRow {
     pub id: String,
     pub ring_id: String,
@@ -12,7 +12,7 @@ pub struct GraphRow {
     pub updated_at: String,
 }
 
-#[derive(Debug, FromRow, Serialize, Clone)]
+#[derive(Debug, FromRow, Serialize, Deserialize, Clone)]
 pub struct GraphNodeRow {
     pub id: String,
     pub graph_id: String,
@@ -28,7 +28,7 @@ pub struct GraphNodeRow {
     pub updated_at: String,
 }
 
-#[derive(Debug, FromRow, Serialize, Clone)]
+#[derive(Debug, FromRow, Serialize, Deserialize, Clone)]
 pub struct GraphEdgeRow {
     pub id: String,
     pub graph_id: String,

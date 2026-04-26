@@ -276,11 +276,8 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
-        .route(
-            "/rings/{ring_id}/sync/snapshot",
-            get(archive::sync_snapshot),
-        )
-        .route("/rings/{ring_id}/sync/delta", get(archive::sync_delta))
+        .route("/rings/{ring_id}/sync/bundle", get(archive::sync_bundle))
+        .route("/rings/sync/import", post(archive::sync_import))
         .route(
             "/rings/{ring_id}/blueprint",
             get(blueprint::get_blueprint_handler),
