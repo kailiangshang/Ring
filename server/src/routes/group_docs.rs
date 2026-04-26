@@ -93,6 +93,13 @@ pub async fn update_group_doc(
         .execute(&state.db)
         .await?;
 
+    crate::services::group_doc_maintenance::persist_group_doc(
+        &state.rings_dir,
+        &ring_id,
+        &doc_name,
+        &body.content,
+    );
+
     let ring_name = crate::services::search::get_ring_name(&state.db, &ring_id)
         .await
         .unwrap_or_default();

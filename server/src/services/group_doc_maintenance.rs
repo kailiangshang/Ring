@@ -4,6 +4,26 @@ use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
 use crate::state::AppState;
 
+pub fn persist_group_doc(
+    rings_dir: &std::path::Path,
+    ring_id: &str,
+    doc_name: &str,
+    content: &str,
+) {
+    let group_dir = rings_dir.join(ring_id).join(".group");
+    let _ = std::fs::create_dir_all(&group_dir);
+    let path = group_dir.join(format!("{doc_name}.md"));
+    if std::fs::write(&path, content).is_err() {
+        return;
+    }
+    let repo_path = rings_dir.join(ring_id);
+    if repo_path.join(".git").exists() {
+        let git = crate::services::git_service::GitService::new();
+        let _ = git.add_all(&repo_path);
+        let _ = git.commit(&repo_path, &format!("docs: update .group/{doc_name}.md"));
+    }
+}
+
 pub async fn update_active_context(
     state: &AppState,
     ring_id: &str,
@@ -48,6 +68,8 @@ pub async fn update_active_context(
     .execute(&state.db)
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    persist_group_doc(&state.rings_dir, ring_id, "active-context", content.trim());
 
     Ok(())
 }
@@ -99,6 +121,8 @@ pub async fn update_archive_patterns(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
+    persist_group_doc(&state.rings_dir, ring_id, "archive-patterns", merged.trim());
+
     Ok(())
 }
 
@@ -136,22 +160,10 @@ pub async fn add_correction(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
+    persist_group_doc(&state.rings_dir, ring_id, "corrections", merged.trim());
+
     Ok(())
 }
-
-const KNOWLEDGE_SUMMARY_PROMPT: &str = r#"基于以下图谱节点和边信息，生成知识库整体摘要。用 Markdown 格式输出，包含以下部分：
-
-## 知识概览
-- 总节点数、边数
-
-## 主要分类
-- 列出主要节点分类及描述
-
-## 近期变化
-- 如果有更新，列出近期变化
-
-图谱数据：
-"#;
 
 pub async fn update_knowledge_summary(
     state: &AppState,
@@ -184,8 +196,7 @@ pub async fn update_knowledge_summary(
     });
 
     let prompt = format!(
-        "{}\n{}",
-        KNOWLEDGE_SUMMARY_PROMPT,
+        "分析以下知识图谱结构，生成一份简洁的知识库摘要。包括：主要分类、各分类的核心节点数、知识覆盖情况、可能的空白领域。\n{}",
         serde_json::to_string_pretty(&graph_json).unwrap_or_default()
     );
 
@@ -205,6 +216,13 @@ pub async fn update_knowledge_summary(
     .execute(&state.db)
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    persist_group_doc(
+        &state.rings_dir,
+        ring_id,
+        "knowledge-summary",
+        content.trim(),
+    );
 
     Ok(())
 }

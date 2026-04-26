@@ -118,7 +118,13 @@ pub async fn ring_chat(
 
     let mut rx = {
         let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
-        let system_prompt = chat::build_system_prompt(Some(&ring_info.0), ring_info.1.as_deref());
+        let system_prompt = chat::build_group_ring_prompt_with_docs(
+            &state.db,
+            &ring_info.0,
+            ring_info.1.as_deref(),
+            &ring_id,
+        )
+        .await;
         let history =
             chat::load_history_context(&state.db, Some(&ring_id), &user.token_id, 20).await?;
 

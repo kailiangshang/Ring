@@ -234,6 +234,70 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
     prompt
 }
 
+pub async fn build_group_ring_prompt_with_docs(
+    pool: &sqlx::SqlitePool,
+    ring_name: &str,
+    role_description: Option<&str>,
+    ring_id: &str,
+) -> String {
+    let base = crate::prompts::group_ring::system(ring_name, role_description);
+
+    let core_docs = ["role", "conventions", "active-context"];
+    let ext_docs = ["archive-patterns", "corrections", "knowledge-summary"];
+
+    let mut core_ctx = String::new();
+    for doc_name in &core_docs {
+        let content: Option<String> = sqlx::query_scalar(
+            "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = ?2",
+        )
+        .bind(ring_id)
+        .bind(doc_name)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+        if let Some(c) = content {
+            if !c.trim().is_empty() {
+                core_ctx.push_str(&format!("### {doc_name}\n{c}\n\n"));
+            }
+        }
+    }
+
+    let mut ext_ctx = String::new();
+    for doc_name in &ext_docs {
+        let content: Option<String> = sqlx::query_scalar(
+            "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = ?2",
+        )
+        .bind(ring_id)
+        .bind(doc_name)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+        if let Some(c) = content {
+            if !c.trim().is_empty() {
+                ext_ctx.push_str(&format!("### {doc_name}\n{c}\n\n"));
+            }
+        }
+    }
+
+    let mut extra = String::new();
+    if !core_ctx.is_empty() {
+        extra.push_str("## Group Context (Core)\n\n");
+        extra.push_str(&core_ctx);
+    }
+    if !ext_ctx.is_empty() {
+        extra.push_str("## Group Context (Extended)\n\n");
+        extra.push_str(&ext_ctx);
+    }
+
+    if extra.is_empty() {
+        base
+    } else {
+        format!("{base}\n\n{extra}")
+    }
+}
+
 pub async fn load_history_context(
     pool: &sqlx::SqlitePool,
     ring_id: Option<&str>,
@@ -318,7 +382,11 @@ pub async fn start_chat_stream(
     user: &crate::models::user::UserRow,
     params: &ChatParams<'_>,
 ) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
-    let system_prompt = build_system_prompt(params.ring_name, params.role_description);
+    let system_prompt = if let (Some(name), Some(ring_id)) = (params.ring_name, params.ring_id) {
+        build_group_ring_prompt_with_docs(&state.db, name, params.role_description, ring_id).await
+    } else {
+        build_system_prompt(params.ring_name, params.role_description)
+    };
     let history = if params.ephemeral {
         vec![]
     } else {
