@@ -264,19 +264,27 @@ pub mod super_ring {
 }
 
 pub mod compact {
-    pub const SYSTEM: &str = "你是知识对话压缩助手。你的任务是保留所有有价值信息，去除冗余。";
+    pub const SYSTEM: &str = "压缩对话历史，保留所有实质信息。";
     pub fn user(history: &str, max_tokens: i64) -> String {
         format!(
             r#"<task>
-压缩以下对话历史，目标长度：{max_tokens} 字以内。
+压缩以下对话，目标长度：{max_tokens} 字。
 </task>
 
-<rules>
-- 保留：关键信息、决策、行动项、涉及的人物/项目/节点名称
-- 保留：图谱相关内容（节点名、边关系、标签）
-- 保留：具体的数值、日期、结论
-- 丢弃：闲聊、问候、重复确认、无实质内容的回复
-</rules>
+<keep>
+- 决策和理由
+- 具体数值、日期、版本号
+- 人名/项目名/节点名
+- 图谱操作（节点/边/标签）
+- 技术方案和参数
+- 结论和行动项
+</keep>
+
+<drop>
+- 问候、感谢、确认
+- 重复内容（保留最新版本）
+- 失败的尝试（除非含排查经验）
+</drop>
 
 <conversation>
 {history}
@@ -286,99 +294,68 @@ pub mod compact {
 }
 
 pub mod archive {
-    pub const EXTRACT_SYSTEM: &str = r##"<role>
-你是知识管理助手，从讨论记录中提取可归档的知识单元。每个单元将成为图谱中的一个节点。
-</role>
+    pub const EXTRACT_SYSTEM: &str = r##"<system>
+从讨论中提取可归档的知识单元。
 
-<extraction_criteria>
-值得提取：决策记录、结论总结、知识点、调研发现、方案对比、技术方案、重要讨论结论
-忽略：闲聊、问候、简单确认、重复内容
-</extraction_criteria>
+<extraction_rules>
+值得提取：决策记录（含理由）、结论总结、技术方案、调研发现、方案对比
+忽略：闲聊、确认、重复、未定论
 
-<output_format>
-返回纯 JSON 数组（不要 markdown code block）：
+每条单元必须：
+- title：≤20字，可作图谱节点标签
+- content：自包含 Markdown，不看上下文能理解
+- 粒度：一条单元 = 一个独立知识点
+</extraction_rules>
 
-[{"title": "简短标题", "content": "Markdown 格式的完整内容"}]
-</output_format>
+<output>
+纯 JSON 数组，不要 code block：
+[{"title": "...", "content": "..."}]
+</output>
+</system>"##;
 
-<rules>
-- title：不超过 30 字，不含特殊字符，用作图谱节点标签
-- content：Markdown 格式，自包含（不看上下文也能理解）
-- 每条知识单元独立有价值
-</rules>"##;
+    pub const JUDGE_SYSTEM: &str = r#"<system>
+判断对话是否值得归档到群组知识图谱。
 
-    pub const JUDGE_SYSTEM: &str = r#"<role>
-你是知识归档判断助手。评估对话内容是否值得归档到群组知识图谱。
-</role>
+<worthy>
+决策记录、结论总结、可复用知识、调研发现、技术方案、团队共识
+</worthy>
 
-<archive_worthy>
-- 决策记录和理由
-- 结论性总结
-- 可复用的知识点
-- 调研发现和对比分析
-- 技术方案和设计文档
-- 重要讨论的最终共识
-</archive_worthy>
+<not_worthy>
+闲聊、确认、无实质短回复、未得出结论
+</not_worthy>
 
-<not_archive_worthy>
-- 闲聊、问候
-- 简单确认、点赞
-- 无实质内容的短回复
-- 尚未得出结论的讨论
-</not_archive_worthy>
-
-<output_format>
-值得归档时返回（纯 JSON，不要 markdown code block）：
-{"should_archive": true, "title": "简短标题", "content": "Markdown 格式内容"}
-
-不值得归档时返回：
-{"should_archive": false}
-</output_format>"#;
+<output>
+纯 JSON，不要 code block：
+值得：{"should_archive": true, "title": "≤20字", "content": "Markdown"}
+不值得：{"should_archive": false}
+</output>
+</system>"#;
 }
 
 pub mod group_docs {
-    pub const ACTIVE_CONTEXT_SYSTEM: &str =
-        "你是群组知识空间的上下文分析助手。生成活跃上下文摘要。";
+    pub const ACTIVE_CONTEXT_SYSTEM: &str = "分析最近对话，提取活跃上下文。";
     pub const ACTIVE_CONTEXT_USER: &str = r#"<task>
-基于最近的对话历史，生成活跃上下文摘要。
+提取活跃上下文。
 </task>
 
-<output_format>
-## 近期话题
-- 话题1（涉及节点：**节点名**）
-- 话题2
-
-## 待处理事项
-- [ ] 未解决的事项
-
-## 关注节点
-- **关键概念或图谱节点**
-
-## 知识缺口
-- 可能需要补充到图谱的新概念
-</output_format>
+<output>
+- 近期话题（涉及节点用 **加粗**）
+- 待解决事项（复选框）
+- 知识缺口（可能需要补充的概念）
+</output>
 
 <conversation_history>"#;
 
-    pub const ARCHIVE_PATTERNS_SYSTEM: &str =
-        "你是群组知识空间的归档模式分析助手。提取用户归档行为模式。";
+    pub const ARCHIVE_PATTERNS_SYSTEM: &str = "分析归档记录，提取归档模式。";
     pub const ARCHIVE_PATTERNS_USER: &str = r#"<task>
-基于归档操作记录，提取归档行为模式。
+提取归档行为模式。
 </task>
 
-<output_format>
-## 归档偏好
-- 粒度偏好：按主题 / 按项目
-- 归档频率：每天 / 每周 / 不定期
-- 常用节点类型
-
-## 归档模式
-- 用户通常将什么类型的内容归入什么节点
-- 图谱增长规律
-
-## 优化建议
-- 基于模式给出 2-3 条建议
-</output_format>
+<output>
+- 粒度偏好（按主题/按项目）
+- 高频归档内容类型
+- 2-3 条优化建议
+</output>
 
 <archive_records>"#;
 }
