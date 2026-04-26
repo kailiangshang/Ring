@@ -358,6 +358,11 @@ export function RingList() {
           + new ring
         </div>
       )}
+      <div style={{ padding: '8px 12px', borderTop: '1px solid var(--border)', marginTop: 8 }}>
+        <div style={{ fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.4 }}>
+          对话记录仅保存在当前设备
+        </div>
+      </div>
     </div>
   )
 }

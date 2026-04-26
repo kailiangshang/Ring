@@ -41,6 +41,19 @@ async fn handle_socket(socket: WebSocket, state: AppState, token_id: String) {
 
     state.ws_hub.register(token_id.clone(), tx);
 
+    {
+        let resumed_sessions: Vec<String> = state.ws_hub.sessions_owned_by(&token_id);
+        for session_id in &resumed_sessions {
+            let msg = serde_json::json!({
+                "type": "session_resumed",
+                "session_id": session_id,
+            });
+            state
+                .ws_hub
+                .broadcast_to_session(session_id, &msg.to_string());
+        }
+    }
+
     let send_task = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             if ws_sender.send(Message::Text(msg.into())).await.is_err() {

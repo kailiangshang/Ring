@@ -359,10 +359,28 @@ pub async fn invite_participants(
         }
     }
     let result = session::add_participants(&state.db, session_id, &input.token_ids).await?;
+    let session_title: String = sqlx::query_scalar("SELECT title FROM sessions WHERE id = ?1")
+        .bind(session_id)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_default();
     for tid in &input.token_ids {
         state
             .ws_hub
             .add_session_participant(session_id, tid.clone());
+        let _ = crate::models::notification::create_notification(
+            &state.db,
+            &format!("notif-{}", ulid::Ulid::new()),
+            &crate::models::notification::CreateNotification {
+                user_id: tid.clone(),
+                ring_id: Some(ring_id.to_string()),
+                notification_type: "session_invited".into(),
+                title: "Session invitation".into(),
+                content: Some(format!("You were invited to session \"{}\"", session_title)),
+                related_id: Some(session_id.to_string()),
+            },
+        )
+        .await;
     }
     Ok(result)
 }

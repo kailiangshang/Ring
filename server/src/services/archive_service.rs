@@ -7,6 +7,7 @@ use crate::error::{Result, RingError};
 use crate::models::archive;
 use crate::models::archive::ArchiveRecord;
 use crate::models::graph;
+use crate::models::notification;
 use crate::services::git_service::GitService;
 use crate::services::storage::StorageBackend;
 use crate::state::AppState;
@@ -404,13 +405,49 @@ pub async fn review_mr(
             backend
                 .merge_review(&repo_path, &record.ring_id, mr_iid)
                 .await?;
-            archive::update_status(pool, record_id, "merged", None, None, None).await
+            let result =
+                archive::update_status(pool, record_id, "merged", None, None, None).await?;
+            let _ = notification::create_notification(
+                pool,
+                &format!("notif-{}", ulid::Ulid::new()),
+                &notification::CreateNotification {
+                    user_id: record.archived_by.clone(),
+                    ring_id: Some(record.ring_id.clone()),
+                    notification_type: "archive_merged".into(),
+                    title: "Archive merged".into(),
+                    content: Some(format!(
+                        "Your archive \"{}\" has been merged",
+                        record.file_name
+                    )),
+                    related_id: Some(record_id.to_string()),
+                },
+            )
+            .await;
+            Ok(result)
         }
         archive::ReviewAction::Reject => {
             backend
                 .reject_review(&repo_path, &record.ring_id, mr_iid)
                 .await?;
-            archive::update_status(pool, record_id, "rejected", None, None, None).await
+            let result =
+                archive::update_status(pool, record_id, "rejected", None, None, None).await?;
+            let _ = notification::create_notification(
+                pool,
+                &format!("notif-{}", ulid::Ulid::new()),
+                &notification::CreateNotification {
+                    user_id: record.archived_by.clone(),
+                    ring_id: Some(record.ring_id.clone()),
+                    notification_type: "archive_rejected".into(),
+                    title: "Archive rejected".into(),
+                    content: Some(format!(
+                        "Your archive \"{}\" has been rejected",
+                        record.file_name
+                    )),
+                    related_id: Some(record_id.to_string()),
+                },
+            )
+            .await;
+            Ok(result)
         }
     }
 }

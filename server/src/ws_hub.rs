@@ -92,6 +92,14 @@ impl WsHub {
         }
     }
 
+    pub fn sessions_owned_by(&self, token_id: &str) -> Vec<String> {
+        self.sessions
+            .iter()
+            .filter(|entry| entry.value().owner == token_id)
+            .map(|entry| entry.key().to_string())
+            .collect()
+    }
+
     pub fn is_session_owner_online(&self, session_id: &str) -> bool {
         if let Some(channel) = self.sessions.get(session_id) {
             self.connections.contains_key(&channel.owner)

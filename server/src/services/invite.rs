@@ -6,6 +6,7 @@ use ulid::Ulid;
 
 use crate::error::{Result, RingError};
 use crate::models::invite::{self, CreateInviteToken, InviteTokenRow};
+use crate::models::notification;
 use crate::models::ring;
 use crate::state::AppState;
 
@@ -221,6 +222,15 @@ pub async fn execute_join(state: &AppState, input: &JoinRequest) -> Result<JoinR
         .fetch_one(&state.db)
         .await
         .unwrap_or_default();
+
+    notify_ring_admins(
+        &state.db,
+        &row.ring_id,
+        "member_joined",
+        "New member joined",
+        &format!("{} joined Ring \"{}\"", input.display_name, ring_name),
+    )
+    .await;
 
     let self_dir = crate::services::self_data::get_self_dir(&token_id);
     let _ = crate::services::self_data::record_ring_joined(&self_dir, &row.ring_id, &ring_name);
@@ -640,4 +650,35 @@ pub async fn reject_join_request(
     invite::update_join_request_status(&state.db, request_id, "rejected", user_id, note).await?;
 
     Ok(serde_json::json!({ "ok": true }))
+}
+
+async fn notify_ring_admins(
+    pool: &sqlx::SqlitePool,
+    ring_id: &str,
+    notification_type: &str,
+    title: &str,
+    content: &str,
+) {
+    let admins: Vec<String> = sqlx::query_scalar(
+        "SELECT user_id FROM members WHERE ring_id = ?1 AND role IN ('creator', 'admin')",
+    )
+    .bind(ring_id)
+    .fetch_all(pool)
+    .await
+    .unwrap_or_default();
+    for admin_id in admins {
+        let _ = notification::create_notification(
+            pool,
+            &format!("notif-{}", ulid::Ulid::new()),
+            &notification::CreateNotification {
+                user_id: admin_id,
+                ring_id: Some(ring_id.to_string()),
+                notification_type: notification_type.to_string(),
+                title: title.to_string(),
+                content: Some(content.to_string()),
+                related_id: None,
+            },
+        )
+        .await;
+    }
 }
