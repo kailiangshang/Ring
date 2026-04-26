@@ -379,6 +379,10 @@ pub fn build_router(state: AppState) -> Router {
             get(export::export_ai_report),
         )
         .route(
+            "/rings/{ring_id}/export/node",
+            get(export::export_node_markdown),
+        )
+        .route(
             "/super/cross-ring/query",
             post(super_chat::cross_ring_query_handler),
         )

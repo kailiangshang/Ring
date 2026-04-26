@@ -261,6 +261,10 @@ export async function exportSessionMessages(ringId: string, sessionId: string, s
   return exportFile(`/rings/${ringId}/sessions/${sessionId}/export`, `session_${sessionId}.md`, signal)
 }
 
+export async function exportNodeMarkdown(ringId: string, nodeId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/export/node?node_id=${encodeURIComponent(nodeId)}`, `node.md`, signal)
+}
+
 export async function uploadFile(path: string, file: File, signal?: AbortSignal): Promise<any> {
   const token = await getToken()
   const formData = new FormData()

@@ -384,3 +384,40 @@ pub async fn export_ai_report(
         format!("ring_{}_report.md", ring_id),
     ))
 }
+
+#[derive(Debug, Deserialize)]
+pub struct ExportNodeQuery {
+    pub node_id: String,
+}
+
+pub async fn export_node_markdown(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Query(query): Query<ExportNodeQuery>,
+) -> Result<impl IntoResponse> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+
+    let node = sqlx::query_as::<_, graph::GraphNodeRow>(
+        "SELECT n.* FROM graph_nodes n JOIN graphs g ON n.graph_id = g.id WHERE g.ring_id = ?1 AND n.id = ?2",
+    )
+    .bind(&ring_id)
+    .bind(&query.node_id)
+    .fetch_optional(&state.db)
+    .await?
+    .ok_or_else(|| crate::error::RingError::NotFound("node not found".into()))?;
+
+    let md_content = if let Some(ref mp) = node.markdown_path {
+        let full_path = state.rings_dir.join(&ring_id).join(mp);
+        if full_path.exists() {
+            std::fs::read_to_string(&full_path).unwrap_or_default()
+        } else {
+            node.content.clone()
+        }
+    } else {
+        node.content.clone()
+    };
+
+    let label = node.label.replace(' ', "_");
+    Ok(markdown_response(md_content, format!("{}.md", label)))
+}

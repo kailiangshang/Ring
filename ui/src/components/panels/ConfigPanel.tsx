@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { Member } from '../../types/ring'
 import type { LLMConfig, LLMProvider } from '../../types/config'
-import { api, testLLMConfig, exportRingBackup, postSyncImport } from '../../services/api'
+import { api, testLLMConfig, exportRingBackup, exportAIReport, postSyncImport } from '../../services/api'
 import { useRingStore } from '../../stores/ring-store'
+import { useChatStore } from '../../stores/chat-store'
 import { useInviteStore } from '../../stores/invite-store'
 
 const inputStyle: React.CSSProperties = {
@@ -33,6 +34,8 @@ const smallBtn: React.CSSProperties = {
 export function ConfigPanel() {
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const rings = useRingStore((s) => s.rings)
+  const session_mode = useChatStore((s) => s.session_mode)
+  const setSessionMode = useChatStore((s) => s.setSessionMode)
   const [members, setMembers] = useState<Member[]>([])
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null)
   const [editing, setEditing] = useState(false)
@@ -374,6 +377,54 @@ export function ConfigPanel() {
         >
           Full Ring Backup (JSON)
         </button>
+        <button
+          onClick={async () => {
+            if (!active_ring_id) return
+            try {
+              await exportAIReport(active_ring_id, [], undefined)
+            } catch {}
+          }}
+          style={{
+            ...smallBtn,
+            width: '100%',
+            marginBottom: 4,
+          }}
+        >
+          AI Report (Markdown)
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+        <p style={{ marginBottom: 8, color: 'var(--text-secondary)', fontWeight: 700 }}>
+          Chat Mode
+        </p>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button
+            onClick={() => setSessionMode('storage')}
+            style={{
+              ...smallBtn,
+              flex: 1,
+              background: session_mode === 'storage' ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: session_mode === 'storage' ? 'var(--bg-base)' : 'var(--text-primary)',
+            }}
+          >
+            Storage
+          </button>
+          <button
+            onClick={() => setSessionMode('ephemeral')}
+            style={{
+              ...smallBtn,
+              flex: 1,
+              background: session_mode === 'ephemeral' ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: session_mode === 'ephemeral' ? 'var(--bg-base)' : 'var(--text-primary)',
+            }}
+          >
+            Ephemeral
+          </button>
+        </div>
+        <div style={{ fontSize: 9, color: 'var(--text-muted)', marginTop: 4 }}>
+          {session_mode === 'storage' ? 'Messages saved to local database' : 'Messages not saved (temporary)'}
+        </div>
       </div>
 
       {active_ring && active_ring.role !== 'creator' && active_ring.creator_ip && (
