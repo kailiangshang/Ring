@@ -24,5 +24,6 @@ pub mod setup;
 pub mod skill;
 pub mod storage;
 pub mod super_chat;
+pub mod sync;
 pub mod upload;
 pub mod workflow;
