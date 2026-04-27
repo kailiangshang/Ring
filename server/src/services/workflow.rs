@@ -17,6 +17,12 @@ pub struct KnowledgeExtractArgs {
     pub target_graph: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct FetchUrlArgs {
+    pub url: String,
+    pub focus: Option<String>,
+}
+
 pub async fn execute_file_parse(
     pool: &SqlitePool,
     user: &UserRow,
@@ -47,4 +53,99 @@ pub async fn execute_knowledge_extract(
     let truncated: String = args.content.chars().take(30000).collect();
     let result = llm.chat_complete(prompt, truncated).await?;
     Ok(result)
+}
+
+pub async fn execute_fetch_url(args: &FetchUrlArgs) -> Result<String> {
+    if !args.url.starts_with("http://") && !args.url.starts_with("https://") {
+        return Err(RingError::BadRequest(
+            "URL must start with http:// or https://".into(),
+        ));
+    }
+
+    let response = reqwest::get(&args.url)
+        .await
+        .map_err(|e| RingError::BadRequest(format!("Failed to fetch URL: {e}")))?;
+
+    let is_html = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .map(|ct| ct.contains("text/html"))
+        .unwrap_or(false);
+
+    let body = response
+        .bytes()
+        .await
+        .map_err(|e| RingError::Internal(format!("Failed to read response body: {e}")))?;
+
+    if body.len() > 512 * 1024 {
+        return Err(RingError::BadRequest(
+            "Response too large (max 512KB)".into(),
+        ));
+    }
+
+    let text = if is_html {
+        let html = String::from_utf8_lossy(&body);
+        strip_html(&html)
+    } else {
+        String::from_utf8_lossy(&body).to_string()
+    };
+
+    let truncated: String = text.chars().take(15000).collect();
+
+    if let Some(focus) = &args.focus {
+        Ok(format!(
+            "## Source: {}\n## Focus: {}\n\n{}",
+            args.url, focus, truncated
+        ))
+    } else {
+        Ok(format!("## Source: {}\n\n{}", args.url, truncated))
+    }
+}
+
+fn strip_html(html: &str) -> String {
+    let mut result = html.to_string();
+
+    for tag in &["script", "style", "head", "nav", "footer", "noscript"] {
+        let close = format!("</{}>", tag);
+        loop {
+            let lower_result = result.to_lowercase();
+            let start = lower_result.find(&format!("<{}", tag));
+            if let Some(s) = start {
+                let end = lower_result[s..].find(&close).map(|e| s + e + close.len());
+                if let Some(e) = end {
+                    result = format!("{}{}", &result[..s], &result[e..]);
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    let decoded = result
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'");
+
+    let mut clean = String::new();
+    let mut in_tag = false;
+    for ch in decoded.chars() {
+        match ch {
+            '<' => in_tag = true,
+            '>' => {
+                in_tag = false;
+                clean.push(' ');
+            }
+            _ if !in_tag => clean.push(ch),
+            _ => {}
+        }
+    }
+
+    let re = regex::Regex::new(r"\s+").unwrap();
+    re.replace_all(&clean, " ").trim().to_string()
 }

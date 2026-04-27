@@ -456,6 +456,22 @@ pub fn get_group_ring_tools() -> Vec<async_openai::types::ChatCompletionTool> {
                 strict: Some(true),
             },
         },
+        async_openai::types::ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "fetch_url".into(),
+                description: Some("Fetch and extract text content from a web page URL. Use for research and gathering information from the web.".into()),
+                parameters: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "url": { "type": "string", "description": "The HTTP/HTTPS URL to fetch" },
+                        "focus": { "type": "string", "description": "Optional focus area to highlight in the extracted content" }
+                    },
+                    "required": ["url"]
+                })),
+                strict: Some(true),
+            },
+        },
     ]
 }
 
@@ -476,6 +492,11 @@ pub async fn execute_group_tool(
                 serde_json::from_value(args)
                     .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
             crate::services::workflow::execute_knowledge_extract(user, &parsed).await
+        }
+        "fetch_url" => {
+            let parsed: crate::services::workflow::FetchUrlArgs = serde_json::from_value(args)
+                .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
+            crate::services::workflow::execute_fetch_url(&parsed).await
         }
         _ => Err(crate::error::RingError::BadRequest(format!(
             "unknown tool: {tool_name}"

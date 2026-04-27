@@ -1123,10 +1123,10 @@ Session owner 离线
 
 | 功能 | PRD 章节 | 优先级 | 说明 |
 |------|---------|--------|------|
-| `.group/` 文档落盘为 `.group/*.md` 文件 + git 版本管理 | 2.6 | HIGH | 当前仅存 SQLite group_docs 表 |
-| `.group/` 分层加载注入 Group Ring system prompt | 2.6 | HIGH | 当前 Group Ring 对话不消费 .group/ 文档 |
+| `.group/` 文档落盘为 `.group/*.md` 文件 + git 版本管理 | 2.6 | ~~HIGH~~ DONE | 每次 group_docs 写入后同步落盘 + git commit |
+| `.group/` 分层加载注入 Group Ring system prompt | 2.6 | ~~HIGH~~ DONE | core 层（role/conventions/active-context）+ ext 层（archive-patterns/corrections/knowledge-summary）|
 | Graph Panel 节点树列表视图 | 2.2 / 7.3 | ~~MED~~ DONE | Canvas/Tree 双模式切换，缩进层级展示，Expand/Collapse All |
-| 深度调研工作流 — 网页爬取能力 | 2.7 | MED | 当前 research skill 仅基于已有知识 |
+| 深度调研工作流 — 网页爬取能力 | 2.7 | ~~MED~~ DONE | Group Ring fetch_url tool，HTML 清洗 + 15K 字符截断 + 安全限制 |
 | PDF 导出格式 | 2.8 | ~~LOW~~ DONE | /export/chat-pdf 端点，Markdown→PDF 转换 |
 | 归档视图 Git revert | 6.8 | ~~LOW~~ DONE | git-log 查看提交历史 + revert 回滚，creator only |
 | Super Ring create_ring tool | 2.6 | ~~LOW~~ DONE | AI 通过 tool_call 创建 Ring，自动成为 creator |
