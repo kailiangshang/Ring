@@ -1,16 +1,42 @@
 # Ring 项目状态
 
-> 最后更新：2026-04-26
+> 最后更新：2026-04-28
 
 ## 开发概况
 
-- 后端 66 个 Rust 源文件，~13,000 行
-- 前端 84 个 TS/TSX 文件，~9,400 行
-- 15 个数据库迁移
-- 69 集成测试通过
+- 后端 67 个 Rust 源文件，~14,000 行
+- 前端 86 个 TS/TSX 文件，~9,800 行
+- 16 个数据库迁移
+- 70 集成测试通过（1 个已知 OS detection 问题）
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
+- Release 二进制 16MB（含前后端全部代码，零外部依赖）
 
-## 本轮完成（2026-04-26）
+## 本轮完成（2026-04-28）
+
+### PRD 7.2 全部清零
+
+- **Graph Panel 节点树列表视图** — Canvas/Tree 双模式切换，缩进层级展示，Expand/Collapse All
+- **深度调研网页爬取** — Group Ring `fetch_url` tool，HTML 清洗 + 15K 截断 + 安全限制
+- **PDF 导出** — `/export/chat-pdf` 端点，Markdown→PDF 原生生成，前端 Export + PDF 双按钮
+- **Git revert** — 后端 git-log/revert API + 前端 ArchivePanel Git History 区（Refresh + Revert 按钮）
+- **Super Ring create_ring tool** — AI 通过 tool_call 创建 Ring
+- **Self growth.md** — memory_files 增加 growth 类别，记忆提取支持成长里程碑
+
+### 同级问题审计 + 修复
+
+- 🔴 `archive_service.rs` 表名 `ring_members` → `members`
+- 🟡 `RingRow` struct 补充 `storage_mode` + `gitlab_namespace` 字段
+- 🟡 `delete_graph` 全局计数改为 per-ring 计数
+- 🔴 `export.rs` 整库备份表名 `archives` → `archive_records`
+- 🔴 `graphs.ring_id` UNIQUE 约束移除（migration 016），支持多图谱
+- 🟡 `ensure_default_graph` ID 改用 ULID 避免 ID 冲突
+
+### 发布优化
+
+- `strip = true` + `thin LTO` → 19MB → 16MB
+- `BACKEND_TEST.md` — 592 行完整后端测试文档，26 个模块
+
+## 上轮完成（2026-04-26）
 
 ### 提示词优化（6 commits）
 
@@ -240,7 +266,12 @@
 
 | PRD 要求 | 状态 | 优先级 |
 |---|---|---|
-| 预设工作流工具（文件解析/知识提取/深度调研） | done（文件解析 + 知识提取，AI tool_calls 驱动，节点推荐 + 确认） | 低 |
+| 预设工作流工具（文件解析/知识提取/深度调研） | done（file_parse + knowledge_extract + fetch_url，AI tool_calls 驱动） | 低 |
+| Super Ring create_ring tool | done（AI 通过 tool_call 创建 Ring） | 低 |
+| Self growth.md 成长日志 | done（memory_files 增加 growth 类别） | 低 |
+| PDF 导出 | done（/export/chat-pdf + 前端 PDF 按钮） | 低 |
+| Git revert | done（git-log + revert API + ArchivePanel Git History UI） | 低 |
+| Graph Panel 节点树列表视图 | done（Canvas/Tree 双模式切换） | 中 |
 | Super Ring `cross_ring_cache/` 缓存 | done（内存 TTL 缓存，ring_summary + ring_detail，主动失效） | 低 |
 | Self 完整文件体系（knowledge/goals/growth） | done（Tier 1 记忆文件已实现） | 中 |
 | Self metrics（dwell_time/tool_usage） | done（心跳式 dwell_time + 全路由 tool_usage + Self AI 注入） | 中 |
