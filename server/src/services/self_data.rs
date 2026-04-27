@@ -277,7 +277,7 @@ pub fn reset_all_data(self_dir: &Path) -> Result<()> {
 pub fn export_all_data(self_dir: &Path) -> Result<serde_json::Value> {
     let mut result = serde_json::Map::new();
 
-    for name in &["identity", "style", "personality", "privacy"] {
+    for name in &["identity", "style", "personality", "privacy", "growth"] {
         let (content, exists) = read_self_file(self_dir, name)?;
         result.insert(
             (*name).to_string(),

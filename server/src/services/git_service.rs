@@ -103,6 +103,11 @@ impl GitService {
             .unwrap_or(false)
     }
 
+    pub fn revert(&self, repo_path: &Path, sha: &str) -> Result<String> {
+        Self::run_git(repo_path, &["revert", "--no-edit", sha])?;
+        Self::run_git(repo_path, &["rev-parse", "HEAD"])
+    }
+
     pub fn set_remote(&self, path: &Path, name: &str, url: &str) -> Result<()> {
         let has_origin = Self::run_git(path, &["remote"])
             .map(|r| r.lines().any(|l| l == name))

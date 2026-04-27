@@ -6,7 +6,7 @@ use crate::services::llm::LlmClient;
 
 const MEMORY_DIR: &str = "memory";
 const MAX_FILE_CHARS: usize = 2000;
-const MEMORY_FILES: &[&str] = &["user_profile", "preferences", "active_goals"];
+const MEMORY_FILES: &[&str] = &["user_profile", "preferences", "active_goals", "growth"];
 
 pub fn ensure_memory_dir(self_dir: &Path) -> PathBuf {
     let dir = self_dir.join(MEMORY_DIR);
@@ -77,6 +77,7 @@ pub fn build_memory_context(self_dir: &Path) -> String {
                     "user_profile" => "用户画像",
                     "preferences" => "偏好",
                     "active_goals" => "当前目标",
+                    "growth" => "成长轨迹",
                     _ => name,
                 };
                 ctx.push_str(&format!("### {label}\n{content}\n\n"));
@@ -106,11 +107,11 @@ pub async fn extract_memories(
     let prompt = format!(
         "你是记忆提取系统。从以下对话中提取新的或更新的用户事实。\n\n\
          输出 JSON 数组：\n\
-         [{{\"fact\": \"...\", \"category\": \"user_profile|preferences|goals\"}}]\n\n\
+         [{{\"fact\": \"...\", \"category\": \"user_profile|preferences|goals|growth\"}}]\n\n\
          规则：\n\
          - 只提取明确的用户事实，不提取 AI 的内容\n\
          - 跳过问候、闲聊、没有答案的问题\n\
-         - category 必须是 user_profile（用户身份/背景/技能）、preferences（偏好/习惯）、goals（目标/任务）之一\n\
+         - category 必须是 user_profile（用户身份/背景/技能）、preferences（偏好/习惯）、goals（目标/任务）、growth（成就/学习/进步/里程碑）之一\n\
          - 如果没有新事实，输出空数组 []\n\
          - 每个事实用一句话概括\n\n\
          用户说：{}\n\n\
@@ -137,6 +138,7 @@ pub async fn extract_memories(
             "user_profile" => "user_profile",
             "preferences" => "preferences",
             "goals" => "active_goals",
+            "growth" => "growth",
             _ => continue,
         };
 
@@ -182,6 +184,7 @@ async fn compress_memory_file(llm: LlmClient, self_dir: &Path, name: &str, conte
         "user_profile" => "用户画像",
         "preferences" => "偏好",
         "active_goals" => "当前目标",
+        "growth" => "成长轨迹",
         _ => name,
     };
 

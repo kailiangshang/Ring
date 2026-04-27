@@ -1127,7 +1127,7 @@ Session owner 离线
 | `.group/` 分层加载注入 Group Ring system prompt | 2.6 | HIGH | 当前 Group Ring 对话不消费 .group/ 文档 |
 | Graph Panel 节点树列表视图 | 2.2 / 7.3 | ~~MED~~ DONE | Canvas/Tree 双模式切换，缩进层级展示，Expand/Collapse All |
 | 深度调研工作流 — 网页爬取能力 | 2.7 | MED | 当前 research skill 仅基于已有知识 |
-| PDF 导出格式 | 2.8 | LOW | 当前所有导出为 Markdown/PNG/SVG/JSON |
-| 归档视图 Git revert | 6.8 | LOW | 查看提交历史 + 回滚 |
-| Super Ring create_ring tool | 2.6 | LOW | 当前 Super Ring 只能对话引导，不能通过 tool 创建 Ring |
-| Self growth.md 成长日志 | 2.6 | LOW | 当前有 active_goals，缺少成长轨迹记录 |
+| PDF 导出格式 | 2.8 | ~~LOW~~ DONE | /export/chat-pdf 端点，Markdown→PDF 转换 |
+| 归档视图 Git revert | 6.8 | ~~LOW~~ DONE | git-log 查看提交历史 + revert 回滚，creator only |
+| Super Ring create_ring tool | 2.6 | ~~LOW~~ DONE | AI 通过 tool_call 创建 Ring，自动成为 creator |
+| Self growth.md 成长日志 | 2.6 | ~~LOW~~ DONE | memory_files 增加 growth 类别，记忆提取支持成长里程碑 |

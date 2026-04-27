@@ -4,7 +4,7 @@ use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
 use futures_util::stream::BoxStream;
 use futures_util::StreamExt;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
 
 use crate::error::{Result, RingError};
@@ -482,5 +482,45 @@ pub async fn sync_import(
             "archive_files": result.archive_files,
         },
         "exported_at": bundle.exported_at,
+    })))
+}
+
+#[derive(Debug, Serialize)]
+pub struct GitLogResponse {
+    pub commits: Vec<crate::services::git_service::LogEntry>,
+}
+
+pub async fn git_log(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<Json<GitLogResponse>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let repo_path = state.rings_dir.join(&ring_id);
+    let git = crate::services::git_service::GitService::new();
+    let commits = git.log(&repo_path, 50)?;
+    Ok(Json(GitLogResponse { commits }))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GitRevertRequest {
+    pub sha: String,
+}
+
+pub async fn git_revert(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+    Json(body): Json<GitRevertRequest>,
+) -> Result<Json<serde_json::Value>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
+
+    let repo_path = state.rings_dir.join(&ring_id);
+    let git = crate::services::git_service::GitService::new();
+    let new_sha = git.revert(&repo_path, &body.sha)?;
+    Ok(Json(serde_json::json!({
+        "reverted": body.sha,
+        "new_commit": new_sha,
     })))
 }

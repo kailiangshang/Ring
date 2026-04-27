@@ -27,6 +27,151 @@ fn markdown_response(body: String, filename: String) -> impl IntoResponse {
     )
 }
 
+fn pdf_response(bytes: Vec<u8>, filename: String) -> impl IntoResponse {
+    (
+        [
+            (header::CONTENT_TYPE, "application/pdf".to_string()),
+            (
+                header::CONTENT_DISPOSITION,
+                format!(r#"attachment; filename="{}""#, filename),
+            ),
+        ],
+        bytes,
+    )
+}
+
+fn md_to_pdf(title: &str, content: &str) -> Result<Vec<u8>> {
+    let page_height: f64 = 842.0;
+    let margin: f64 = 50.0;
+    let line_height: f64 = 14.0;
+    let lines_per_page = ((page_height - 2.0 * margin) / line_height) as usize;
+    let chars_per_line = 80;
+
+    let mut lines: Vec<String> = Vec::new();
+    lines.push(title.to_string());
+    lines.push(String::new());
+
+    for raw_line in content.lines() {
+        let trimmed = raw_line.trim();
+        if trimmed.is_empty() {
+            lines.push(String::new());
+        } else {
+            let text = trimmed.trim_start_matches('#').trim();
+            let mut remaining = text;
+            while remaining.len() > chars_per_line {
+                let split_at = remaining[..chars_per_line]
+                    .rfind(' ')
+                    .unwrap_or(chars_per_line);
+                lines.push(remaining[..split_at].to_string());
+                remaining = remaining[split_at..].trim_start();
+            }
+            if !remaining.is_empty() {
+                lines.push(remaining.to_string());
+            }
+        }
+    }
+
+    let mut pdf = String::new();
+    pdf.push_str("%PDF-1.4\n");
+
+    let mut obj_offsets: Vec<usize> = Vec::new();
+    let mut obj_num = 0;
+    let mut page_obj_ids: Vec<(usize, usize)> = Vec::new();
+
+    let font_dict_id = (obj_num + 1, 0);
+    obj_num += 1;
+    obj_offsets.push(pdf.len());
+    pdf.push_str(&format!(
+        "{} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n",
+        font_dict_id.0
+    ));
+
+    let resources_id = (obj_num + 1, 0);
+    obj_num += 1;
+    obj_offsets.push(pdf.len());
+    pdf.push_str(&format!(
+        "{} 0 obj\n<< /Font << /F1 {} 0 R >> >>\nendobj\n",
+        resources_id.0, font_dict_id.0
+    ));
+
+    let mut content_obj_ids: Vec<usize> = Vec::new();
+
+    for page_lines in lines.chunks(lines_per_page) {
+        let mut stream = String::new();
+        stream.push_str("BT\n/F1 12 Tf\n");
+        for (i, line) in page_lines.iter().enumerate() {
+            let y = page_height - margin - (i as f64 * line_height);
+            let escaped = line
+                .replace('\\', "\\\\")
+                .replace('(', "\\(")
+                .replace(')', "\\)");
+            stream.push_str(&format!("{} {:.1} Td\n({}) Tj\n", margin, y, escaped));
+        }
+        stream.push_str("ET\n");
+
+        let content_id = obj_num + 1;
+        obj_num += 1;
+        content_obj_ids.push(content_id);
+        obj_offsets.push(pdf.len());
+        pdf.push_str(&format!(
+            "{} 0 obj\n<< /Length {} >>\nstream\n{}endstream\nendobj\n",
+            content_id,
+            stream.len(),
+            stream
+        ));
+    }
+
+    let mut page_ids: Vec<usize> = Vec::new();
+    for &cid in &content_obj_ids {
+        let page_id = obj_num + 1;
+        obj_num += 1;
+        page_ids.push(page_id);
+        page_obj_ids.push((page_id, 0));
+        obj_offsets.push(pdf.len());
+        pdf.push_str(&format!(
+            "{} 0 obj\n<< /Type /Page /MediaBox [0 0 595 842] /Contents {} 0 R /Resources {} 0 R >>\nendobj\n",
+            page_id, cid, resources_id.0
+        ));
+    }
+
+    let pages_id = obj_num + 1;
+    obj_num += 1;
+    let kids: Vec<String> = page_ids.iter().map(|id| format!("{} 0 R", id)).collect();
+    obj_offsets.push(pdf.len());
+    pdf.push_str(&format!(
+        "{} 0 obj\n<< /Type /Pages /Kids [{}] /Count {} >>\nendobj\n",
+        pages_id,
+        kids.join(" "),
+        page_ids.len()
+    ));
+
+    let parent_ref = format!("/Type /Page /Parent {} 0 R", pages_id);
+    pdf = pdf.replace("/Type /Page ", &parent_ref[..]);
+
+    let catalog_id = obj_num + 1;
+    obj_num += 1;
+    obj_offsets.push(pdf.len());
+    pdf.push_str(&format!(
+        "{} 0 obj\n<< /Type /Catalog /Pages {} 0 R >>\nendobj\n",
+        catalog_id, pages_id
+    ));
+
+    let xref_offset = pdf.len();
+    pdf.push_str(&format!("xref\n0 {}\n0000000000 65535 f \n", obj_num + 1));
+    for offset in &obj_offsets {
+        pdf.push_str(&format!("{:010} 00000 n \n", offset));
+    }
+
+    pdf.push_str(&format!(
+        "trailer\n<< /Size {} /Root {} 0 R >>\nstartxref\n{}\n%%EOF\n",
+        obj_num + 1,
+        catalog_id,
+        xref_offset
+    ));
+
+    Ok(pdf.into_bytes())
+}
+
 fn json_response(body: String, filename: String) -> impl IntoResponse {
     (
         [
@@ -420,4 +565,35 @@ pub async fn export_node_markdown(
 
     let label = node.label.replace(' ', "_");
     Ok(markdown_response(md_content, format!("{}.md", label)))
+}
+
+pub async fn export_ring_chat_pdf(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+
+    let messages =
+        message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
+
+    let mut md = String::new();
+    md.push_str(&format!("Chat Export - Ring {}\n\n", ring_id));
+    md.push_str(&format!("Exported by: {}\n", user.token_id));
+    md.push_str(&format!("Total messages: {}\n\n", messages.len()));
+
+    for msg in messages.iter().rev() {
+        let role_label = if msg.role == "user" { "User" } else { "AI" };
+        md.push_str(&format!("{} ({})\n\n", role_label, msg.sender_name));
+        md.push_str(&msg.content);
+        md.push_str("\n\n---\n\n");
+    }
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export_pdf") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
+
+    let bytes = md_to_pdf(&format!("Ring {} Chat", ring_id), &md)?;
+    Ok(pdf_response(bytes, format!("ring_{}_chat.pdf", ring_id)))
 }

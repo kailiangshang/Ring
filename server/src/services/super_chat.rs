@@ -85,6 +85,13 @@ struct ManageSkillsArgs {
     source_url: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct CreateRingArgs {
+    name: String,
+    role_description: Option<String>,
+    storage_mode: Option<String>,
+}
+
 pub fn get_super_tools() -> Vec<ChatCompletionTool> {
     vec![
         ChatCompletionTool {
@@ -198,6 +205,37 @@ pub fn get_super_tools() -> Vec<ChatCompletionTool> {
                 strict: None,
             },
         },
+        ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "create_ring".to_string(),
+                description: Some(
+                    "创建一个新的 Ring（群组知识空间）。用户说出想创建的 Ring 名称和用途时使用。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Ring 名称，简洁有意义"
+                            },
+                            "role_description": {
+                                "type": "string",
+                                "description": "Group Ring 的角色描述，如「你是技术架构组长，擅长架构决策记录」"
+                            },
+                            "storage_mode": {
+                                "type": "string",
+                                "enum": ["local", "gitlab"],
+                                "description": "存储模式，默认 local"
+                            }
+                        },
+                        "required": ["name"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
     ]
 }
 
@@ -254,6 +292,7 @@ pub async fn execute_tool(
     user_id: &str,
     tool_name: &str,
     arguments: &str,
+    state: Option<&AppState>,
 ) -> Result<String> {
     match tool_name {
         "query_rings" => execute_query_rings(pool, user_id).await,
@@ -272,6 +311,12 @@ pub async fn execute_tool(
             let args: ManageSkillsArgs = serde_json::from_str(arguments)
                 .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
             execute_manage_skills(hub_dir, args).await
+        }
+        "create_ring" => {
+            let args: CreateRingArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            let state = state.ok_or_else(|| RingError::BadRequest("state not available".into()))?;
+            execute_create_ring(state, user_id, args).await
         }
         _ => Err(RingError::BadRequest(format!("unknown tool: {tool_name}"))),
     }
@@ -345,6 +390,30 @@ async fn execute_manage_skills(hub_dir: &Path, args: ManageSkillsArgs) -> Result
 
 async fn execute_query_rings(pool: &sqlx::SqlitePool, user_id: &str) -> Result<String> {
     Ok(build_ring_summary(pool, user_id).await)
+}
+
+async fn execute_create_ring(
+    state: &AppState,
+    user_id: &str,
+    args: CreateRingArgs,
+) -> Result<String> {
+    let input = crate::models::ring::CreateRing {
+        name: args.name.clone(),
+        role_description: args
+            .role_description
+            .unwrap_or_else(|| format!("You are a {} assistant", args.name)),
+        storage_mode: args.storage_mode.unwrap_or_else(|| "local".into()),
+        gitlab_repo_url: None,
+        gitlab_namespace: None,
+    };
+
+    match crate::services::ring::create_ring(state, user_id, input).await {
+        Ok(resp) => Ok(format!(
+            "Ring「{}」已创建成功！ID: {}。用户可以进入该 Ring 开始使用。",
+            resp.name, resp.id
+        )),
+        Err(e) => Ok(format!("创建 Ring 失败：{e}")),
+    }
 }
 
 pub async fn execute_query_ring_detail(
@@ -559,6 +628,7 @@ async fn stream_super_chat_inner(
     let rings_dir = state.rings_dir.clone();
     let hub_dir = state.hub_dir.clone();
     let uid = user.token_id.clone();
+    let state_clone = state.clone();
 
     let mut rx = llm.chat_stream_with_tools(
         system_prompt,
@@ -571,9 +641,10 @@ async fn stream_super_chat_inner(
             let rings_dir = rings_dir.clone();
             let hub_dir = hub_dir.clone();
             let uid = uid.clone();
+            let st = state_clone.clone();
             let args_str = serde_json::to_string(&args).unwrap_or_default();
             Box::pin(async move {
-                execute_tool(&db, &rings_dir, &hub_dir, &uid, &name, &args_str).await
+                execute_tool(&db, &rings_dir, &hub_dir, &uid, &name, &args_str, Some(&st)).await
             })
         },
     );

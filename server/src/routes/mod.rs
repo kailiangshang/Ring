@@ -276,6 +276,8 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/repo/status", get(archive::repo_status))
         .route("/rings/{ring_id}/repo/init", post(archive::init_repo))
+        .route("/rings/{ring_id}/repo/git-log", get(archive::git_log))
+        .route("/rings/{ring_id}/repo/revert", post(archive::git_revert))
         .route("/rings/{ring_id}/sync/bundle", get(archive::sync_bundle))
         .route("/rings/sync/import", post(archive::sync_import))
         .route(
@@ -359,6 +361,10 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/rings/{ring_id}/export/chat",
             get(export::export_ring_chat),
+        )
+        .route(
+            "/rings/{ring_id}/export/chat-pdf",
+            get(export::export_ring_chat_pdf),
         )
         .route(
             "/rings/{ring_id}/export/graph",
