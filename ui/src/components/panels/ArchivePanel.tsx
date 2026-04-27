@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useArchiveStore } from '../../stores/archive-store'
 import { useRingStore } from '../../stores/ring-store'
-import { getArchiveDiff } from '../../services/api'
+import { getArchiveDiff, getGitLog, postGitRevert } from '../../services/api'
 import type { ArchiveRecord } from '../../types/archive'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -37,6 +37,8 @@ export function ArchivePanel() {
   const [diffData, setDiffData] = useState<Array<{ old_path: string; new_path: string; diff: string }> | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(false)
+  const [commits, setCommits] = useState<Array<{ sha: string; subject: string; author: string; date: string }>>([])
+  const [commitsLoading, setCommitsLoading] = useState(false)
 
   const ringId = active_ring_id ?? ''
 
@@ -325,6 +327,94 @@ export function ArchivePanel() {
           ))}
         </div>
       )}
+
+      <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0, maxHeight: 200, overflowY: 'auto' }}>
+        <div
+          style={{
+            ...row,
+            padding: '8px 12px',
+            justifyContent: 'space-between',
+            position: 'sticky',
+            top: 0,
+            background: 'var(--bg-panel)',
+            zIndex: 1,
+          }}
+        >
+          <span style={{ fontWeight: 700, color: 'var(--accent-ice)', letterSpacing: '0.05em', fontSize: 11 }}>
+            Git History
+          </span>
+          <button
+            onClick={async () => {
+              if (!ringId) return
+              setCommitsLoading(true)
+              try {
+                const res = await getGitLog(ringId)
+                setCommits(res.commits)
+              } catch { setCommits([]) }
+              setCommitsLoading(false)
+            }}
+            style={{
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              padding: '2px 8px',
+              fontSize: 9,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            {commitsLoading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
+        {commits.length === 0 && !commitsLoading && (
+          <div style={{ padding: '6px 12px', color: 'var(--text-dim)', fontSize: 10 }}>
+            Click Refresh to load commit history
+          </div>
+        )}
+        {commits.map((c) => (
+          <div
+            key={c.sha}
+            style={{
+              ...row,
+              padding: '4px 12px',
+              borderTop: '1px solid var(--border)',
+              gap: 6,
+              alignItems: 'center',
+            }}
+          >
+            <span style={{ fontFamily: 'monospace', fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
+              {c.sha.slice(0, 8)}
+            </span>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-primary)', fontSize: 11 }}>
+              {c.subject}
+            </span>
+            <button
+              onClick={async () => {
+                if (!ringId || !window.confirm(`Revert "${c.subject}"?`)) return
+                try {
+                  await postGitRevert(ringId, c.sha)
+                  const res = await getGitLog(ringId)
+                  setCommits(res.commits)
+                } catch (e: any) {
+                  alert(e?.message || 'Revert failed')
+                }
+              }}
+              style={{
+                background: 'var(--accent-red, #da3633)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 3,
+                padding: '1px 6px',
+                fontSize: 9,
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Revert
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

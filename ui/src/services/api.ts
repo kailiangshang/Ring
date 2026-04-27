@@ -265,6 +265,32 @@ export async function exportNodeMarkdown(ringId: string, nodeId: string, signal?
   return exportFile(`/rings/${ringId}/export/node?node_id=${encodeURIComponent(nodeId)}`, `node.md`, signal)
 }
 
+export async function exportChatPdf(ringId: string, signal?: AbortSignal) {
+  return exportFile(`/rings/${ringId}/export/chat-pdf`, `ring_${ringId}_chat.pdf`, signal)
+}
+
+export async function getGitLog(ringId: string, signal?: AbortSignal): Promise<{ commits: Array<{ sha: string; subject: string; author: string; date: string }> }> {
+  const token = await getToken()
+  const res = await fetch(`${API_BASE}/rings/${ringId}/repo/git-log`, {
+    headers: { 'X-Ring-Token': token || '' },
+    signal,
+  })
+  if (!res.ok) throw new ApiError(res.status, 'git_log_failed', res.statusText)
+  return res.json()
+}
+
+export async function postGitRevert(ringId: string, sha: string, signal?: AbortSignal): Promise<{ reverted: string; new_commit: string }> {
+  const token = await getToken()
+  const res = await fetch(`${API_BASE}/rings/${ringId}/repo/revert`, {
+    method: 'POST',
+    headers: { 'X-Ring-Token': token || '', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sha }),
+    signal,
+  })
+  if (!res.ok) throw new ApiError(res.status, 'revert_failed', res.statusText)
+  return res.json()
+}
+
 export async function uploadFile(path: string, file: File, signal?: AbortSignal): Promise<any> {
   const token = await getToken()
   const formData = new FormData()
