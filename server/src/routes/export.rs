@@ -332,7 +332,7 @@ pub async fn export_ring_backup(
     .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
 
     let archives = sqlx::query_as::<_, crate::models::archive::ArchiveRecord>(
-        "SELECT * FROM archives WHERE ring_id = ?1",
+        "SELECT * FROM archive_records WHERE ring_id = ?1",
     )
     .bind(&ring_id)
     .fetch_all(&state.db)

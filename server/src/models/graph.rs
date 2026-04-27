@@ -97,7 +97,7 @@ pub async fn ensure_default_graph(pool: &sqlx::SqlitePool, ring_id: &str) -> Res
         return Ok(graph);
     }
 
-    let id = format!("graph-{ring_id}");
+    let id = format!("graph-{}", ulid::Ulid::new().to_string());
     sqlx::query_as::<_, GraphRow>(
         "INSERT INTO graphs (id, ring_id, name) VALUES (?1, ?2, 'main') RETURNING *",
     )
