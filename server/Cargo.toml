@@ -36,3 +36,7 @@ lopdf = "0.33"
 async-trait = "0.1.89"
 include_dir = { version = "0.7", features = ["glob"] }
 mime_guess = "2"
+
+[profile.release]
+strip = true
+lto = "thin"

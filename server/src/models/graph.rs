@@ -145,7 +145,16 @@ pub async fn create_graph(pool: &sqlx::SqlitePool, ring_id: &str, name: &str) ->
 }
 
 pub async fn delete_graph(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<()> {
-    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM graphs")
+    let ring_id: Option<String> = sqlx::query_scalar("SELECT ring_id FROM graphs WHERE id = ?1")
+        .bind(graph_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+
+    let ring_id = ring_id.ok_or_else(|| RingError::NotFound("graph not found".into()))?;
+
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM graphs WHERE ring_id = ?1")
+        .bind(&ring_id)
         .fetch_one(pool)
         .await
         .map_err(|e| RingError::Internal(e.to_string()))?;

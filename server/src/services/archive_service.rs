@@ -90,7 +90,7 @@ pub async fn quick_archive(
     content: &str,
 ) -> Result<()> {
     let role = sqlx::query_scalar::<_, String>(
-        "SELECT role FROM ring_members WHERE ring_id = ?1 AND user_id = ?2",
+        "SELECT role FROM members WHERE ring_id = ?1 AND user_id = ?2",
     )
     .bind(ring_id)
     .bind(user_id)

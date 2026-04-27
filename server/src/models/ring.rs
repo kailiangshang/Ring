@@ -13,7 +13,9 @@ pub struct RingRow {
     pub skill_permission_mode: String,
     pub auto_archive: bool,
     pub blueprint_status: String,
+    pub storage_mode: String,
     pub gitlab_repo_url: Option<String>,
+    pub gitlab_namespace: Option<String>,
     pub created_at: String,
 }
 
