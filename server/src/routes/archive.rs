@@ -49,7 +49,9 @@ pub async fn quick_archive_handler(
     let backend = get_backend(&state, &ring_id).await?;
 
     let content = body.content.clone();
-    let title = if content.len() > 40 {
+    let title = if !body.suggested_title.trim().is_empty() {
+        body.suggested_title.clone()
+    } else if content.len() > 40 {
         let s: String = content.chars().take(40).collect();
         format!("{s}...")
     } else {

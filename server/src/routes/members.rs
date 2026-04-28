@@ -73,6 +73,7 @@ pub async fn remove_member(
 
 #[derive(Deserialize)]
 pub struct AddMemberRequest {
+    #[serde(alias = "token_id")]
     pub user_id: String,
 }
 

@@ -86,6 +86,7 @@ pub async fn join_info(
 
 #[derive(Debug, Deserialize)]
 pub struct JoinBody {
+    #[serde(alias = "token")]
     pub invite_token: String,
     pub display_name: String,
 }

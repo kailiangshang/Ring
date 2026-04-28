@@ -66,6 +66,12 @@ pub async fn create_ring(
     creator_id: &str,
     input: &CreateRing,
 ) -> Result<RingRow> {
+    if input.name.trim().is_empty() {
+        return Err(crate::error::RingError::BadRequest(
+            "Ring name cannot be empty".into(),
+        ));
+    }
+
     let exists: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM rings WHERE creator_id = ?1 AND name = ?2)",
     )

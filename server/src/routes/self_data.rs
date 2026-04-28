@@ -190,6 +190,8 @@ pub async fn delete_memory(
 #[derive(Deserialize)]
 pub struct HeartbeatRequest {
     pub view: String,
+    #[serde(default)]
+    pub dwell_time: u64,
     #[allow(dead_code)]
     pub ring_id: Option<String>,
 }
@@ -206,6 +208,10 @@ pub async fn heartbeat(
     }
     let mut buf = state.dwell_buffer.lock().await;
     let entry = buf.entry(body.view).or_insert(0);
-    *entry += 30;
+    *entry += if body.dwell_time > 0 {
+        body.dwell_time
+    } else {
+        30
+    };
     Ok(StatusCode::NO_CONTENT)
 }

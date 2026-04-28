@@ -125,6 +125,7 @@ pub async fn archive_toggle(
 
 #[derive(Debug, serde::Deserialize)]
 pub struct TransferOwnershipInput {
+    #[serde(alias = "new_owner")]
     pub new_owner_id: String,
 }
 
