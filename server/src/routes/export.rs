@@ -57,13 +57,27 @@ fn md_to_pdf(title: &str, content: &str) -> Result<Vec<u8>> {
             lines.push(String::new());
         } else {
             let text = trimmed.trim_start_matches('#').trim();
-            let mut remaining = text;
-            while remaining.len() > chars_per_line {
-                let split_at = remaining[..chars_per_line]
-                    .rfind(' ')
-                    .unwrap_or(chars_per_line);
-                lines.push(remaining[..split_at].to_string());
-                remaining = remaining[split_at..].trim_start();
+            let mut remaining = text.to_string();
+            loop {
+                let char_count = remaining.chars().count();
+                if char_count <= chars_per_line {
+                    break;
+                }
+                let char_indices: Vec<(usize, char)> = remaining.char_indices().collect();
+                let mut split_char = chars_per_line;
+                for i in (0..chars_per_line).rev() {
+                    if char_indices[i].1 == ' ' {
+                        split_char = i;
+                        break;
+                    }
+                }
+                let byte_end = char_indices[split_char].0;
+                lines.push(remaining[..byte_end].to_string());
+                let byte_start = char_indices
+                    .get(split_char + 1)
+                    .map(|(i, _)| *i)
+                    .unwrap_or(remaining.len());
+                remaining = remaining[byte_start..].trim_start().to_string();
             }
             if !remaining.is_empty() {
                 lines.push(remaining.to_string());
