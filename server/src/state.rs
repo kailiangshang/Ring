@@ -9,7 +9,7 @@ use crate::services::cross_ring_cache::CrossRingCache;
 use crate::services::encryption::CredentialEncryption;
 use crate::ws_hub::WsHub;
 
-pub type DwellBuffer = Arc<Mutex<HashMap<String, u64>>>;
+pub type DwellBuffer = Arc<Mutex<HashMap<String, HashMap<String, u64>>>>;
 
 #[derive(Clone)]
 pub struct AppState {

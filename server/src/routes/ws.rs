@@ -37,7 +37,7 @@ pub async fn ws_handler(
 
 async fn handle_socket(socket: WebSocket, state: AppState, token_id: String) {
     let (mut ws_sender, mut ws_receiver) = socket.split();
-    let (tx, mut rx) = mpsc::unbounded_channel::<String>();
+    let (tx, mut rx) = mpsc::channel::<String>(crate::ws_hub::WS_CHANNEL_SIZE);
 
     state.ws_hub.register(token_id.clone(), tx);
 
@@ -68,22 +68,35 @@ async fn handle_socket(socket: WebSocket, state: AppState, token_id: String) {
     let token_id_recv = token_id.clone();
 
     let recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = ws_receiver.next().await {
-            match msg {
-                Message::Text(text) => {
-                    handle_text_message(&db, &ws_hub_recv, &token_id_recv, &text).await;
+        let mut last_activity = tokio::time::Instant::now();
+        loop {
+            let timeout = tokio::time::sleep(tokio::time::Duration::from_secs(60));
+            tokio::select! {
+                msg = ws_receiver.next() => {
+                    last_activity = tokio::time::Instant::now();
+                    match msg {
+                        Some(Ok(Message::Text(text))) => {
+                            handle_text_message(&db, &ws_hub_recv, &token_id_recv, &text).await;
+                        }
+                        Some(Ok(Message::Ping(data))) => {
+                            ws_hub_recv.send_to_user(
+                                &token_id_recv,
+                                &format!(
+                                    r#"{{"type":"pong","data":"{}"}}"#,
+                                    String::from_utf8_lossy(&data)
+                                ),
+                            );
+                        }
+                        Some(Ok(Message::Close(_))) | None => break,
+                        _ => {}
+                    }
                 }
-                Message::Ping(data) => {
-                    ws_hub_recv.send_to_user(
-                        &token_id_recv,
-                        &format!(
-                            r#"{{"type":"pong","data":"{}"}}"#,
-                            String::from_utf8_lossy(&data)
-                        ),
-                    );
+                _ = timeout => {
+                    if last_activity.elapsed().as_secs() > 60 {
+                        tracing::debug!("WebSocket idle timeout for {}", token_id_recv);
+                        break;
+                    }
                 }
-                Message::Close(_) => break,
-                _ => {}
             }
         }
     });

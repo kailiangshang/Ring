@@ -16,7 +16,7 @@ impl CredentialEncryption {
         let key_path = data_dir.join(".encryption_key");
         let key = if key_path.exists() {
             let b64 = std::fs::read_to_string(&key_path).unwrap_or_else(|_| generate_key_b64());
-            base64_decode(&b64).unwrap_or_else(|| generate_key())
+            base64_decode(&b64).unwrap_or_else(generate_key)
         } else {
             let key = generate_key();
             let b64 = base64::engine::general_purpose::STANDARD.encode(&key);
@@ -77,7 +77,7 @@ fn generate_key() -> Vec<u8> {
 }
 
 fn generate_key_b64() -> String {
-    base64::engine::general_purpose::STANDARD.encode(&generate_key())
+    base64::engine::general_purpose::STANDARD.encode(generate_key())
 }
 
 fn base64_decode(s: &str) -> Option<Vec<u8>> {

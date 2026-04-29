@@ -173,11 +173,15 @@ pub async fn auto_compact_history(
     Ok(Some(summary))
 }
 
-pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&str>) -> String {
+pub fn build_system_prompt(
+    ring_name: Option<&str>,
+    role_description: Option<&str>,
+    user_id: &str,
+) -> String {
     let prompt = match ring_name {
         Some(name) => crate::prompts::group_ring::system(name, role_description),
         None => {
-            let self_dir = crate::services::self_data::get_self_dir("");
+            let self_dir = crate::services::self_data::get_self_dir(user_id);
             let (identity, identity_exists) =
                 crate::services::self_data::read_self_file(&self_dir, "identity")
                     .unwrap_or_default();
@@ -213,7 +217,7 @@ pub fn build_system_prompt(ring_name: Option<&str>, role_description: Option<&st
         }
     };
     if ring_name.is_none() {
-        let self_dir = crate::services::self_data::get_self_dir("");
+        let self_dir = crate::services::self_data::get_self_dir(user_id);
         let mut extra = String::new();
         let memory_ctx = crate::services::self_memory::build_memory_context(&self_dir);
         if !memory_ctx.is_empty() {
@@ -385,7 +389,7 @@ pub async fn start_chat_stream(
     let system_prompt = if let (Some(name), Some(ring_id)) = (params.ring_name, params.ring_id) {
         build_group_ring_prompt_with_docs(&state.db, name, params.role_description, ring_id).await
     } else {
-        build_system_prompt(params.ring_name, params.role_description)
+        build_system_prompt(params.ring_name, params.role_description, &user.token_id)
     };
     let history = if params.ephemeral {
         vec![]

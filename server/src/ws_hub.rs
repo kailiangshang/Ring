@@ -4,9 +4,11 @@ use std::sync::Arc;
 use dashmap::DashMap;
 use tokio::sync::mpsc;
 
+pub const WS_CHANNEL_SIZE: usize = 100;
+
 #[derive(Clone)]
 pub struct WsHub {
-    connections: Arc<DashMap<String, mpsc::UnboundedSender<String>>>,
+    connections: Arc<DashMap<String, mpsc::Sender<String>>>,
     sessions: Arc<DashMap<String, SessionChannel>>,
 }
 
@@ -29,7 +31,7 @@ impl WsHub {
         }
     }
 
-    pub fn register(&self, token_id: String, tx: mpsc::UnboundedSender<String>) {
+    pub fn register(&self, token_id: String, tx: mpsc::Sender<String>) {
         self.connections.insert(token_id, tx);
     }
 
@@ -80,7 +82,7 @@ impl WsHub {
         if let Some(channel) = self.sessions.get(session_id) {
             for participant in &channel.participants {
                 if let Some(tx) = self.connections.get(participant) {
-                    let _ = tx.send(message.to_string());
+                    let _ = tx.try_send(message.to_string());
                 }
             }
         }
@@ -88,7 +90,7 @@ impl WsHub {
 
     pub fn send_to_user(&self, token_id: &str, message: &str) {
         if let Some(tx) = self.connections.get(token_id) {
-            let _ = tx.send(message.to_string());
+            let _ = tx.try_send(message.to_string());
         }
     }
 

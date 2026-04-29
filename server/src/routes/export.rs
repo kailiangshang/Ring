@@ -567,11 +567,25 @@ pub async fn export_node_markdown(
     .ok_or_else(|| crate::error::RingError::NotFound("node not found".into()))?;
 
     let md_content = if let Some(ref mp) = node.markdown_path {
-        let full_path = state.rings_dir.join(&ring_id).join(mp);
-        if full_path.exists() {
-            std::fs::read_to_string(&full_path).unwrap_or_default()
-        } else {
+        // Validate: must be relative and not contain path traversal
+        if mp.contains("..") || mp.starts_with('/') || mp.starts_with('\\') {
             node.content.clone()
+        } else {
+            let full_path = state.rings_dir.join(&ring_id).join(mp);
+            // Ensure resolved path is still within the ring directory
+            let canonical_ring = state
+                .rings_dir
+                .join(&ring_id)
+                .canonicalize()
+                .unwrap_or_else(|_| state.rings_dir.join(&ring_id));
+            let canonical_target = full_path
+                .canonicalize()
+                .unwrap_or_else(|_| full_path.clone());
+            if canonical_target.starts_with(&canonical_ring) && full_path.exists() {
+                std::fs::read_to_string(&full_path).unwrap_or_default()
+            } else {
+                node.content.clone()
+            }
         }
     } else {
         node.content.clone()

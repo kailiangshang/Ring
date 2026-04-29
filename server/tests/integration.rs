@@ -2010,7 +2010,7 @@ async fn test_recover_token() {
 
     let resp = app
         .clone()
-        .oneshot(make_request("GET", "/api/setup/recover", None, None))
+        .oneshot(make_request("GET", "/api/setup/recover", None, Some(&token)))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -2308,7 +2308,8 @@ async fn test_heartbeat_endpoint() {
     assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
     let buf = state.dwell_buffer.lock().await;
-    assert_eq!(buf.get("ring_chat"), Some(&30));
+    let user_buf = buf.get(&token).expect("user buffer exists");
+    assert_eq!(user_buf.get("ring_chat"), Some(&30));
 }
 
 #[tokio::test]

@@ -46,9 +46,11 @@ async fn main() {
                     let mut guard = state_clone.dwell_buffer.lock().await;
                     std::mem::take(&mut *guard)
                 };
-                if !buf.is_empty() {
-                    let self_dir = self_data::get_self_dir("");
-                    let _ = self_data::flush_dwell_buffer(&self_dir, &buf);
+                for (user_id, user_buf) in buf {
+                    if !user_buf.is_empty() {
+                        let self_dir = self_data::get_self_dir(&user_id);
+                        let _ = self_data::flush_dwell_buffer(&self_dir, &user_buf);
+                    }
                 }
             }
         });
@@ -59,7 +61,22 @@ async fn main() {
         .expect("failed to bind to port 7420");
 
     tracing::info!("ring-server listening on http://localhost:7420");
-    axum::serve(listener, app).await.expect("server error");
+
+    let shutdown = async {
+        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler");
+        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+            .expect("failed to install SIGINT handler");
+        tokio::select! {
+            _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully"),
+            _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully"),
+        }
+    };
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
+        .await
+        .expect("server error");
 }
 
 fn dirs_data_dir() -> String {

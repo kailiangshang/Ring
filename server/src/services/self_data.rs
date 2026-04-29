@@ -263,9 +263,36 @@ pub fn flush_dwell_buffer(
     Ok(())
 }
 
-pub fn get_self_dir(_user_id: &str) -> std::path::PathBuf {
+pub fn get_self_dir(user_id: &str) -> std::path::PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    std::path::PathBuf::from(format!("{home}/.ring/self"))
+    let base = std::path::PathBuf::from(format!("{home}/.ring/self"));
+    // Migrate from legacy shared directory
+    migrate_legacy_self_dir(&base, user_id);
+    base.join(user_id)
+}
+
+fn migrate_legacy_self_dir(base: &std::path::Path, user_id: &str) {
+    let user_dir = base.join(user_id);
+    if user_dir.exists() {
+        return;
+    }
+    if !base.exists() {
+        return;
+    }
+    // Legacy directory exists but user-specific dir doesn't — migrate
+    let _ = std::fs::create_dir_all(&user_dir);
+    for entry in std::fs::read_dir(base)
+        .unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap())
+        .flatten()
+    {
+        let path = entry.path();
+        let name = path.file_name().unwrap_or_default();
+        if name == user_id {
+            continue;
+        }
+        let dest = user_dir.join(name);
+        let _ = std::fs::rename(&path, &dest);
+    }
 }
 
 pub fn reset_all_data(self_dir: &Path) -> Result<()> {

@@ -207,7 +207,8 @@ pub async fn heartbeat(
         return Ok(StatusCode::BAD_REQUEST);
     }
     let mut buf = state.dwell_buffer.lock().await;
-    let entry = buf.entry(body.view).or_insert(0);
+    let user_buf = buf.entry(user.token_id.clone()).or_default();
+    let entry = user_buf.entry(body.view).or_insert(0);
     *entry += if body.dwell_time > 0 {
         body.dwell_time
     } else {

@@ -32,15 +32,35 @@ pub async fn update_setup(
     Ok(Json(result))
 }
 
-pub async fn recover_token(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
-    let token_path = state.hub_dir.join("token");
-    let token = std::fs::read_to_string(&token_path)
-        .map_err(|_| crate::error::RingError::NotFound("no recovery token found".into()))?;
+pub async fn recover_token(
+    State(state): State<AppState>,
+    user: crate::extractors::OptionalUser,
+) -> Result<Json<serde_json::Value>> {
     let done = crate::models::config::get_setup_done(&state.db).await?;
     if !done {
-        return Err(crate::error::RingError::BadRequest(
+        return Err(crate::error::RingError::NotFound(
             "setup not complete".into(),
         ));
     }
+
+    if let Some(token) = user.token_id {
+        let exists: bool =
+            sqlx::query_scalar::<_, bool>("SELECT COUNT(*) > 0 FROM users WHERE token_id = ?1")
+                .bind(&token)
+                .fetch_one(&state.db)
+                .await
+                .map_err(|e: sqlx::Error| crate::error::RingError::Internal(e.to_string()))?;
+        if !exists {
+            return Err(crate::error::RingError::Unauthorized("invalid token".into()));
+        }
+    } else {
+        return Err(crate::error::RingError::Unauthorized(
+            "missing token".into(),
+        ));
+    }
+
+    let token_path = state.hub_dir.join("token");
+    let token = std::fs::read_to_string(&token_path)
+        .map_err(|_| crate::error::RingError::NotFound("no recovery token found".into()))?;
     Ok(Json(serde_json::json!({ "token_id": token })))
 }

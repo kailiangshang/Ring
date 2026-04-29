@@ -110,7 +110,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       } else {
         set({ active_session: null, participants: [], messages: [], loading: false })
       }
-    } catch {
+    } catch (e) {
+      console.error('fetchActiveSession error:', e)
       set({ loading: false })
     }
   },
@@ -119,8 +120,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions`)
       set({ list: (res.sessions ?? []).map(toSession) })
-    } catch {
-      // keep existing
+    } catch (e) {
+      console.error('fetchSessions error:', e)
     }
   },
 
@@ -129,8 +130,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions`)
       const sessions = (res.sessions ?? []).map(toSession)
       set((s) => ({ sessions_by_ring: { ...s.sessions_by_ring, [ring_id]: sessions } }))
-    } catch {
-      // keep existing
+    } catch (e) {
+      console.error('fetchSessionsForSidebar error:', e)
     }
   },
 
@@ -170,8 +171,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       await api.post(`/rings/${ring_id}/sessions/${session_id}/participants`, { token_ids })
       const res = await api.get<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}`)
       set({ participants: res.participants ?? [] })
-    } catch {
-      // keep state
+    } catch (e) {
+      console.error('inviteParticipants error:', e)
     }
   },
 
@@ -181,8 +182,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       set((s) => ({
         participants: s.participants.filter((p) => p.token_id !== token_id),
       }))
-    } catch {
-      // keep state
+    } catch (e) {
+      console.error('removeParticipant error:', e)
     }
   },
 
@@ -190,8 +191,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const res = await api.put<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/archive-toggle`, { enabled })
       set({ active_session: toSession(res) })
-    } catch {
-      // keep state
+    } catch (e) {
+      console.error('toggleArchive error:', e)
     }
   },
 
@@ -269,8 +270,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         `/rings/${ring_id}/sessions/${session_id}/messages?after_seq=0&limit=100`,
       )
       set({ messages: res.messages ?? [] })
-    } catch {
-      // keep existing
+    } catch (e) {
+      console.error('fetchMessages error:', e)
     }
   },
 
@@ -278,8 +279,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const res = await api.post<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/start`, {})
       set({ active_session: toSession(res) })
-    } catch {
-      // keep state
+    } catch (e) {
+      console.error('startSession error:', e)
     }
   },
 
@@ -287,8 +288,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const res = await api.get<{ materials: SessionMaterial[] }>(`/rings/${ring_id}/sessions/${session_id}/material-prep`)
       set({ materials: res.materials ?? [] })
-    } catch {
-      // keep existing
+    } catch (e) {
+      console.error('fetchMaterials error:', e)
     }
   },
 
@@ -300,8 +301,8 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           m.id === material_id ? { ...m, highlight: note } : m
         ),
       }))
-    } catch {
-      // keep state
+    } catch (e) {
+      console.error('highlightMaterial error:', e)
     }
   },
 
