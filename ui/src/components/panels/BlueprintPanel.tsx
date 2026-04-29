@@ -186,7 +186,9 @@ export function BlueprintPanel() {
       })
       fetchGraph(active_ring_id)
       useBlueprintStore.setState({ confirmed: true })
-    } catch {}
+    } catch {
+      // silently ignore
+    }
     setLoading(false)
   }
 
@@ -279,7 +281,9 @@ export function BlueprintPanel() {
                       { template: t.id },
                     )
                     setPreview(res.preview)
-                  } catch {}
+                  } catch {
+      // silently ignore
+    }
                 }}
                 style={{
                   padding: '8px 10px',

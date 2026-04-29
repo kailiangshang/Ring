@@ -18,7 +18,9 @@ export function startHeartbeat() {
     const view = getCurrentView()
     try {
       await api.post('/self/metrics/heartbeat', { view })
-    } catch {}
+    } catch {
+      // Heartbeat failures are non-critical, silently ignore
+    }
   }, HEARTBEAT_INTERVAL)
 }
 

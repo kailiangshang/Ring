@@ -51,11 +51,15 @@ export function SelfMemory() {
     try {
       const fileList = await api.get<MemoryFile[]>('/self/memory')
       setFiles(fileList)
-    } catch {}
+    } catch {
+      // silently ignore
+    }
     try {
       const m = await api.get<Metrics>('/self/metrics')
       setMetrics(m)
-    } catch {}
+    } catch {
+      // silently ignore
+    }
   }
 
   const openEdit = async (name: string) => {
@@ -63,7 +67,9 @@ export function SelfMemory() {
       const result = await api.get<{ content: string }>(`/self/memory/${name}`)
       setEditContent(result.content)
       setEditing(name)
-    } catch {}
+    } catch {
+      // silently ignore
+    }
   }
 
   const saveEdit = async () => {
@@ -73,7 +79,9 @@ export function SelfMemory() {
       await api.put(`/self/memory/${editing}`, { content: editContent })
       setEditing(null)
       loadData()
-    } catch {} finally {
+    } catch {
+      // silently ignore
+    } finally {
       setSaving(false)
     }
   }
@@ -82,7 +90,9 @@ export function SelfMemory() {
     try {
       await api.delete(`/self/memory/${name}`)
       loadData()
-    } catch {}
+    } catch {
+      // silently ignore
+    }
   }
 
   if (editing) {

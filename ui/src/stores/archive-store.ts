@@ -82,8 +82,8 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
         controller.signal,
       )
       await get().fetchArchives(ringId)
-    } catch (e: any) {
-      if (e.name !== 'AbortError') throw e
+    } catch (e: unknown) {
+      if (e instanceof Error && e.name !== 'AbortError') throw e
     } finally {
       set({ archiving: false, progress: '', abortArchive: undefined })
     }

@@ -291,7 +291,7 @@ export async function postGitRevert(ringId: string, sha: string, signal?: AbortS
   return res.json()
 }
 
-export async function uploadFile(path: string, file: File, signal?: AbortSignal): Promise<any> {
+export async function uploadFile(path: string, file: File, signal?: AbortSignal): Promise<unknown> {
   const token = await getToken()
   const formData = new FormData()
   formData.append('file', file)

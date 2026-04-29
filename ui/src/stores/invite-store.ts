@@ -55,7 +55,8 @@ export const useInviteStore = create<InviteState>((set, get) => ({
     try {
       const res = await listJoinRequests(ring_id, 'pending')
       set({ join_requests: res.requests })
-    } catch {
+    } catch (e) {
+      console.error('fetch_requests error:', e)
     }
   },
 

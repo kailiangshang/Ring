@@ -111,7 +111,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     try {
       const res = await api.get<{ graphs: GraphInfo[] }>(`/rings/${ringId}/graphs`)
       set({ graphs: res.graphs })
-    } catch {}
+    } catch (e) {
+      console.error('fetchGraphs error:', e)
+    }
   },
 
   createGraph: async (ringId, name) => {
@@ -242,7 +244,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
           tags: concept.tags,
         })
         labelToId.set(concept.label, res.id)
-      } catch {}
+      } catch (e) {
+        console.error('createNode error:', e)
+      }
     }
 
     for (const rel of relations) {
@@ -255,7 +259,9 @@ export const useGraphStore = create<GraphState>((set, get) => ({
             target_id: targetId,
             relation: rel.relation,
           })
-        } catch {}
+        } catch (e) {
+          console.error('createEdge error:', e)
+        }
       }
     }
 

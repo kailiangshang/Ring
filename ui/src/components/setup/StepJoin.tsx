@@ -109,6 +109,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
           set_loading(false)
         }
       } catch {
+        // polling error, ignore and retry
       }
     }, 3000)
     return () => clearInterval(interval)

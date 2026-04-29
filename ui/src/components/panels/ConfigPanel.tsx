@@ -382,7 +382,9 @@ export function ConfigPanel() {
             if (!active_ring_id) return
             try {
               await exportAIReport(active_ring_id, [], undefined)
-            } catch {}
+            } catch {
+      // silently ignore
+    }
           }}
           style={{
             ...smallBtn,

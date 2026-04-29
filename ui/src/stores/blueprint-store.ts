@@ -149,7 +149,9 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
       })
       const bp = bpMsg ? extractBlueprint(bpMsg.content) : null
       set({ messages: res.messages, current_blueprint: bp })
-    } catch {}
+    } catch (e) {
+      console.error('fetchHistory error:', e)
+    }
   },
 
   confirm: async (ringId) => {
@@ -161,7 +163,9 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
           : null,
       })
       set({ confirmed: true })
-    } catch {}
+    } catch (e) {
+      console.error('confirm error:', e)
+    }
   },
 
   checkStatus: async (ringId) => {
@@ -170,7 +174,9 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
       if (res.status === 'confirmed') {
         set({ confirmed: true })
       }
-    } catch {}
+    } catch (e) {
+      console.error('checkStatus error:', e)
+    }
   },
 
   stopStreaming: () => {
