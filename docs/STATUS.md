@@ -284,13 +284,45 @@
 | **多人数据同步** | **done（HTTP bundle sync，creator-wins upsert，auto-sync after join，graph auto-persist）** | 高 |
 | 移动端适配 | 缺失 | 延后 |
 
+## 未来路线图
+
+### v1.1 — 稳定性 + 体验优化
+
+| 功能 | 说明 | 优先级 |
+|------|------|--------|
+| 移动端适配 | 响应式布局，支持平板和手机 | 高 |
+| 多平台 Release 构建 | Linux / Windows / macOS ARM 二进制 | 高 |
+| npm 全局安装 | `npm install -g ring-server` 一键安装 | 高 |
+| 自动更新检查 | 启动时检查 GitHub Release 新版本 | 中 |
+| 性能监控 | 前端 FPS / 内存占用 / API 延迟仪表盘 | 低 |
+
+### v1.2 — AI 能力增强
+
+| 功能 | 说明 | 优先级 |
+|------|------|--------|
+| 网页爬取质量提升 | 支持 JavaScript 渲染页面（headless Chrome） | 中 |
+| 向量检索 | 本地 embedding + 向量数据库，语义搜索 | 中 |
+| Agent 工作流 | 支持多步骤 AI 任务链（研究→总结→归档→图谱更新） | 中 |
+| 语音输入 | Web Speech API 语音转文字 | 低 |
+
+### v1.3 — 企业级功能
+
+| 功能 | 说明 | 优先级 |
+|------|------|--------|
+| SSO 集成 | OAuth2 / LDAP / SAML | 低 |
+| 审计日志 | 操作日志持久化 + 查询 | 低 |
+| 数据加密 at-rest | SQLite 数据库加密 | 低 |
+| 集群部署 | 多节点共享 SQLite（LiteFS / rqlite） | 低 |
+
+---
+
 ## 技术债（审计记录，不阻塞）
 
-- ~~`chat-store.ts` 733 行 god object，导入 10 个 store~~ — **已修复**（拆分 command-handlers.ts + createSseCallbacks 工厂）
-- ~~`super_chat.rs` 流式循环 3 份重复（~300 行），待统一到 LlmClient~~ — **已修复**（统一到 LlmClient::chat_stream）
-- ~~非 stream 请求无 AbortController~~ — **已修复**（api.get/post/put/delete 支持 signal，triggerArchiveSSE/exportFile/uploadFile/summarize 支持 abort）
-- ~~`active_ring_id` 双份状态（app-store + ring-store）~~ — **已修复**
+- ~~`chat-store.ts` 733 行 god object，导入 10 个 store~~ — **已修复**
+- ~~`super_chat.rs` 流式循环 3 份重复~~ — **已修复**
+- ~~非 stream 请求无 AbortController~~ — **已修复**
+- ~~`active_ring_id` 双份状态~~ — **已修复**
 - ~~Token 获取方式 4 种不统一~~ — **已修复**
 - ~~16 个 `.unwrap()` 在路由 handler 中~~ — **已修复**
-- ~~`readonly` 角色权限未执行~~ — **已修复**（reject_readonly 覆盖 30+ 写端点 + WebSocket）
-- ~~CORS 允许所有 Origin~~ — **已修复**（仅 localhost）
+- ~~`readonly` 角色权限未执行~~ — **已修复**
+- ~~CORS 允许所有 Origin~~ — **已修复**
