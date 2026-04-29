@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.0.0] - 2026-04-28
+## [0.1.0] - 2026-04-28
 
 ### 核心功能
 
@@ -44,4 +44,4 @@ All notable changes to this project will be documented in this file.
 - `delete_graph` 全局计数 → per-ring 计数
 - Notifications `type` 列 → `notification_type`
 
-[1.0.0]: https://github.com/kailiangshang/Ring/releases/tag/v1.0.0
+[0.1.0]: https://github.com/kailiangshang/Ring/releases/tag/v0.1.0

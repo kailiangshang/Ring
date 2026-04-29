@@ -282,9 +282,9 @@ cat docs/BACKEND_TEST.md
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| [v1.0.0](CHANGELOG.md) | 2026-04-28 | 首个稳定版本 — PRD 7.2 全部完成，69 测试通过 |
+| v0.1.0 | 2026-04-28 | 首个可用版本 — PRD 7.2 全部完成，69 测试通过 |
 
-### v1.0.0 完整功能清单
+### v0.1.0 完整功能清单
 
 **四层 AI**
 - Group Ring 聊天 + tool_calls（file_parse / knowledge_extract / fetch_url）
