@@ -292,7 +292,7 @@
 |------|------|--------|
 | 移动端适配 | 响应式布局，支持平板和手机 | 高 |
 | 多平台 Release 构建 | Linux / Windows / macOS ARM 二进制 | 高 |
-| npm 全局安装 | `npm install -g ring-server` 一键安装 | 高 |
+| npm 全局安装 | `npm install -g ring` 一键安装 | 高 |
 | 自动更新检查 | 启动时检查 GitHub Release 新版本 | 中 |
 | 性能监控 | 前端 FPS / 内存占用 / API 延迟仪表盘 | 低 |
 
