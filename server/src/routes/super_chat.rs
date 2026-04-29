@@ -131,9 +131,15 @@ pub async fn get_system_prompt(
 
 pub async fn update_system_prompt(
     State(state): State<AppState>,
-    _user: AuthUser,
+    user: AuthUser,
     Json(body): Json<SystemPromptRequest>,
 ) -> Result<Json<SystemPromptResponse>> {
+    let user_row = crate::models::user::get_user(&state.db, &user.token_id).await?;
+    if !user_row.is_creator {
+        return Err(crate::error::RingError::Forbidden(
+            "only setup creator can modify system prompt".into(),
+        ));
+    }
     super_chat::update_system_prompt(&state.hub_dir, &body.prompt)?;
     let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir);
     Ok(Json(SystemPromptResponse { prompt, is_custom }))
@@ -149,9 +155,15 @@ pub async fn get_preferences(
 
 pub async fn update_preferences(
     State(state): State<AppState>,
-    _user: AuthUser,
+    user: AuthUser,
     Json(body): Json<PreferencesRequest>,
 ) -> Result<Json<PreferencesResponse>> {
+    let user_row = crate::models::user::get_user(&state.db, &user.token_id).await?;
+    if !user_row.is_creator {
+        return Err(crate::error::RingError::Forbidden(
+            "only setup creator can modify preferences".into(),
+        ));
+    }
     super_chat::update_user_preferences(&state.hub_dir, &body.content)?;
     let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir);
     Ok(Json(PreferencesResponse { content, is_custom }))

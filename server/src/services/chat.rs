@@ -7,48 +7,6 @@ use crate::state::AppState;
 const COMPACT_THRESHOLD: usize = 30;
 const COMPACT_SUMMARY_MAX_TOKENS: usize = 500;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_detect_archive_intent_chinese() {
-        assert!(detect_archive_intent("请把这段对话归档"));
-        assert!(detect_archive_intent("保存到图谱"));
-        assert!(detect_archive_intent("记录到图谱"));
-        assert!(detect_archive_intent("值得归档"));
-        assert!(detect_archive_intent("mark this"));
-    }
-
-    #[test]
-    fn test_detect_archive_intent_english() {
-        assert!(detect_archive_intent("archive this conversation"));
-        assert!(detect_archive_intent("save to graph"));
-        assert!(detect_archive_intent("save this for later"));
-    }
-
-    #[test]
-    fn test_detect_archive_intent_negative() {
-        assert!(!detect_archive_intent("hello world"));
-        assert!(!detect_archive_intent("what is the weather today"));
-    }
-
-    #[test]
-    fn test_should_recommend_archive_with_indicators() {
-        assert!(should_recommend_archive("我们达成了共识，结论是采用方案A"));
-        assert!(should_recommend_archive(
-            "The team decided to go with option B"
-        ));
-        assert!(should_recommend_archive("Final conclusion: use Rust"));
-    }
-
-    #[test]
-    fn test_should_recommend_archive_negative() {
-        assert!(!should_recommend_archive("hello"));
-        assert!(!should_recommend_archive("what do you think"));
-    }
-}
-
 pub fn detect_archive_intent(content: &str) -> bool {
     let lower = content.to_lowercase();
     let keywords = [
@@ -505,5 +463,47 @@ pub async fn execute_group_tool(
         _ => Err(crate::error::RingError::BadRequest(format!(
             "unknown tool: {tool_name}"
         ))),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_archive_intent_chinese() {
+        assert!(detect_archive_intent("请把这段对话归档"));
+        assert!(detect_archive_intent("保存到图谱"));
+        assert!(detect_archive_intent("记录到图谱"));
+        assert!(detect_archive_intent("值得归档"));
+        assert!(detect_archive_intent("mark this"));
+    }
+
+    #[test]
+    fn test_detect_archive_intent_english() {
+        assert!(detect_archive_intent("archive this conversation"));
+        assert!(detect_archive_intent("save to graph"));
+        assert!(detect_archive_intent("save this for later"));
+    }
+
+    #[test]
+    fn test_detect_archive_intent_negative() {
+        assert!(!detect_archive_intent("hello world"));
+        assert!(!detect_archive_intent("what is the weather today"));
+    }
+
+    #[test]
+    fn test_should_recommend_archive_with_indicators() {
+        assert!(should_recommend_archive("我们达成了共识，结论是采用方案A"));
+        assert!(should_recommend_archive(
+            "The team decided to go with option B"
+        ));
+        assert!(should_recommend_archive("Final conclusion: use Rust"));
+    }
+
+    #[test]
+    fn test_should_recommend_archive_negative() {
+        assert!(!should_recommend_archive("hello"));
+        assert!(!should_recommend_archive("what do you think"));
     }
 }

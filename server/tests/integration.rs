@@ -712,8 +712,7 @@ async fn test_super_chat_history_empty() {
 
 #[tokio::test]
 async fn test_super_system_prompt_default() {
-    let _ = std::fs::remove_file("/tmp/ring-test-hub/system_prompt.md");
-    let state = setup_app().await;
+    let state = setup_unique_app().await;
     let app = build_router(state);
 
     let token = do_setup(&app).await;
@@ -1799,7 +1798,7 @@ async fn test_join_page_expired_token() {
     let past = "2020-01-01T00:00:00+00:00";
     sqlx::query("UPDATE invite_tokens SET expires_at = ?1 WHERE token = ?2")
         .bind(past)
-        .bind(&invite_token)
+        .bind(invite_token)
         .execute(&pool)
         .await
         .unwrap();
@@ -2004,7 +2003,7 @@ async fn test_llm_test_endpoint_missing_key() {
 
 #[tokio::test]
 async fn test_recover_token() {
-    let state = setup_app().await;
+    let state = setup_unique_app().await;
     let app = build_router(state);
     let token = do_setup(&app).await;
 
@@ -2420,7 +2419,7 @@ async fn test_blueprint_chat_requires_creator() {
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_group_ring_tools_defined(pool: SqlitePool) {
+async fn test_group_ring_tools_defined(_pool: SqlitePool) {
     let tools = ring_server::services::chat::get_group_ring_tools();
     assert_eq!(tools.len(), 3);
 
@@ -2439,7 +2438,7 @@ async fn test_cross_ring_cache_summary_and_invalidation(pool: SqlitePool) {
             .await;
     assert!(summary.contains("没有任何 Ring"));
 
-    let mut map = cache.lock().await;
+    let map = cache.lock().await;
     assert!(map.contains_key("summary:nonexistent-user"));
     drop(map);
 
@@ -2450,7 +2449,7 @@ async fn test_cross_ring_cache_summary_and_invalidation(pool: SqlitePool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_cross_ring_cache_invalidate_ring(pool: SqlitePool) {
+async fn test_cross_ring_cache_invalidate_ring(_pool: SqlitePool) {
     let cache = ring_server::services::cross_ring_cache::new_cache();
 
     let map = cache.lock().await;

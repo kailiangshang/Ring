@@ -169,7 +169,11 @@ pub async fn list_rings_for_user(
     let mut result = Vec::with_capacity(rings.len());
     for (id, name, role, member_count, last_activity_at) in rings {
         let node_count = node_count_map.get(&id).copied().unwrap_or(0);
-        let creator_ip = creator_ip_map.get(&id).cloned();
+        let creator_ip = if role == "creator" {
+            creator_ip_map.get(&id).cloned()
+        } else {
+            None
+        };
 
         result.push(RingListItem {
             id,

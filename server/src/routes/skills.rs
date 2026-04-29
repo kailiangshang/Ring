@@ -35,9 +35,15 @@ pub struct InstallSkillResponse {
 
 pub async fn install_skill_handler(
     State(state): State<AppState>,
-    _user: AuthUser,
+    user: AuthUser,
     Json(body): Json<InstallSkillRequest>,
 ) -> Result<Json<InstallSkillResponse>> {
+    let user_row = crate::models::user::get_user(&state.db, &user.token_id).await?;
+    if !user_row.is_creator {
+        return Err(crate::error::RingError::Forbidden(
+            "only setup creator can install skills".into(),
+        ));
+    }
     let info = skill::install_skill(&state.skills_dir, &body.name, &body.source_url).await?;
     Ok(Json(InstallSkillResponse {
         ok: true,
@@ -77,9 +83,15 @@ pub struct RemoveSkillResponse {
 
 pub async fn remove_skill(
     State(state): State<AppState>,
-    _user: AuthUser,
+    user: AuthUser,
     Path(name): Path<String>,
 ) -> Result<Json<RemoveSkillResponse>> {
+    let user_row = crate::models::user::get_user(&state.db, &user.token_id).await?;
+    if !user_row.is_creator {
+        return Err(crate::error::RingError::Forbidden(
+            "only setup creator can remove skills".into(),
+        ));
+    }
     skill::remove_skill(&state.skills_dir, &name)?;
     Ok(Json(RemoveSkillResponse { ok: true, name }))
 }

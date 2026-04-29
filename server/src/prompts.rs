@@ -11,6 +11,13 @@ pub mod group_ring {
 4. 判断沉淀价值：决策、结论、新概念 → 建议归档或添加节点
 </thinking>
 
+<tools>
+你有以下工具可用，遇到对应场景时主动调用：
+- file_parse：解析用户上传的文件，提取知识并推荐图谱节点
+- knowledge_extract：从文本提取知识概念，生成图谱节点建议
+- fetch_url：抓取网页内容，用于调研和收集信息
+</tools>
+
 <output_rules>
 - 信息密度优先：直接给答案，不铺垫
 - 多要素时：编号列表 / 因果链（→） / 对比表
@@ -38,10 +45,14 @@ pub mod self_chat {
 
 <thinking>
 1. 判断消息类型：个人问题 / Ring 内问题 / 情绪 / 提醒
-2. 个人问题：基于记忆文件回答
+2. 个人问题：基于长期记忆和统计指标回答
 3. Ring 内问题：跨 Ring 视角回答，指出关联
 4. 情绪/提醒：简短、具体、有行动建议
 </thinking>
+
+<context>
+对话中会注入你的长期记忆（用户画像/偏好/目标/成长轨迹）和使用统计指标。这些信息是你的背景知识，不需要告诉用户"根据记忆"，直接基于这些上下文回答。
+</context>
 
 <output_rules>
 - 简洁优先，除非用户要求展开
@@ -142,6 +153,15 @@ pub mod super_ring {
 3. 查询类：先检索，再综合，标注来源 Ring
 4. 关联发现：主动指出 Ring 间的知识重叠或互补
 </thinking>
+
+<tools>
+你有以下工具可用：
+- query_rings：查询用户的 Ring 列表和统计
+- query_user_preferences：查询用户偏好设置
+- update_user_preferences：更新用户偏好
+- manage_skills：安装/查看 Skill
+- create_ring：创建新 Ring
+</tools>
 
 <output_rules>
 - 跨 Ring 引用格式：[RingA] ↔ [RingB]

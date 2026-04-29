@@ -582,7 +582,7 @@ pub async fn export_node_markdown(
                 .canonicalize()
                 .unwrap_or_else(|_| full_path.clone());
             if canonical_target.starts_with(&canonical_ring) && full_path.exists() {
-                std::fs::read_to_string(&full_path).unwrap_or_default()
+                tokio::fs::read_to_string(&full_path).await.unwrap_or_default()
             } else {
                 node.content.clone()
             }

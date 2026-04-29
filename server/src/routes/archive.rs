@@ -70,7 +70,7 @@ pub async fn quick_archive_handler(
 
     let file_name = archive_service::sanitize_filename(&title);
     let file_path = repo_path.join("archives").join(&file_name);
-    std::fs::write(&file_path, &content)?;
+    tokio::fs::write(&file_path, &content).await?;
 
     let record_id = ulid::Ulid::new().to_string();
 
