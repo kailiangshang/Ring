@@ -4,7 +4,7 @@ use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
 use crate::state::AppState;
 
-pub fn persist_group_doc(
+fn persist_group_doc_sync(
     rings_dir: &std::path::Path,
     ring_id: &str,
     doc_name: &str,
@@ -22,6 +22,23 @@ pub fn persist_group_doc(
         let _ = git.add_all(&repo_path);
         let _ = git.commit(&repo_path, &format!("docs: update .group/{doc_name}.md"));
     }
+}
+
+pub async fn persist_group_doc(
+    rings_dir: &std::path::Path,
+    ring_id: &str,
+    doc_name: &str,
+    content: &str,
+) {
+    let rings_dir = rings_dir.to_path_buf();
+    let ring_id = ring_id.to_string();
+    let doc_name = doc_name.to_string();
+    let content = content.to_string();
+    tokio::task::spawn_blocking(move || {
+        persist_group_doc_sync(&rings_dir, &ring_id, &doc_name, &content);
+    })
+    .await
+    .ok();
 }
 
 pub async fn update_active_context(
@@ -69,7 +86,7 @@ pub async fn update_active_context(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
-    persist_group_doc(&state.rings_dir, ring_id, "active-context", content.trim());
+    persist_group_doc(&state.rings_dir, ring_id, "active-context", content.trim()).await;
 
     Ok(())
 }
@@ -121,7 +138,7 @@ pub async fn update_archive_patterns(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
-    persist_group_doc(&state.rings_dir, ring_id, "archive-patterns", merged.trim());
+    persist_group_doc(&state.rings_dir, ring_id, "archive-patterns", merged.trim()).await;
 
     Ok(())
 }
@@ -160,7 +177,7 @@ pub async fn add_correction(
     .await
     .map_err(|e| RingError::Internal(e.to_string()))?;
 
-    persist_group_doc(&state.rings_dir, ring_id, "corrections", merged.trim());
+    persist_group_doc(&state.rings_dir, ring_id, "corrections", merged.trim()).await;
 
     Ok(())
 }
@@ -222,7 +239,7 @@ pub async fn update_knowledge_summary(
         ring_id,
         "knowledge-summary",
         content.trim(),
-    );
+    ).await;
 
     Ok(())
 }

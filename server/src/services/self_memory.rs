@@ -8,13 +8,13 @@ const MEMORY_DIR: &str = "memory";
 const MAX_FILE_CHARS: usize = 2000;
 const MEMORY_FILES: &[&str] = &["user_profile", "preferences", "active_goals", "growth"];
 
-pub fn ensure_memory_dir(self_dir: &Path) -> PathBuf {
+fn ensure_memory_dir(self_dir: &Path) -> PathBuf {
     let dir = self_dir.join(MEMORY_DIR);
     let _ = std::fs::create_dir_all(&dir);
     dir
 }
 
-pub fn read_memory_file(self_dir: &Path, name: &str) -> Result<(String, bool)> {
+fn read_memory_file_sync(self_dir: &Path, name: &str) -> Result<(String, bool)> {
     validate_memory_name(name)?;
     let path = ensure_memory_dir(self_dir).join(format!("{name}.md"));
     if !path.exists() {
@@ -23,18 +23,18 @@ pub fn read_memory_file(self_dir: &Path, name: &str) -> Result<(String, bool)> {
     Ok((std::fs::read_to_string(&path)?, true))
 }
 
-pub fn write_memory_file(self_dir: &Path, name: &str, content: &str) -> Result<()> {
+fn write_memory_file_sync(self_dir: &Path, name: &str, content: &str) -> Result<()> {
     validate_memory_name(name)?;
     let dir = ensure_memory_dir(self_dir);
     std::fs::write(dir.join(format!("{name}.md")), content)?;
     Ok(())
 }
 
-pub fn list_memory_files(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
+fn list_memory_files_sync(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
     let _dir = ensure_memory_dir(self_dir);
     let mut files = Vec::new();
     for name in MEMORY_FILES {
-        let (content, exists) = read_memory_file(self_dir, name)?;
+        let (content, exists) = read_memory_file_sync(self_dir, name)?;
         let line_count = if exists {
             content.lines().filter(|l| !l.trim().is_empty()).count()
         } else {
@@ -50,13 +50,45 @@ pub fn list_memory_files(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
     Ok(files)
 }
 
-pub fn delete_memory_file(self_dir: &Path, name: &str) -> Result<()> {
+fn delete_memory_file_sync(self_dir: &Path, name: &str) -> Result<()> {
     validate_memory_name(name)?;
     let path = ensure_memory_dir(self_dir).join(format!("{name}.md"));
     if path.exists() {
         std::fs::remove_file(&path)?;
     }
     Ok(())
+}
+
+pub async fn read_memory_file(self_dir: &Path, name: &str) -> Result<(String, bool)> {
+    let self_dir = self_dir.to_path_buf();
+    let name = name.to_string();
+    tokio::task::spawn_blocking(move || read_memory_file_sync(&self_dir, &name))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
+}
+
+pub async fn write_memory_file(self_dir: &Path, name: &str, content: &str) -> Result<()> {
+    let self_dir = self_dir.to_path_buf();
+    let name = name.to_string();
+    let content = content.to_string();
+    tokio::task::spawn_blocking(move || write_memory_file_sync(&self_dir, &name, &content))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
+}
+
+pub async fn list_memory_files(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
+    let self_dir = self_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || list_memory_files_sync(&self_dir))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
+}
+
+pub async fn delete_memory_file(self_dir: &Path, name: &str) -> Result<()> {
+    let self_dir = self_dir.to_path_buf();
+    let name = name.to_string();
+    tokio::task::spawn_blocking(move || delete_memory_file_sync(&self_dir, &name))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
 }
 
 fn validate_memory_name(name: &str) -> Result<()> {
@@ -68,10 +100,10 @@ fn validate_memory_name(name: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn build_memory_context(self_dir: &Path) -> String {
+fn build_memory_context_sync(self_dir: &Path) -> String {
     let mut ctx = String::new();
     for name in MEMORY_FILES {
-        if let Ok((content, exists)) = read_memory_file(self_dir, name) {
+        if let Ok((content, exists)) = read_memory_file_sync(self_dir, name) {
             if exists && !content.trim().is_empty() {
                 let label = match *name {
                     "user_profile" => "用户画像",
@@ -88,6 +120,13 @@ pub fn build_memory_context(self_dir: &Path) -> String {
         return String::new();
     }
     format!("## 长期记忆\n\n{}", ctx)
+}
+
+pub async fn build_memory_context(self_dir: &Path) -> String {
+    let self_dir = self_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || build_memory_context_sync(&self_dir))
+        .await
+        .unwrap_or_default()
 }
 
 #[derive(serde::Deserialize)]
@@ -142,7 +181,7 @@ pub async fn extract_memories(
             _ => continue,
         };
 
-        if let Ok((mut content, _)) = read_memory_file(&self_dir, file_name) {
+        if let Ok((mut content, _)) = read_memory_file(&self_dir, file_name).await {
             let fact_line = format!("- {}", fact.fact);
             if !content.contains(&fact.fact) {
                 if !content.ends_with('\n') && !content.is_empty() {
@@ -150,7 +189,7 @@ pub async fn extract_memories(
                 }
                 content.push_str(&fact_line);
                 content.push('\n');
-                if let Err(e) = write_memory_file(&self_dir, file_name, &content) {
+                if let Err(e) = write_memory_file(&self_dir, file_name, &content).await {
                     tracing::warn!("failed to write memory file: {e}");
                 }
             }
@@ -168,7 +207,7 @@ pub async fn extract_memories(
 pub async fn check_and_compress(user: &UserRow, user_id: &str) -> Result<()> {
     let self_dir = crate::services::self_data::get_self_dir(user_id);
     for name in MEMORY_FILES {
-        if let Ok((content, exists)) = read_memory_file(&self_dir, name) {
+        if let Ok((content, exists)) = read_memory_file(&self_dir, name).await {
             if exists && content.len() > MAX_FILE_CHARS {
                 if let Ok(llm) = LlmClient::from_user(user) {
                     compress_memory_file(llm, &self_dir, name, &content).await;
@@ -203,7 +242,7 @@ async fn compress_memory_file(llm: LlmClient, self_dir: &Path, name: &str, conte
         )
         .await
     {
-        if let Err(e) = write_memory_file(self_dir, name, &compressed) {
+        if let Err(e) = write_memory_file(self_dir, name, &compressed).await {
             tracing::warn!("failed to write compressed memory: {e}");
         }
     }

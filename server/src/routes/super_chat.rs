@@ -125,7 +125,7 @@ pub async fn get_system_prompt(
     State(state): State<AppState>,
     _user: AuthUser,
 ) -> Result<Json<SystemPromptResponse>> {
-    let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir);
+    let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir).await;
     Ok(Json(SystemPromptResponse { prompt, is_custom }))
 }
 
@@ -140,8 +140,8 @@ pub async fn update_system_prompt(
             "only setup creator can modify system prompt".into(),
         ));
     }
-    super_chat::update_system_prompt(&state.hub_dir, &body.prompt)?;
-    let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir);
+    super_chat::update_system_prompt(&state.hub_dir, &body.prompt).await?;
+    let (prompt, is_custom) = super_chat::get_system_prompt_info(&state.hub_dir).await;
     Ok(Json(SystemPromptResponse { prompt, is_custom }))
 }
 
@@ -149,7 +149,7 @@ pub async fn get_preferences(
     State(state): State<AppState>,
     _user: AuthUser,
 ) -> Result<Json<PreferencesResponse>> {
-    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir);
+    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir).await;
     Ok(Json(PreferencesResponse { content, is_custom }))
 }
 
@@ -164,8 +164,8 @@ pub async fn update_preferences(
             "only setup creator can modify preferences".into(),
         ));
     }
-    super_chat::update_user_preferences(&state.hub_dir, &body.content)?;
-    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir);
+    super_chat::update_user_preferences(&state.hub_dir, &body.content).await?;
+    let (content, is_custom) = super_chat::get_user_preferences_info(&state.hub_dir).await;
     Ok(Json(PreferencesResponse { content, is_custom }))
 }
 

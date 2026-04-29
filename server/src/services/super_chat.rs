@@ -16,7 +16,7 @@ const DEFAULT_SUPER_SYSTEM_PROMPT: &str = crate::prompts::super_ring::DEFAULT_SY
 
 const DEFAULT_PREFERENCES: &str = "## 语言\n- default: zh-CN\n\n## LLM\n- default_provider: openai\n\n## 输出格式\n- style: concise\n\n## 默认模式\n- mode: normal";
 
-pub fn get_system_prompt(hub_dir: &Path) -> String {
+fn get_system_prompt_sync(hub_dir: &Path) -> String {
     let prompt_file = hub_dir.join("system_prompt.md");
     match std::fs::read_to_string(&prompt_file) {
         Ok(content) if !content.trim().is_empty() => content,
@@ -24,7 +24,7 @@ pub fn get_system_prompt(hub_dir: &Path) -> String {
     }
 }
 
-pub fn get_system_prompt_info(hub_dir: &Path) -> (String, bool) {
+fn get_system_prompt_info_sync(hub_dir: &Path) -> (String, bool) {
     let prompt_file = hub_dir.join("system_prompt.md");
     match std::fs::read_to_string(&prompt_file) {
         Ok(ref content) if !content.trim().is_empty() => (content.clone(), true),
@@ -32,7 +32,7 @@ pub fn get_system_prompt_info(hub_dir: &Path) -> (String, bool) {
     }
 }
 
-pub fn update_system_prompt(hub_dir: &Path, prompt: &str) -> Result<()> {
+fn update_system_prompt_sync(hub_dir: &Path, prompt: &str) -> Result<()> {
     let prompt_file = hub_dir.join("system_prompt.md");
     if prompt.trim().is_empty() {
         let _ = std::fs::remove_file(&prompt_file);
@@ -42,7 +42,7 @@ pub fn update_system_prompt(hub_dir: &Path, prompt: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn get_user_preferences(hub_dir: &Path) -> String {
+fn get_user_preferences_sync(hub_dir: &Path) -> String {
     let prefs_file = hub_dir.join("user_preferences.md");
     match std::fs::read_to_string(&prefs_file) {
         Ok(content) if !content.trim().is_empty() => content,
@@ -50,7 +50,7 @@ pub fn get_user_preferences(hub_dir: &Path) -> String {
     }
 }
 
-pub fn get_user_preferences_info(hub_dir: &Path) -> (String, bool) {
+fn get_user_preferences_info_sync(hub_dir: &Path) -> (String, bool) {
     let prefs_file = hub_dir.join("user_preferences.md");
     match std::fs::read_to_string(&prefs_file) {
         Ok(ref content) if !content.trim().is_empty() => (content.clone(), true),
@@ -58,7 +58,7 @@ pub fn get_user_preferences_info(hub_dir: &Path) -> (String, bool) {
     }
 }
 
-pub fn update_user_preferences(hub_dir: &Path, content: &str) -> Result<()> {
+fn update_user_preferences_sync(hub_dir: &Path, content: &str) -> Result<()> {
     let prefs_file = hub_dir.join("user_preferences.md");
     if content.trim().is_empty() {
         let _ = std::fs::remove_file(&prefs_file);
@@ -68,7 +68,49 @@ pub fn update_user_preferences(hub_dir: &Path, content: &str) -> Result<()> {
     Ok(())
 }
 
-#[derive(Debug, Deserialize)]
+pub async fn get_system_prompt(hub_dir: &Path) -> String {
+    let hub_dir = hub_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || get_system_prompt_sync(&hub_dir))
+        .await
+        .unwrap_or_else(|_| DEFAULT_SUPER_SYSTEM_PROMPT.to_string())
+}
+
+pub async fn get_system_prompt_info(hub_dir: &Path) -> (String, bool) {
+    let hub_dir = hub_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || get_system_prompt_info_sync(&hub_dir))
+        .await
+        .unwrap_or_else(|_| (DEFAULT_SUPER_SYSTEM_PROMPT.to_string(), false))
+}
+
+pub async fn update_system_prompt(hub_dir: &Path, prompt: &str) -> Result<()> {
+    let hub_dir = hub_dir.to_path_buf();
+    let prompt = prompt.to_string();
+    tokio::task::spawn_blocking(move || update_system_prompt_sync(&hub_dir, &prompt))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
+}
+
+pub async fn get_user_preferences(hub_dir: &Path) -> String {
+    let hub_dir = hub_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || get_user_preferences_sync(&hub_dir))
+        .await
+        .unwrap_or_else(|_| DEFAULT_PREFERENCES.to_string())
+}
+
+pub async fn get_user_preferences_info(hub_dir: &Path) -> (String, bool) {
+    let hub_dir = hub_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || get_user_preferences_info_sync(&hub_dir))
+        .await
+        .unwrap_or_else(|_| (DEFAULT_PREFERENCES.to_string(), false))
+}
+
+pub async fn update_user_preferences(hub_dir: &Path, content: &str) -> Result<()> {
+    let hub_dir = hub_dir.to_path_buf();
+    let content = content.to_string();
+    tokio::task::spawn_blocking(move || update_user_preferences_sync(&hub_dir, &content))
+        .await
+        .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
+}#[derive(Debug, Deserialize)]
 struct QueryRingDetailArgs {
     ring_name: String,
 }
@@ -301,11 +343,11 @@ pub async fn execute_tool(
                 .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
             execute_query_ring_detail(pool, rings_dir, user_id, &args.ring_name).await
         }
-        "query_user_preferences" => execute_query_user_preferences(hub_dir),
+        "query_user_preferences" => execute_query_user_preferences(hub_dir).await,
         "update_user_preferences" => {
             let args: UpdatePreferencesArgs = serde_json::from_str(arguments)
                 .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
-            execute_update_user_preferences(hub_dir, &args.content)
+            execute_update_user_preferences(hub_dir, &args.content).await
         }
         "manage_skills" => {
             let args: ManageSkillsArgs = serde_json::from_str(arguments)
@@ -322,12 +364,12 @@ pub async fn execute_tool(
     }
 }
 
-fn execute_query_user_preferences(hub_dir: &Path) -> Result<String> {
-    Ok(get_user_preferences(hub_dir))
+async fn execute_query_user_preferences(hub_dir: &Path) -> Result<String> {
+    Ok(get_user_preferences(hub_dir).await)
 }
 
-fn execute_update_user_preferences(hub_dir: &Path, content: &str) -> Result<String> {
-    update_user_preferences(hub_dir, content)?;
+async fn execute_update_user_preferences(hub_dir: &Path, content: &str) -> Result<String> {
+    update_user_preferences(hub_dir, content).await?;
     Ok("偏好设置已更新。".to_string())
 }
 
@@ -577,14 +619,14 @@ async fn stream_super_chat_inner(
     )
     .await;
 
-    let base_prompt = get_system_prompt(&state.hub_dir);
+    let base_prompt = get_system_prompt(&state.hub_dir).await;
     let ring_summary = crate::services::cross_ring_cache::get_summary(
         &state.cross_ring_cache,
         &state.db,
         &user.token_id,
     )
     .await;
-    let prefs = get_user_preferences(&state.hub_dir);
+    let prefs = get_user_preferences(&state.hub_dir).await;
     let search_ctx = if content.len() >= 5 && !content.starts_with('/') {
         let ring_ids = crate::services::search::get_user_ring_ids(&state.db, &user.token_id)
             .await
