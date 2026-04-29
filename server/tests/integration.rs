@@ -2478,3 +2478,46 @@ async fn test_cross_ring_cache_invalidate_ring(_pool: SqlitePool) {
     assert!(!map.contains_key("graph:test-ring-id"));
     assert!(map.contains_key("summary:user-1"));
 }
+
+#[tokio::test]
+async fn test_export_node_path_traversal_blocked() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+    let token = do_setup(&app).await;
+
+    let body = r#"{"name":"Test Ring","role_description":"Test","storage_mode":"local"}"#;
+    let resp = app
+        .clone()
+        .oneshot(make_request("POST", "/api/rings", Some(body), Some(&token)))
+        .await
+        .unwrap();
+    let ring_json = read_body(resp).await;
+    let ring_id = ring_json["id"].as_str().unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "GET",
+            &format!("/api/rings/{}/export/node?node_id=../../../etc/passwd", ring_id),
+            None,
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+    
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn test_skills_auth_required() {
+    let state = setup_unique_app().await;
+    let app = build_router(state);
+
+    let resp = app
+        .clone()
+        .oneshot(make_request("GET", "/api/skills", None, None))
+        .await
+        .unwrap();
+    
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
