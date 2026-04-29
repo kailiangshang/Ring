@@ -107,6 +107,8 @@ pub async fn upload_session_file(
     Ok(Json(material))
 }
 
+const MAX_UPLOAD_SIZE: usize = 10 * 1024 * 1024;
+
 async fn extract_file(multipart: &mut Multipart) -> Result<(String, Vec<u8>)> {
     let field = multipart
         .next_field()
@@ -116,11 +118,23 @@ async fn extract_file(multipart: &mut Multipart) -> Result<(String, Vec<u8>)> {
 
     let filename = field.file_name().unwrap_or("unnamed.txt").to_string();
 
-    let data = field
-        .bytes()
+    let mut data = Vec::new();
+    let mut stream = field;
+    while let Some(chunk) = stream
+        .chunk()
         .await
-        .map_err(|e| RingError::BadRequest(format!("failed to read file data: {e}")))?
-        .to_vec();
+        .map_err(|e| RingError::BadRequest(format!("failed to read chunk: {e}")))?
+    {
+        if data.len() + chunk.len() > MAX_UPLOAD_SIZE {
+            return Err(RingError::BadRequest(format!(
+                "file too large (max {} MB)",
+                MAX_UPLOAD_SIZE / 1024 / 1024
+            )));
+        }
+        data.extend_from_slice(&chunk);
+    }
+
+    crate::services::upload::validate_file(&filename, data.len())?;
 
     Ok((filename, data))
 }

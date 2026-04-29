@@ -128,23 +128,45 @@ pub async fn list_rings_for_user(
     .fetch_all(pool)
     .await?;
 
+    let ring_ids: Vec<String> = rings.iter().map(|r| r.0.clone()).collect();
+
+    let node_counts: Vec<(String, i64)> = if ring_ids.is_empty() {
+        Vec::new()
+    } else {
+        let placeholders = ring_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            "SELECT ring_id, COUNT(*) FROM graph_nodes WHERE ring_id IN ({}) GROUP BY ring_id",
+            placeholders
+        );
+        let mut q = sqlx::query_as::<_, (String, i64)>(&query);
+        for id in &ring_ids {
+            q = q.bind(id);
+        }
+        q.fetch_all(pool).await.unwrap_or_default()
+    };
+    let node_count_map: std::collections::HashMap<String, i64> = node_counts.into_iter().collect();
+
+    let creator_ips: Vec<(String, String)> = if ring_ids.is_empty() {
+        Vec::new()
+    } else {
+        let placeholders = ring_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let query = format!(
+            "SELECT ring_id, value FROM sync_meta WHERE ring_id IN ({}) AND key = 'creator_ip'",
+            placeholders
+        );
+        let mut q = sqlx::query_as::<_, (String, String)>(&query);
+        for id in &ring_ids {
+            q = q.bind(id);
+        }
+        q.fetch_all(pool).await.unwrap_or_default()
+    };
+    let creator_ip_map: std::collections::HashMap<String, String> =
+        creator_ips.into_iter().collect();
+
     let mut result = Vec::with_capacity(rings.len());
     for (id, name, role, member_count, last_activity_at) in rings {
-        let node_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM graph_nodes WHERE ring_id = ?1")
-                .bind(&id)
-                .fetch_one(pool)
-                .await
-                .unwrap_or(0);
-
-        let creator_ip: Option<String> = sqlx::query_scalar(
-            "SELECT value FROM sync_meta WHERE ring_id = ?1 AND key = 'creator_ip'",
-        )
-        .bind(&id)
-        .fetch_optional(pool)
-        .await
-        .ok()
-        .flatten();
+        let node_count = node_count_map.get(&id).copied().unwrap_or(0);
+        let creator_ip = creator_ip_map.get(&id).cloned();
 
         result.push(RingListItem {
             id,

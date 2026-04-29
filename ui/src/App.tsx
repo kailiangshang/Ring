@@ -3,6 +3,7 @@ import { useAppStore } from './stores/app-store'
 import { useAuthStore } from './stores/auth-store'
 import { AppLayout } from './components/layout/AppLayout'
 import { SetupWizard } from './components/setup/SetupWizard'
+import { ErrorBoundary } from './components/common/ErrorBoundary'
 import { startHeartbeat, stopHeartbeat } from './services/metrics'
 import './index.css'
 
@@ -59,9 +60,13 @@ export default function App() {
 
   const join_params = getJoinParams()
 
-  if (!is_setup) {
-    return <SetupWizard join_params={join_params} />
-  }
-
-  return <AppLayout />
+  return (
+    <ErrorBoundary>
+      {!is_setup ? (
+        <SetupWizard join_params={join_params} />
+      ) : (
+        <AppLayout />
+      )}
+    </ErrorBoundary>
+  )
 }
