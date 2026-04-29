@@ -88,6 +88,8 @@ pub async fn create_ring(
         )));
     }
 
+    let mut tx = pool.begin().await?;
+
     let ring = sqlx::query_as::<_, RingRow>(
         "INSERT INTO rings (id, name, creator_id, role_description, storage_mode, gitlab_repo_url, gitlab_namespace)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -100,15 +102,16 @@ pub async fn create_ring(
         .bind(&input.storage_mode)
         .bind(&input.gitlab_repo_url)
         .bind(&input.gitlab_namespace)
-        .fetch_one(pool)
+        .fetch_one(&mut *tx)
         .await?;
 
     sqlx::query("INSERT INTO members (ring_id, user_id, role) VALUES (?1, ?2, 'creator')")
         .bind(ring_id)
         .bind(creator_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
 
+    tx.commit().await?;
     Ok(ring)
 }
 

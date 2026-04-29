@@ -25,6 +25,9 @@ pub enum RingError {
     #[error("Bad gateway")]
     BadGateway,
 
+    #[error("Too many requests")]
+    TooManyRequests,
+
     #[error("Internal error: {0}")]
     Internal(String),
 
@@ -115,6 +118,9 @@ impl IntoResponse for RingError {
                     StatusCode::BAD_GATEWAY,
                     format!("gitlab api error: {message}"),
                 )
+            }
+            RingError::TooManyRequests => {
+                (StatusCode::TOO_MANY_REQUESTS, "too many requests".into())
             }
             RingError::GitlabNotConfigured => {
                 (StatusCode::BAD_REQUEST, "gitlab not configured".into())

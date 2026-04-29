@@ -32,6 +32,7 @@ serde_yaml = "0.9"
 rand = "0.9"
 base64 = "0.22"
 magic-crypt = "4.0"
+aes-gcm = { version = "0.10", features = ["aes"] }
 regex = "1"
 flate2 = { version = "1.1.9", features = ["default"] }
 tar = "0.4.45"
