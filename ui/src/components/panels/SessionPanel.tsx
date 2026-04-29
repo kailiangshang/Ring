@@ -428,6 +428,7 @@ function SummarizeView() {
                   fetchActiveSession(ring_id)
                 }
               } catch {
+                // ignore parse errors
               }
               currentEvent = ''
             }

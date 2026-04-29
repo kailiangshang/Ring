@@ -32,6 +32,7 @@ export function CreateInviteModal() {
       })
       set_created_token(token)
     } catch {
+      // ignore
     } finally {
       set_creating(false)
     }

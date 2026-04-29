@@ -383,8 +383,8 @@ export function ConfigPanel() {
             try {
               await exportAIReport(active_ring_id, [], undefined)
             } catch {
-      // silently ignore
-    }
+              // silently ignore
+            }
           }}
           style={{
             ...smallBtn,
