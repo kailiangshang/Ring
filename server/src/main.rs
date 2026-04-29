@@ -10,11 +10,13 @@ async fn main() {
         .init();
 
     let data_dir = dirs_data_dir();
-    std::fs::create_dir_all(&data_dir).expect("failed to create data dir");
+    tokio::fs::create_dir_all(&data_dir)
+        .await
+        .expect("failed to create data dir");
 
     let db_url = format!("sqlite:{}/ring.db?mode=rwc", data_dir);
     let pool = SqlitePoolOptions::new()
-        .max_connections(5)
+        .max_connections(10)
         .connect(&db_url)
         .await
         .expect("failed to connect to SQLite");
@@ -25,13 +27,19 @@ async fn main() {
         .expect("failed to run migrations");
 
     let rings_dir = std::path::PathBuf::from(format!("{data_dir}/rings"));
-    std::fs::create_dir_all(&rings_dir).expect("failed to create rings dir");
+    tokio::fs::create_dir_all(&rings_dir)
+        .await
+        .expect("failed to create rings dir");
 
     let hub_dir = std::path::PathBuf::from(format!("{data_dir}/hub"));
-    std::fs::create_dir_all(&hub_dir).expect("failed to create hub dir");
+    tokio::fs::create_dir_all(&hub_dir)
+        .await
+        .expect("failed to create hub dir");
 
     let skills_dir = std::path::PathBuf::from(format!("{data_dir}/skills"));
-    std::fs::create_dir_all(&skills_dir).expect("failed to create skills dir");
+    tokio::fs::create_dir_all(&skills_dir)
+        .await
+        .expect("failed to create skills dir");
 
     let state = AppState::new(pool, rings_dir, hub_dir, skills_dir);
     let app = build_router(state.clone());
