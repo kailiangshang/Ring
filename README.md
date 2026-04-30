@@ -37,12 +37,33 @@
 
 Ring 不只有一个"聊天机器人"。四层 AI 各司其职，像团队里的不同角色：
 
-| 层级 | 比喻 | 做什么 | 什么时候出现 |
-|------|------|--------|-------------|
-| **Super Ring** | CTO / 知识管理员 | 跨项目检索、管理偏好、安装 Skill | 你问"我们之前怎么解决过这个问题？" |
-| **Group Ring** | 项目经理 | 维护项目知识图谱、归档讨论、爬取调研材料 | 在项目群里正常聊天 |
-| **Session Ring** | 会议主持人 | 组织多人实时讨论、准备材料、生成会议纪要 | 你发起一个专题讨论 Session |
-| **Self** | 私人助理 | 记住你的偏好、追踪你的成长、完全隔离 | 你点右下角小圆点 |
+```mermaid
+graph TD
+    Hub["Ring Hub
+用户入口"] --> Super["Super Ring"]
+    Hub --> Group["Group Ring"]
+    Hub --> Session["Session Ring"]
+    Hub --> Self["Self"]
+    
+    Super["Super Ring
+CTO / 知识管理员"] --> SuperDesc["跨项目检索
+管理偏好 / 安装 Skill"]
+    Group["Group Ring
+项目经理"] --> GroupDesc["维护知识图谱
+归档讨论 / 爬取材料"]
+    Session["Session Ring
+会议主持人"] --> SessionDesc["组织多人讨论
+材料准备 / 生成纪要"]
+    Self["Self
+私人助理"] --> SelfDesc["记住偏好
+追踪成长 / 完全隔离"]
+    
+    style Hub fill:#1a2030,color:#bfc7d5
+    style Super fill:#0d2a35,color:#67E8F9
+    style Group fill:#0d2a35,color:#67E8F9
+    style Session fill:#0d2a35,color:#67E8F9
+    style Self fill:#0d2a35,color:#f59e0b
+```
 
 ### 知识图谱 ≠ 思维导图
 

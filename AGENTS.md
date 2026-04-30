@@ -22,12 +22,23 @@ Ring 是一个面向公司内网的群组知识协作空间。四层 AI 架构�
 
 ### 四层 AI 架构
 
-```
-Ring Hub（用户入口）
-├── Super Ring    - 全局助手，Ring 管理引导，跨 Ring 分析
-├── Group Ring    - 群组专属 AI，读写本 Ring 图谱和归档
-├── Session Ring  - 多人实时讨论，加载 Skill 决定行为
-└── Self          - 用户私有 AI 宠物，完全私有，不进 Git
+```mermaid
+graph TD
+    Hub["Ring Hub<br/>用户入口"] --> Super["Super Ring"]
+    Hub --> Group["Group Ring"]
+    Hub --> Session["Session Ring"]
+    Hub --> Self["Self"]
+    
+    Super["Super Ring<br/>全局助手"] --> SuperDesc["Ring 管理引导<br/>跨 Ring 分析"]
+    Group["Group Ring<br/>群组专属 AI"] --> GroupDesc["读写本 Ring 图谱和归档"]
+    Session["Session Ring<br/>多人实时讨论"] --> SessionDesc["加载 Skill 决定行为"]
+    Self["Self<br/>用户私有 AI"] --> SelfDesc["完全私有，不进 Git"]
+    
+    style Hub fill:#1a2030,color:#bfc7d5
+    style Super fill:#0d2a35,color:#67E8F9
+    style Group fill:#0d2a35,color:#67E8F9
+    style Session fill:#0d2a35,color:#67E8F9
+    style Self fill:#0d2a35,color:#f59e0b
 ```
 
 ### 目录结构

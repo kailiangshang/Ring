@@ -11,13 +11,24 @@ Ring 是一个**单用户部署**的知识协作工具。每个用户在自己�
 
 多人协作是后来加的——通过 HTTP 互连。
 
-```
-用户 A 的机器                          用户 B 的机器
-┌──────────────────┐                  ┌──────────────────┐
-│ ring-server:7420  │  ◄── HTTP ──►  │ ring-server:7420  │
-│ SQLite: ring.db   │                  │ SQLite: ring.db   │
-│ ~/.ring/          │                  │ ~/.ring/          │
-└──────────────────┘                  └──────────────────┘
+```mermaid
+graph LR
+    subgraph "用户 A 的机器"
+        A1["ring-server:7420"]
+        A2["SQLite: ring.db"]
+        A3["~/.ring/"]
+    end
+    
+    subgraph "用户 B 的机器"
+        B1["ring-server:7420"]
+        B2["SQLite: ring.db"]
+        B3["~/.ring/"]
+    end
+    
+    A1 <--"HTTP"--> B1
+    
+    style A1 fill:#0d2a35,color:#67E8F9
+    style B1 fill:#0d2a35,color:#67E8F9
 ```
 
 每个 ring-server 有自己独立的 SQLite 数据库和文件系统。**没有中心化服务器**。
@@ -109,95 +120,140 @@ Ring 是一个**单用户部署**的知识协作工具。每个用户在自己�
 
 ### 4.1 Group Ring 聊天
 
-```
-用户输入 → POST /api/rings/{id}/chat
-  1. Auth + role check (reject_readonly)
-  2. 检测归档意图 → 如果匹配，直接走归档
-  3. Auto compact（消息 > 30 条时后台压缩）
-  4. 加载历史（SQLite messages，最近 20 条）
-  5. 保存用户消息到 SQLite
-  6. 隐私过滤（手机号/身份证等脱敏）
-  7. LLM 调用（chat_stream_with_tools）
-     - 工具: file_parse, knowledge_extract
-     - 两阶段：先非流式检测 tool_calls → 执行 → 再流式返回
-  8. SSE 流式返回给前端
-  9. 保存 AI 回复到 SQLite
-  10. 后台任务：
-      - 更新 group_docs（active_context）
-      - auto_archive 检查（如果开启）
-      - 记录 self metrics
+```mermaid
+flowchart TD
+    Start["用户输入"] --> API["POST /api/rings/{id}/chat"]
+    API --> Auth["1. Auth + role check<br/>reject_readonly"]
+    Auth --> ArchiveCheck{"2. 检测归档意图"}
+    ArchiveCheck -->|匹配| Archive["走归档流程"]
+    ArchiveCheck -->|不匹配| Compact["3. Auto compact<br/>消息 > 30 条时后台压缩"]
+    Compact --> LoadHistory["4. 加载历史<br/>SQLite messages 最近 20 条"]
+    LoadHistory --> SaveUser["5. 保存用户消息到 SQLite"]
+    SaveUser --> Privacy["6. 隐私过滤<br/>手机号/身份证等脱敏"]
+    Privacy --> LLM["7. LLM 调用<br/>chat_stream_with_tools"]
+    LLM --> ToolCheck{"检测 tool_calls"}
+    ToolCheck -->|有| ExecuteTools["执行 tools<br/>file_parse / knowledge_extract"]
+    ToolCheck -->|无| Stream["8. SSE 流式返回给前端"]
+    ExecuteTools --> Stream
+    Stream --> SaveAI["9. 保存 AI 回复到 SQLite"]
+    SaveAI --> Background["10. 后台任务"]
+    Background --> UpdateDocs["更新 group_docs<br/>active_context"]
+    Background --> AutoArchive["auto_archive 检查"]
+    Background --> Metrics["记录 self metrics"]
+    
+    style Archive fill:#f59e0b,color:#000
+    style Stream fill:#22c55e,color:#000
 ```
 
 ### 4.2 Self Chat
 
-```
-用户输入 → POST /api/self/chat
-  1. Auth（无 role check，Self 不属于任何 Ring）
-  2. Auto compact
-  3. 构建上下文：identity + style + tone + memories + metrics
-  4. 保存用户消息（ring_id=NULL）
-  5. LLM 调用（chat_stream，无工具）
-  6. SSE 流式返回
-  7. 保存 AI 回复
-  8. 后台：提取记忆 + 压缩记忆文件
+```mermaid
+flowchart TD
+    Start["用户输入"] --> API["POST /api/self/chat"]
+    API --> Auth["1. Auth<br/>无 role check"]
+    Auth --> Compact["2. Auto compact"]
+    Compact --> Context["3. 构建上下文<br/>identity + style + tone + memories + metrics"]
+    Context --> SaveUser["4. 保存用户消息<br/>ring_id = NULL"]
+    SaveUser --> LLM["5. LLM 调用<br/>chat_stream，无工具"]
+    LLM --> Stream["6. SSE 流式返回"]
+    Stream --> SaveAI["7. 保存 AI 回复"]
+    SaveAI --> Background["8. 后台任务"]
+    Background --> ExtractMemory["提取记忆"]
+    Background --> CompressMemory["压缩记忆文件"]
+    
+    style Stream fill:#22c55e,color:#000
 ```
 
 ### 4.3 Super Ring 聊天
 
-```
-用户输入 → POST /api/super/chat
-  1. Auth
-  2. 构建上下文：ring_summary + preferences + 跨 Ring 搜索结果
-  3. 保存用户消息（ring_id='super'）
-  4. LLM 调用（chat_stream_with_tools）
-     - 工具: query_rings, query_ring_detail, manage_skills 等
-  5. SSE 流式返回
-  6. 保存 AI 回复
+```mermaid
+flowchart TD
+    Start["用户输入"] --> API["POST /api/super/chat"]
+    API --> Auth["1. Auth"]
+    Auth --> Context["2. 构建上下文<br/>ring_summary + preferences + 跨 Ring 搜索结果"]
+    Context --> SaveUser["3. 保存用户消息<br/>ring_id = 'super'"]
+    SaveUser --> LLM["4. LLM 调用<br/>chat_stream_with_tools"]
+    LLM --> Tools["工具调用<br/>query_rings / query_ring_detail / manage_skills"]
+    Tools --> Stream["5. SSE 流式返回"]
+    Stream --> SaveAI["6. 保存 AI 回复"]
+    
+    style Stream fill:#22c55e,color:#000
 ```
 
 ### 4.4 归档流程
 
-```
-触发方式：手动 /save、自然语言、auto 模式、Session 关闭
-
-归档（creator/admin）：
-  1. 获取 StorageBackend（local 或 gitlab）
-  2. 写入 Markdown 到 archives/ 目录
-  3. git add + commit + push main
-  4. 更新 archive_records 状态 → pushed
-
-归档（member）：
-  1. 获取 StorageBackend
-  2. 创建分支 archive/<record_id>
-  3. 写入 Markdown，commit，push 分支
-  4. 创建 review（local: pending_reviews 表；gitlab: MR）
-  5. 更新 archive_records 状态 → mr_opened
-
-审核（creator/admin）：
-  merge: 合并分支到 main + 更新状态
-  reject: 关闭分支/MR + 更新状态
+```mermaid
+flowchart TD
+    Trigger["触发归档<br/>手动 /save / 自然语言 / auto / Session 关闭"] --> RoleCheck{"角色检查"}
+    
+    RoleCheck -->|creator / admin| ArchiveAdmin["归档（creator/admin）"]
+    RoleCheck -->|member| ArchiveMember["归档（member）"]
+    
+    subgraph AdminFlow ["creator / admin 流程"]
+        ArchiveAdmin --> AdminStep1["1. 获取 StorageBackend<br/>local 或 gitlab"]
+        AdminStep1 --> AdminStep2["2. 写入 Markdown 到 archives/ 目录"]
+        AdminStep2 --> AdminStep3["3. git add + commit + push main"]
+        AdminStep3 --> AdminStep4["4. 更新 archive_records 状态 → pushed"]
+    end
+    
+    subgraph MemberFlow ["member 流程"]
+        ArchiveMember --> MemberStep1["1. 获取 StorageBackend"]
+        MemberStep1 --> MemberStep2["2. 创建分支<br/>archive/&lt;record_id&gt;"]
+        MemberStep2 --> MemberStep3["3. 写入 Markdown，commit，push 分支"]
+        MemberStep3 --> MemberStep4["4. 创建 review<br/>local: pending_reviews 表<br/>gitlab: MR"]
+        MemberStep4 --> MemberStep5["5. 更新 archive_records 状态 → mr_opened"]
+    end
+    
+    AdminStep4 --> Done["完成"]
+    MemberStep5 --> Review{"审核（creator/admin）"}
+    Review -->|merge| Merge["合并分支到 main<br/>更新状态"]
+    Review -->|reject| Reject["关闭分支/MR<br/>更新状态"]
+    Merge --> Done
+    Reject --> Done
+    
+    style AdminFlow fill:#0d2a35,color:#67E8F9
+    style MemberFlow fill:#0d2a35,color:#67E8F9
+    style Trigger fill:#f59e0b,color:#000
+    style Done fill:#22c55e,color:#000
 ```
 
 ### 4.5 Session 流程
 
-```
-创建 → POST /api/rings/{id}/sessions
-  1. 验证 skill 类型、参与者
-  2. INSERT sessions + session_participants
-  3. 注册 WebSocket 通道
-  4. 后台：AI 生成材料准备
-
-讨论 → WebSocket ws://localhost:7420/api/ws
-  1. 实时广播消息给所有参与者
-  2. 存入 session_messages（无 user_id 过滤，所有参与者共享）
-
-总结 → POST /api/rings/{id}/sessions/{sid}/summarize
-  1. 用 skill 对应的 summary prompt
-  2. LLM 流式生成总结
-
-关闭 → POST /api/rings/{id}/sessions/{sid}/close
-  1. 更新 phase → closed
-  2. 如果 auto 模式：后台自动归档
+```mermaid
+flowchart TD
+    subgraph Create ["创建 Session"]
+        CreateAPI["POST /api/rings/{id}/sessions"] --> Validate["1. 验证 skill 类型、参与者"]
+        Validate --> Insert["2. INSERT sessions + session_participants"]
+        Insert --> RegisterWS["3. 注册 WebSocket 通道"]
+        RegisterWS --> Prep["4. 后台：AI 生成材料准备"]
+    end
+    
+    subgraph Discuss ["讨论阶段"]
+        WS["WebSocket<br/>ws://localhost:7420/api/ws"] --> Broadcast["1. 实时广播消息给所有参与者"]
+        Broadcast --> Store["2. 存入 session_messages<br/>所有参与者共享"]
+    end
+    
+    subgraph Summarize ["总结阶段"]
+        SummarizeAPI["POST /api/rings/{id}/sessions/{sid}/summarize"] --> SummaryPrompt["1. 用 skill 对应的 summary prompt"]
+        SummaryPrompt --> SummaryLLM["2. LLM 流式生成总结"]
+    end
+    
+    subgraph Close ["关闭 Session"]
+        CloseAPI["POST /api/rings/{id}/sessions/{sid}/close"] --> UpdatePhase["1. 更新 phase → closed"]
+        UpdatePhase --> AutoArchive{"2. auto 模式？"}
+        AutoArchive -->|是| Archive["后台自动归档"]
+        AutoArchive -->|否| End["结束"]
+        Archive --> End
+    end
+    
+    Create --> Discuss
+    Discuss --> Summarize
+    Summarize --> Close
+    
+    style Create fill:#0d2a35,color:#67E8F9
+    style Discuss fill:#0d2a35,color:#67E8F9
+    style Summarize fill:#0d2a35,color:#67E8F9
+    style Close fill:#0d2a35,color:#67E8F9
 ```
 
 ---
@@ -206,35 +262,27 @@ Ring 是一个**单用户部署**的知识协作工具。每个用户在自己�
 
 ### 5.1 加入流程
 
-```
-创建者 A                           成员 B
-   │                                  │
-   │  1. 创建 Ring                    │
-   │  2. 生成 invite token            │
-   │  3. 分享邀请链接                  │
-   │  (含 creator_ip)                 │
-   │                                  │
-   │                4. B 打开邀请链接    │
-   │                   join_page       │
-   │                                  │
-   │                5. B 输入 display_name
-   │                   点击 JOIN       │
-   │                                  │
-   │  ◄── HTTP ── B: POST /join/local ──►
-   │                                  │
-   │  6. B 的 server 联系 A 的 server  │
-   │     GET http://A:7420/api/join/info
-   │     POST http://A:7420/api/join  │
-   │                                  │
-   │  7. A 的 server 创建 B 的用户     │
-   │     INSERT users (is_creator=0)   │
-   │     INSERT members (role=member)  │
-   │                                  │
-   │  8. 返回 ring_id + token         │
-   │     如果有 gitlab_repo_url →     │
-   │     B 后台 git clone             │
-   │                                  │
-   │                9. B 进入 Ring     │
+```mermaid
+sequenceDiagram
+    participant A as 创建者 A
+    participant B as 成员 B
+    
+    A->>A: 1. 创建 Ring
+    A->>A: 2. 生成 invite token
+    A->>B: 3. 分享邀请链接（含 creator_ip）
+    
+    B->>B: 4. 打开邀请链接（join_page）
+    B->>B: 5. 输入 display_name，点击 JOIN
+    
+    B->>A: 6. POST /join/local<br/>B 的 server 联系 A 的 server
+    B->>A: GET http://A:7420/api/join/info
+    B->>A: POST http://A:7420/api/join
+    
+    A->>A: 7. 创建 B 的用户<br/>INSERT users (is_creator=0)<br/>INSERT members (role=member)
+    
+    A->>B: 8. 返回 ring_id + token<br/>如有 gitlab_repo_url → B 后台 git clone
+    
+    B->>B: 9. 进入 Ring
 ```
 
 ### 5.2 加入后的数据分布

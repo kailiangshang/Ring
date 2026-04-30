@@ -685,18 +685,24 @@ Ring 采用层级权限管理机制。创建者对资源拥有完全权限，邀
 
 #### 4.5.4 Session 与 Ring 权限关系
 
-```
-Ring 级权限
-├── 决定：能否进入 Ring 空间
-├── 决定：能否创建 Session（创建者/管理员可创建，成员需授权）
-├── 决定：归档时的 Git 操作权限（直接 commit vs 提交 PR）
-├── 决定：能否被邀请进 Session（必须是 Ring 成员）
-└── 决定：成员被移除时的 Session 处理
-
-Session 级权限
-├── 决定：session 内的管理操作（invite/close/delete）
-├── 决定：谁能触发归档（仅 session owner）
-└── 决定：归档开关（仅 session owner）
+```mermaid
+flowchart TD
+    subgraph RingPerm ["Ring 级权限"]
+        R1["决定：能否进入 Ring 空间"]
+        R2["决定：能否创建 Session<br/>创建者/管理员可创建，成员需授权"]
+        R3["决定：归档时的 Git 操作权限<br/>直接 commit vs 提交 PR"]
+        R4["决定：能否被邀请进 Session<br/>必须是 Ring 成员"]
+        R5["决定：成员被移除时的 Session 处理"]
+    end
+    
+    subgraph SessionPerm ["Session 级权限"]
+        S1["决定：session 内的管理操作<br/>invite / close / delete"]
+        S2["决定：谁能触发归档<br/>仅 session owner"]
+        S3["决定：归档开关<br/>仅 session owner"]
+    end
+    
+    style RingPerm fill:#0d2a35,color:#67E8F9
+    style SessionPerm fill:#1a2030,color:#bfc7d5
 ```
 
 #### 4.5.5 成员移除时的 Session 处理
@@ -809,27 +815,43 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
 - Group Ring 主动推荐"是否归档到图谱"（工具产出后）
 
 **流程**：
-```
-标记归档
-  → 后端自动 git pull（确保本地图谱最新）
-  → Group Ring 分析内容，识别关键信息
-  → Group Ring 推荐图谱操作（"我建议创建新节点 XX" 或 "挂载到节点 YY 下"）
-  → 展示推荐预览
-  → 用户确认
-  → 生成 Markdown 文件 + 更新 graph.json
-  → 创建者/管理员：直接 commit + push
-  → 成员：创建分支 → commit → push → GitLab API 创建 MR → 进入审核队列
-  → 其他成员通过"Sync from Creator"按钮手动拉取最新内容（自动合并待实现）
+
+```mermaid
+flowchart TD
+    Trigger["标记归档"] --> GitPull["后端自动 git pull<br/>确保本地图谱最新"]
+    GitPull --> Analyze["Group Ring 分析内容<br/>识别关键信息"]
+    Analyze --> Recommend["推荐图谱操作<br/>创建新节点 / 挂载到现有节点"]
+    Recommend --> Preview["展示推荐预览"]
+    Preview --> Confirm["用户确认"]
+    Confirm --> Generate["生成 Markdown 文件<br/>更新 graph.json"]
+    Generate --> RoleCheck{"角色检查"}
+    RoleCheck -->|creator / admin| DirectCommit["直接 commit + push"]
+    RoleCheck -->|member| CreateMR["创建分支 → commit → push<br/>GitLab API 创建 MR<br/>进入审核队列"]
+    DirectCommit --> Done["完成"]
+    CreateMR --> Done
+    Done --> Sync["其他成员手动 Sync from Creator"]
+    
+    style Trigger fill:#f59e0b,color:#000
+    style Done fill:#22c55e,color:#000
 ```
 
 **PR 审核队列**：
-```
-成员提交归档 PR
-  → 进入审核队列（前端显示队列位置）
-  → 创建者逐个审核（串行，避免 graph.json 冲突）
-  → 无冲突：合并 → 所有成员 pull
-  → 有冲突：打回（关闭 MR + 通知成员）
-  → 成员收到打回通知 → pull 最新 → 重新提交
+
+```mermaid
+flowchart TD
+    Submit["成员提交归档 PR"] --> Queue["进入审核队列<br/>前端显示队列位置"]
+    Queue --> Review["创建者逐个审核<br/>串行，避免 graph.json 冲突"]
+    Review --> ConflictCheck{"检查冲突"}
+    ConflictCheck -->|无冲突| Merge["合并 MR<br/>所有成员 pull"]
+    ConflictCheck -->|有冲突| Reject["打回<br/>关闭 MR + 通知成员"]
+    Reject --> PullLatest["成员 pull 最新"]
+    PullLatest --> Resubmit["重新提交"]
+    Resubmit --> Queue
+    Merge --> Done["完成"]
+    
+    style Submit fill:#f59e0b,color:#000
+    style Merge fill:#22c55e,color:#000
+    style Reject fill:#ef4444,color:#fff
 ```
 
 #### 6.2.3 Auto 模式
@@ -855,33 +877,43 @@ Ring 进入持续演化阶段，成员在三种模式间切换使用。
 
 #### 6.3.1 开放链接加入
 
-```
-创建者生成开放链接
-  → http://{创建者内网IP}:7420/ring/join?token=xxx
-  → 被邀请人点击链接
-  → 创建者的 ring-server 服务安装导航页（创建者托管）：
-     ├── 页面显示：Ring 名称 + 描述 + 成员数
-     ├── 自动检测访问者 OS（User-Agent）
-     │   ├── Windows → 高亮 Windows 下载按钮
-     │   ├── Linux/WSL → 高亮 Linux 下载按钮
-     │   └── macOS → 高亮 macOS 下载按钮
-     ├── 下载链接指向 GitHub Releases：
-     │   https://github.com/{owner}/ring/releases/latest/download/{filename}
-     ├── 已安装 Ring 的用户：直接点击"继续加入"
-     └── 未安装用户：三步引导
-         1. 下载对应平台二进制文件
-         2. 解压并运行 ring-server
-         3. 点击"继续加入"按钮
-  → "继续加入"跳转 http://localhost:7420/ring/join?token=xxx&creator_ip={创建者IP}
-  → 本地后端处理：
-     ├── 未 Setup → 先走 Setup 向导 → 完成后自动 join
-     └── 已 Setup → 直接走 join 流程
-   → 输入 display_name
-   → Ring 自动从 GitLab clone 仓库到本地（gitlab 模式）
-   → 后端自动从创建者拉取数据 bundle（图谱 + 归档 + 文档）
-   → 分配 token_id（自增长）
-   → 加载图谱和归档内容
-   → 加入 Ring，获得对应角色权限
+```mermaid
+flowchart TD
+    Generate["创建者生成开放链接"] --> Share["分享链接<br/>http://{创建者内网IP}:7420/ring/join?token=xxx"]
+    Share --> Click["被邀请人点击链接"]
+    Click --> NavPage["创建者的 ring-server 安装导航页"]
+    
+    subgraph NavPageDetails ["安装导航页"]
+        ShowInfo["显示：Ring 名称 + 描述 + 成员数"]
+        DetectOS["自动检测 OS（User-Agent）"]
+        DetectOS -->|Windows| Win["高亮 Windows 下载按钮"]
+        DetectOS -->|Linux/WSL| Linux["高亮 Linux 下载按钮"]
+        DetectOS -->|macOS| Mac["高亮 macOS 下载按钮"]
+        Download["下载链接 → GitHub Releases"]
+        Installed["已安装用户：点击继续加入"]
+        NotInstalled["未安装用户：三步引导"]
+        NotInstalled --> Step1["1. 下载对应平台二进制"]
+        Step1 --> Step2["2. 解压并运行 ring-server"]
+        Step2 --> Step3["3. 点击继续加入"]
+    end
+    
+    NavPage --> Redirect["跳转 localhost:7420/ring/join<br/>token + creator_ip"]
+    Redirect --> LocalProcess["本地后端处理"]
+    
+    subgraph LocalHandle ["本地处理"]
+        CheckSetup{"Setup 状态？"}
+        CheckSetup -->|未 Setup| SetupWizard["走 Setup 向导<br/>完成后自动 join"]
+        CheckSetup -->|已 Setup| JoinFlow["直接走 join 流程"]
+        JoinFlow --> InputName["输入 display_name"]
+        InputName --> Clone["GitLab clone 仓库（gitlab 模式）"]
+        Clone --> PullBundle["从创建者拉取数据 bundle<br/>图谱 + 归档 + 文档"]
+        PullBundle --> Token["分配 token_id"]
+        Token --> Load["加载图谱和归档内容"]
+        Load --> Joined["加入 Ring，获得角色权限"]
+    end
+    
+    style Generate fill:#f59e0b,color:#000
+    style Joined fill:#22c55e,color:#000
 ```
 
 > **创建者托管的 P2P 模式**：安装导航页由分享链接的创建者 ring-server 提供，无需中央安装服务器。每个用户运行自己的 ring-server 实例，但 Ring 的协作以创建者为托管节点。二进制下载地址通过 `RING_DOWNLOAD_URL` 环境变量配置。
@@ -950,23 +982,32 @@ Group Ring 识别两个节点之间的关系
 
 #### 6.6.1 创建 Session
 
-```
-Session 创建者（需有 Ring 内的 Session 创建权限）
-   → 检查：该 Ring 是否已有活跃 Session（一次只能有一个）
-   → 在 Ring 空间点击"新建讨论"
-   → 选择预设场景（必选）：
-      ├── decision（团队决策）
-      ├── research（联合调研）
-      ├── review（集体评审）
-      ├── retrospective（项目复盘）
-      ├── knowledge_sharing（知识分享）
-      └── discussion（自由讨论，默认模式，跳过材料准备和总结）
-   → 填写 Session 标题（如"竞品 A 深度讨论"）
-   → 选择是否开启归档（可后续动态切换）
-   → 选择邀请哪些 Ring 成员
-   → 系统创建独立的 Session Ring 实例（加载对应 Skill）
-   → 创建者成为 session owner
-   → 被邀请成员收到 WebSocket 通知
+```mermaid
+flowchart TD
+    Start["Session 创建者<br/>需有 Session 创建权限"] --> CheckActive{"检查是否有<br/>活跃 Session？"}
+    CheckActive -->|已有| Block["阻断<br/>一次只能有一个活跃 Session"]
+    CheckActive -->|没有| CreateClick["点击新建讨论"]
+    
+    CreateClick --> SelectScene["选择预设场景"]
+    subgraph Scenes ["可选场景"]
+        S1["decision（团队决策）"]
+        S2["research（联合调研）"]
+        S3["review（集体评审）"]
+        S4["retrospective（项目复盘）"]
+        S5["knowledge_sharing（知识分享）"]
+        S6["discussion（自由讨论）<br/>默认，跳过材料准备和总结"]
+    end
+    
+    SelectScene --> FillTitle["填写 Session 标题"]
+    FillTitle --> ArchiveToggle["选择是否开启归档<br/>可后续动态切换"]
+    ArchiveToggle --> Invite["选择邀请 Ring 成员"]
+    Invite --> CreateInstance["创建独立的 Session Ring 实例<br/>加载对应 Skill"]
+    CreateInstance --> SetOwner["创建者成为 session owner"]
+    SetOwner --> Notify["被邀请成员收到 WebSocket 通知"]
+    
+    style Start fill:#f59e0b,color:#000
+    style Block fill:#ef4444,color:#fff
+    style Notify fill:#22c55e,color:#000
 ```
 
 > 预设场景决定 Session Ring 的行为和能力边界。例如选择 `research` 时，Session Ring 在材料准备阶段会主动收集和整理资料，在总结阶段生成调研报告。`discussion` 模式下 AI 不介入，纯人工讨论。
@@ -999,14 +1040,31 @@ Session owner 开启归档（动态切换）
 
 #### 6.6.4 Session 生命周期
 
-```
-创建 Session
-  → 活跃讨论（active）
-  → Session owner 关闭 Session（closed）
-     → 聊天记录保留在创建者后端 SQLite
-     → Session owner 可随时重新打开
-  → 或 Session owner 删除 Session（deleted）
-     → 所有记录清除，不可恢复
+```mermaid
+flowchart TD
+    Create["创建 Session"] --> Active["活跃讨论（active）"]
+    Active --> OwnerAction{"Session owner 操作"}
+    OwnerAction -->|关闭| Closed["closed（关闭）"]
+    OwnerAction -->|删除| Deleted["deleted（删除）"]
+    
+    subgraph ClosedState ["关闭状态"]
+        C1["聊天记录保留在创建者后端 SQLite"]
+        C2["Session owner 可随时重新打开"]
+    end
+    
+    subgraph DeletedState ["删除状态"]
+        D1["所有记录清除"]
+        D2["不可恢复"]
+    end
+    
+    Closed --> ClosedState
+    Deleted --> DeletedState
+    ClosedState -->|重新打开| Active
+    
+    style Create fill:#f59e0b,color:#000
+    style Active fill:#22c55e,color:#000
+    style Closed fill:#f59e0b,color:#000
+    style Deleted fill:#ef4444,color:#fff
 ```
 
 #### 6.6.5 成员离线处理
