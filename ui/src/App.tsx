@@ -27,14 +27,16 @@ export default function App() {
   }, [init, loadFromStorage])
 
   useEffect(() => {
-    startHeartbeat()
+    if (is_setup) {
+      startHeartbeat()
+    }
     const handleUnload = () => stopHeartbeat()
     window.addEventListener('beforeunload', handleUnload)
     return () => {
       stopHeartbeat()
       window.removeEventListener('beforeunload', handleUnload)
     }
-  }, [])
+  }, [is_setup])
 
   useEffect(() => {
     if (!loading && is_setup && !localStorage.getItem('ring_token') && !recovering) {
