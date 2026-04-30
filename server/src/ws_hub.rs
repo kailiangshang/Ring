@@ -82,7 +82,9 @@ impl WsHub {
         if let Some(channel) = self.sessions.get(session_id) {
             for participant in &channel.participants {
                 if let Some(tx) = self.connections.get(participant) {
-                    let _ = tx.try_send(message.to_string());
+                    if let Err(e) = tx.try_send(message.to_string()) {
+                        tracing::warn!("failed to broadcast to {}: {}", participant, e);
+                    }
                 }
             }
         }
@@ -90,7 +92,9 @@ impl WsHub {
 
     pub fn send_to_user(&self, token_id: &str, message: &str) {
         if let Some(tx) = self.connections.get(token_id) {
-            let _ = tx.try_send(message.to_string());
+            if let Err(e) = tx.try_send(message.to_string()) {
+                tracing::warn!("failed to send to {}: {}", token_id, e);
+            }
         }
     }
 

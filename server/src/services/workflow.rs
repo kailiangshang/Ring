@@ -79,7 +79,14 @@ pub async fn execute_fetch_url(args: &FetchUrlArgs) -> Result<String> {
         ));
     }
 
-    let response = reqwest::get(&args.url)
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| RingError::Internal(format!("Failed to create HTTP client: {e}")))?;
+
+    let response = client
+        .get(&args.url)
+        .send()
         .await
         .map_err(|e| RingError::BadRequest(format!("Failed to fetch URL: {e}")))?;
 

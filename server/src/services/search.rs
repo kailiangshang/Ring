@@ -1,4 +1,4 @@
-use sqlx::SqlitePool;
+use sqlx::{QueryBuilder, SqlitePool};
 
 use crate::error::{Result, RingError};
 
@@ -29,30 +29,24 @@ pub async fn search_cross_ring(
         return Ok(vec![]);
     }
 
-    let placeholders: Vec<String> = ring_ids
-        .iter()
-        .enumerate()
-        .map(|(i, _)| format!("?{}", i + 2))
-        .collect();
-    let limit_idx = ring_ids.len() + 2;
-    let sql = format!(
+    let mut builder: QueryBuilder<sqlx::Sqlite> = QueryBuilder::new(
         "SELECT source_type, source_id, ring_id, ring_name, title, content, metadata, rank \
          FROM search_index \
-         WHERE search_index MATCH ?1 \
-         AND ring_id IN ({}) \
-         ORDER BY bm25(search_index) \
-         LIMIT ?{}",
-        placeholders.join(","),
-        limit_idx
+         WHERE search_index MATCH ",
     );
-
-    let mut q = sqlx::query_as::<_, SearchRow>(&sql).bind(&fts_query);
+    builder.push_bind(&fts_query);
+    builder.push(" AND ring_id IN (");
+    let mut separated = builder.separated(",");
     for id in ring_ids {
-        q = q.bind(id);
+        separated.push_bind(id);
     }
-    q = q.bind(limit);
+    separated.push_unseparated(")");
+    builder.push(" ORDER BY bm25(search_index) LIMIT ");
+    builder.push_bind(limit);
 
-    q.fetch_all(db)
+    builder
+        .build_query_as::<SearchRow>()
+        .fetch_all(db)
         .await
         .map_err(|e| RingError::Internal(e.to_string()))
 }

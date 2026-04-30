@@ -10,36 +10,46 @@ async fn main() {
         .init();
 
     let data_dir = dirs_data_dir();
-    tokio::fs::create_dir_all(&data_dir)
-        .await
-        .expect("failed to create data dir");
+    if let Err(e) = tokio::fs::create_dir_all(&data_dir).await {
+        tracing::error!("failed to create data dir: {e}");
+        std::process::exit(1);
+    }
 
     let db_url = format!("sqlite:{}/ring.db?mode=rwc", data_dir);
-    let pool = SqlitePoolOptions::new()
+    let pool = match SqlitePoolOptions::new()
         .max_connections(10)
         .connect(&db_url)
         .await
-        .expect("failed to connect to SQLite");
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!("failed to connect to SQLite: {e}");
+            std::process::exit(1);
+        }
+    };
 
-    sqlx::migrate!("./migrations")
-        .run(&pool)
-        .await
-        .expect("failed to run migrations");
+    if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
+        tracing::error!("failed to run migrations: {e}");
+        std::process::exit(1);
+    }
 
     let rings_dir = std::path::PathBuf::from(format!("{data_dir}/rings"));
-    tokio::fs::create_dir_all(&rings_dir)
-        .await
-        .expect("failed to create rings dir");
+    if let Err(e) = tokio::fs::create_dir_all(&rings_dir).await {
+        tracing::error!("failed to create rings dir: {e}");
+        std::process::exit(1);
+    }
 
     let hub_dir = std::path::PathBuf::from(format!("{data_dir}/hub"));
-    tokio::fs::create_dir_all(&hub_dir)
-        .await
-        .expect("failed to create hub dir");
+    if let Err(e) = tokio::fs::create_dir_all(&hub_dir).await {
+        tracing::error!("failed to create hub dir: {e}");
+        std::process::exit(1);
+    }
 
     let skills_dir = std::path::PathBuf::from(format!("{data_dir}/skills"));
-    tokio::fs::create_dir_all(&skills_dir)
-        .await
-        .expect("failed to create skills dir");
+    if let Err(e) = tokio::fs::create_dir_all(&skills_dir).await {
+        tracing::error!("failed to create skills dir: {e}");
+        std::process::exit(1);
+    }
 
     let state = AppState::new(pool, rings_dir, hub_dir, skills_dir);
     let app = build_router(state.clone());
@@ -64,30 +74,52 @@ async fn main() {
         });
     }
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:7420")
-        .await
-        .expect("failed to bind to port 7420");
+    let listener = match tokio::net::TcpListener::bind("0.0.0.0:7420").await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!("failed to bind to port 7420: {e}");
+            std::process::exit(1);
+        }
+    };
 
     tracing::info!("ring-server listening on http://localhost:7420");
 
     let shutdown = async {
-        let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install SIGTERM handler");
-        let mut sigint = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
-            .expect("failed to install SIGINT handler");
+        let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("failed to install SIGTERM handler: {e}");
+                return;
+            }
+        };
+        let mut sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("failed to install SIGINT handler: {e}");
+                return;
+            }
+        };
         tokio::select! {
             _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully"),
             _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully"),
         }
     };
 
-    axum::serve(listener, app)
+    if let Err(e) = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown)
         .await
-        .expect("server error");
+    {
+        tracing::error!("server error: {e}");
+        std::process::exit(1);
+    }
 }
 
 fn dirs_data_dir() -> String {
+    #[cfg(target_os = "windows")]
+    let home = std::env::var("USERPROFILE")
+        .or_else(|_| std::env::var("HOME"))
+        .unwrap_or_else(|_| ".".into());
+    #[cfg(not(target_os = "windows"))]
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     format!("{home}/.ring")
 }

@@ -12,6 +12,7 @@ pub struct RateLimiter {
     requests: DashMap<String, Vec<Instant>>,
     max_requests: usize,
     window: Duration,
+    max_entries: usize,
 }
 
 impl RateLimiter {
@@ -20,6 +21,7 @@ impl RateLimiter {
             requests: DashMap::new(),
             max_requests,
             window: Duration::from_secs(window_secs),
+            max_entries: 10000,
         }
     }
 
@@ -32,6 +34,11 @@ impl RateLimiter {
         let key = format!("{}:{}", addr.ip(), request.uri().path());
         let now = Instant::now();
 
+        // Cleanup old entries if map is too large
+        if self.requests.len() > self.max_entries {
+            self.cleanup_old_entries(now);
+        }
+
         let mut entry = self.requests.entry(key).or_default();
         entry.retain(|t| now.duration_since(*t) < self.window);
 
@@ -43,5 +50,23 @@ impl RateLimiter {
         drop(entry);
 
         Ok(next.run(request).await)
+    }
+
+    fn cleanup_old_entries(&self,
+        now: Instant,
+    ) {
+        let keys_to_remove: Vec<String> = self
+            .requests
+            .iter()
+            .filter(|entry| {
+                let timestamps = entry.value();
+                timestamps.is_empty() || timestamps.iter().all(|t| now.duration_since(*t) >= self.window)
+            })
+            .map(|entry| entry.key().clone())
+            .collect();
+
+        for key in keys_to_remove {
+            self.requests.remove(&key);
+        }
     }
 }

@@ -20,11 +20,23 @@ impl CredentialEncryption {
         } else {
             let key = generate_key();
             let b64 = base64::engine::general_purpose::STANDARD.encode(&key);
-            let _ = std::fs::write(&key_path, &b64);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
+            if let Some(parent) = key_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            match std::fs::write(&key_path, &b64) {
+                Ok(()) => {
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(
+                            &key_path,
+                            std::fs::Permissions::from_mode(0o600),
+                        );
+                    }
+                }
+                Err(e) => {
+                    tracing::error!("failed to write encryption key: {e}");
+                }
             }
             key
         };
