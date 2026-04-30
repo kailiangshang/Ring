@@ -63,8 +63,9 @@ Ring Hub（用户入口）
 ## 测试
 
 ```bash
-cargo test                    # Rust 单元 + 集成测试
-cd ui && npm test  # 前端测试
+cargo test                    # Rust 单元 + 集成测试（71 个测试）
+cd ui && npm run lint         # 前端 lint 检查
+cd ui && npm test             # 前端测试（vitest）
 ```
 
 ## 命名约定

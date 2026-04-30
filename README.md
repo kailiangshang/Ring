@@ -8,7 +8,7 @@
 <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.85+-orange?logo=rust" alt="Rust"></a>
 <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="#"><img src="https://img.shields.io/badge/Tests-69%2F69%20passing-brightgreen" alt="Tests"></a>
+<a href="#"><img src="https://img.shields.io/badge/Tests-71%2F71%20passing-brightgreen" alt="Tests"></a>
 </p>
 
 </div>
@@ -95,6 +95,8 @@ Invoke-WebRequest -Uri https://github.com/kailiangshang/Ring/releases/latest/dow
 
 浏览器打开 http://localhost:7420，完成 Setup 向导即可使用。
 
+> 支持自定义端口：`./ring -p 8080`
+
 ### 方式二：从源码构建
 
 需要 Rust 1.85+ 和 Node.js 20+。
@@ -106,11 +108,14 @@ cd Ring
 # 构建前端
 cd ui && npm install && npm run build && cd ..
 
-# 构建后端（Release 模式，~16MB 二进制，产物为 target/release/ring）
+# 构建后端（Release 模式，~17MB 二进制，产物为 target/release/ring）
 cd server && cargo build --release && cd ..
 
-# 启动
+# 启动（默认端口 7420）
 ./server/target/release/ring
+
+# 或使用自定义端口
+./server/target/release/ring -p 8080
 ```
 
 > 注：Rust crate 内部名保留为 `ring-server`（避免与 `ring` crypto 库冲突），但构建产物为 `ring`，与产品名一致。
@@ -189,7 +194,7 @@ Ring/
 │   │   ├── services/       业务逻辑（chat/archive/graph/session/...）
 │   │   ├── models/         数据模型 + SQL 查询
 │   │   └── prompts.rs      所有 AI 提示词集中管理
-│   ├── migrations/         17 个 SQLite 迁移文件
+│   ├── migrations/         18 个 SQLite 迁移文件
 │   └── Cargo.toml
 ├── ui/                     React 19 + TypeScript 前端
 │   ├── src/
@@ -258,16 +263,16 @@ Ring 所有数据存放在 `~/.ring/`，完全本地，你可以直接 `cp -r ~/
 
 **为什么选择 Rust + 单二进制？**
 
-同类产品（Notion/飞书知识库）是 SaaS，数据在云端。Ring 的定位是**本地优先**，所以必须让用户一键运行。Python 需要虚拟环境 + 依赖管理，Node.js 需要 npm install，Go 需要运行时——Rust 编译后是原生机器码，16MB 一个文件，双击即运行。这才是"安装 Ring"该有的体验。
+同类产品（Notion/飞书知识库）是 SaaS，数据在云端。Ring 的定位是**本地优先**，所以必须让用户一键运行。Python 需要虚拟环境 + 依赖管理，Node.js 需要 npm install，Go 需要运行时——Rust 编译后是原生机器码，17MB 一个文件，双击即运行。这才是"安装 Ring"该有的体验。
 
 ---
 
 ## 测试
 
 ```bash
-# 后端测试（69 个集成测试）
+# 后端测试（71 个集成测试）
 cd server && cargo test
-# test result: ok. 69 passed; 0 failed
+# test result: ok. 71 passed; 0 failed
 
 # 前端构建验证
 cd ui && npm run build

@@ -303,12 +303,15 @@ Ring 是一个**单用户部署**的知识协作工具。每个用户在自己�
 当前 CORS 只允许 localhost：
 
 ```rust
-let localhost = [
-    "http://localhost:5173",
-    "http://localhost:7420",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:7420",
-];
+let cors = CorsLayer::new()
+    .allow_origin([
+        "http://localhost:5173",
+        "http://localhost:7420",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:7420",
+    ])
+    .allow_methods([GET, POST, PUT, DELETE, OPTIONS])
+    .allow_headers([Authorization, Content-Type, Accept, X-Ring-Token]);
 ```
 
 **局域网 IP 不在白名单里。** 这意味着：
@@ -371,8 +374,8 @@ Local 模式下，A 的机器不一定始终在线。B 怎么同步？
 | DELETE | /api/rings/{id}/members/{tid} | admin+ | members |
 | GET | /api/config/llm | any | - |
 | PUT | /api/config/llm | any | users |
-| POST | /api/config/llm/test | any | - |
-| POST | /api/config/gitlab/test | any | - |
+| POST | /api/config/llm/test | **AuthUser** | - |
+| POST | /api/config/gitlab/test | **AuthUser** | - |
 | GET | /api/config/privacy_filters | any | - |
 | PUT | /api/config/privacy_filters | any | users |
 | GET | /api/rings/{id}/mode | member+ | - |

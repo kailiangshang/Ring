@@ -1,15 +1,62 @@
 # Ring 项目状态
 
-> 最后更新：2026-04-28
+> 最后更新：2026-04-30
 
 ## 开发概况
 
-- 后端 67 个 Rust 源文件，~14,000 行
-- 前端 86 个 TS/TSX 文件，~9,800 行
-- 16 个数据库迁移
-- 70 集成测试通过（1 个已知 OS detection 问题）
+- 后端 77 个 Rust 源文件，~15,000 行
+- 前端 86 个 TS/TSX 文件，~10,000 行
+- 18 个数据库迁移
+- 71 集成测试全部通过
+- clippy 完全清洁（0 warnings）
 - 所有 AI 提示词统一管理于 `server/src/prompts.rs`
-- Release 二进制 16MB（含前后端全部代码，零外部依赖）
+- Release 二进制 17MB（含前后端全部代码，零外部依赖）
+
+## v0.1.0 发布（2026-04-30）
+
+### 安全加固（3 轮审计 + 修复）
+
+**认证与授权**
+- `skills.rs` — 仅 setup creator 可安装/删除 skills
+- `super_chat.rs` — 仅 setup creator 可修改 system prompt 和 preferences
+- `config.rs` — `test_llm_config` 和 `test_gitlab_config` 添加认证要求
+- `setup.rs` — `recover_token` 在 setup 完成后才允许访问
+
+**数据隔离**
+- `self_data.rs` — `get_self_dir()` 从共享目录改为 `~/.ring/self/{user_id}/`
+- `ring.rs` — `creator_ip` 仅对 creator 返回
+
+**路径安全**
+- `export.rs` — `canonicalize()` 失败时返回错误，不回退到原始路径
+- `upload.rs` — `sanitize_filename` 清理路径分隔符和 `..` 序列
+- `skill.rs` — `validate_skill_url` 阻止内网地址访问（SSRF 防护）
+- `workflow.rs` — `is_url_allowed` 阻止 localhost/内网 IP
+
+**加密与密钥**
+- `encryption.rs` — `magic-crypt` (ECB) 升级为 `AES-GCM`
+- `encryption.rs` — 密钥文件权限 `0o600` + 错误日志
+
+**CORS 与网络**
+- CORS 从 `Any` 限制为明确的白名单
+- `fetch_url` 添加 30 秒超时
+- WebSocket 发送失败记录日志
+
+**资源保护**
+- `rate_limit.rs` — 最大条目限制（10000）+ 定期清理
+- `main.rs` — 所有 `expect()` 替换为错误处理 + 退出码
+- `search.rs` — 使用 `QueryBuilder` 替代 `format!`
+
+### 性能优化
+
+- 20+ 处 `std::fs` 替换为 `tokio::fs` 或 `spawn_blocking`
+- `build_ring_summary` 修复 N+1 查询（单次 JOIN）
+- SQLite 连接池从 5 提升到 10
+
+### CLI 功能
+
+- `--port` / `-p` 参数指定监听端口
+- `--help` 显示使用说明
+- `--version` 显示版本号
 
 ## 本轮完成（2026-04-28）
 

@@ -43,7 +43,7 @@ TOKEN=$(curl -s http://localhost:7420/api/setup/recover | jq -r '.token')
 | 1.1 | `/setup/status` | GET | 未初始化时 | `{"initialized": false}` | ✅ |
 | 1.2 | `/setup` | POST | 提交完整 setup（nickname + LLM 配置） | 返回 token + `initialized: true` | ✅ |
 | 1.3 | `/setup` | POST | 重复提交 | 被拒绝 `409/400` | ✅ |
-| 1.4 | `/setup/recover` | GET | 已初始化后调用 | 返回已保存的 token | ✅ |
+| 1.4 | `/setup/recover` | GET | 已初始化后调用（需 OptionalUser） | 返回已保存的 token | ✅ |
 | 1.5 | `/setup` | PUT | 更新 LLM 配置 | 更新成功 | ✅ |
 | 1.6 | `/health` | GET | 健康检查 | `{"status": "ok"}` | ✅ |
 
