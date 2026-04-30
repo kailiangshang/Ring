@@ -60,6 +60,7 @@ export function RingList() {
   const loading = useRingStore((s) => s.loading)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const createRing = useRingStore((s) => s.createRing)
+  const deleteRing = useRingStore((s) => s.deleteRing)
   const setContext = useAppStore((s) => s.setContext)
   const selectRing = useRingStore((s) => s.selectRing)
   const openPanel = usePanelStore((s) => s.open)
@@ -73,6 +74,7 @@ export function RingList() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [storageMode, setStorageMode] = useState<'local' | 'gitlab'>('local')
   const [gitlabRepoUrl, setGitlabRepoUrl] = useState('')
+  const [deletingRing, setDeletingRing] = useState<string | null>(null)
 
   const toggle_expand = useCallback((ring_id: string) => {
     setExpanded((prev) => ({ ...prev, [ring_id]: !prev[ring_id] }))
@@ -197,6 +199,46 @@ export function RingList() {
                     flexShrink: 0,
                   }}
                 />
+              )}
+              {deletingRing === ring.id ? (
+                <span style={{ fontSize: 9, color: 'var(--accent-amber)' }}>Deleting...</span>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm(`Delete ring "${ring.name}"? This cannot be undone.`)) {
+                      setDeletingRing(ring.id)
+                      deleteRing(ring.id).then((ok) => {
+                        setDeletingRing(null)
+                        if (ok && active_ring_id === ring.id) {
+                          selectRing(null)
+                          setContext('super')
+                        }
+                      })
+                    }
+                  }}
+                  title="Delete ring"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--text-dim)',
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    padding: '0 2px',
+                    opacity: 0.3,
+                    transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.opacity = '1'
+                    ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--accent-red)'
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLButtonElement).style.opacity = '0.3'
+                    ;(e.currentTarget as HTMLButtonElement).style.color = 'var(--text-dim)'
+                  }}
+                >
+                  🗑
+                </button>
               )}
             </div>
             {is_expanded && sessions.length > 0 && (

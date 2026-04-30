@@ -117,7 +117,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/setup/recover", get(setup::recover_token))
         .route("/setup", post(setup::submit_setup).put(setup::update_setup))
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
-        .route("/rings/{ring_id}", get(rings::get_ring))
+        .route("/rings/{ring_id}", get(rings::get_ring).delete(rings::delete_ring))
         .route(
             "/rings/{ring_id}/members",
             get(members::list_members).post(members::add_member),

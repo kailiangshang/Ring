@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Ring } from '../types/ring'
-import { api } from '../services/api'
+import { api, deleteRing as deleteRingApi } from '../services/api'
 
 interface CreateRingInput {
   name: string
@@ -15,6 +15,7 @@ interface RingState {
   active_ring_id: string | null
   fetchRings: () => Promise<void>
   createRing: (input: CreateRingInput) => Promise<string | null>
+  deleteRing: (ringId: string) => Promise<boolean>
   setRings: (rings: Ring[]) => void
   selectRing: (id: string | null) => void
 }
@@ -49,6 +50,19 @@ export const useRingStore = create<RingState>((set, get) => ({
       return res.id
     } catch {
       return null
+    }
+  },
+
+  deleteRing: async (ringId) => {
+    try {
+      await deleteRingApi(ringId)
+      set((s) => ({
+        rings: s.rings.filter((r) => r.id !== ringId),
+        active_ring_id: s.active_ring_id === ringId ? null : s.active_ring_id,
+      }))
+      return true
+    } catch {
+      return false
     }
   },
 

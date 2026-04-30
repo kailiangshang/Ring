@@ -333,12 +333,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const ring_id = useRingStore.getState().active_ring_id
     const token = await getToken()
 
+    // 立即清空旧消息，避免上下文切换时显示残留内容
+    set({ messages: [], history_loaded: false, streaming_message_id: null, sending: false })
+
     let url = ''
     if (context === 'ring' && ring_id) {
       url = `/api/rings/${ring_id}/chat/history?limit=50`
     } else if (context === 'super') {
       url = '/api/super/chat/history?limit=50'
     } else {
+      set({ messages: [], history_loaded: true })
       return
     }
 
@@ -347,11 +351,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         headers: { 'X-Ring-Token': token ?? '' },
         signal: AbortSignal.timeout(15000),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        set({ messages: [], history_loaded: true })
+        return
+      }
       const data = await res.json()
       set({ messages: data.messages ?? [], history_loaded: true })
     } catch (e) {
       console.error('loadHistory error:', e)
+      set({ messages: [], history_loaded: true })
     }
   },
 

@@ -269,6 +269,18 @@ export async function exportChatPdf(ringId: string, signal?: AbortSignal) {
   return exportFile(`/rings/${ringId}/export/chat-pdf`, `ring_${ringId}_chat.pdf`, signal)
 }
 
+export async function deleteRing(ringId: string): Promise<void> {
+  const token = await getToken()
+  const res = await fetch(`${API_BASE}/rings/${ringId}`, {
+    method: 'DELETE',
+    headers: { 'X-Ring-Token': token ?? '' },
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, body?.error?.code ?? 'unknown', body?.error?.message ?? res.statusText)
+  }
+}
+
 export async function getGitLog(ringId: string, signal?: AbortSignal): Promise<{ commits: Array<{ sha: string; subject: string; author: string; date: string }> }> {
   const token = await getToken()
   const res = await fetch(`${API_BASE}/rings/${ringId}/repo/git-log`, {

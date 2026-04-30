@@ -39,3 +39,12 @@ pub async fn get_ring(
     let detail = ring::get_ring_detail(&state, &ring_id, &user.token_id).await?;
     Ok(Json(detail))
 }
+
+pub async fn delete_ring(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<Json<serde_json::Value>> {
+    ring::delete_ring(&state, &ring_id, &user.token_id).await?;
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
