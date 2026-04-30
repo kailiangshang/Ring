@@ -1,10 +1,23 @@
+use clap::Parser;
 use ring_server::routes::build_router;
 use ring_server::services::self_data;
 use ring_server::state::AppState;
 use sqlx::sqlite::SqlitePoolOptions;
 
+#[derive(Parser)]
+#[command(name = "ring")]
+#[command(about = "Ring - 群组知识协作空间")]
+#[command(version = env!("CARGO_PKG_VERSION"))]
+struct Cli {
+    /// 监听端口
+    #[arg(short, long, default_value = "7420")]
+    port: u16,
+}
+
 #[tokio::main]
 async fn main() {
+    let cli = Cli::parse();
+
     tracing_subscriber::fmt()
         .with_env_filter("ring_server=debug,tower_http=debug")
         .init();
@@ -74,15 +87,16 @@ async fn main() {
         });
     }
 
-    let listener = match tokio::net::TcpListener::bind("0.0.0.0:7420").await {
+    let addr = format!("0.0.0.0:{}", cli.port);
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
         Ok(l) => l,
         Err(e) => {
-            tracing::error!("failed to bind to port 7420: {e}");
+            tracing::error!("failed to bind to port {}: {}", cli.port, e);
             std::process::exit(1);
         }
     };
 
-    tracing::info!("ring-server listening on http://localhost:7420");
+    tracing::info!("ring-server listening on http://localhost:{}", cli.port);
 
     let shutdown = async {
         let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
