@@ -8,8 +8,7 @@ import { useSelfStore } from '../../stores/self-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
-import { uploadFile } from '../../services/api'
-import type { ChatMessage } from '../../types/chat'
+import { uploadFile, parseFile } from '../../services/api'
 
 export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, messages } = useChatStore()
@@ -157,26 +156,39 @@ export function InputArea() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       try {
-        let endpoint: string
+        // Session uploads go directly to session material storage
         if (current_context === 'session' && active_ring_id && active_session_id) {
-          endpoint = `/rings/${active_ring_id}/sessions/${active_session_id}/material-prep/upload`
-        } else if (current_context === 'super') {
-          endpoint = '/super/upload'
-        } else if (active_ring_id) {
-          endpoint = `/rings/${active_ring_id}/upload`
-        } else {
+          const endpoint = `/rings/${active_ring_id}/sessions/${active_session_id}/material-prep/upload`
+          await uploadFile(endpoint, file)
+          addMessage({
+            id: `sys-${crypto.randomUUID()}`,
+            role: 'system',
+            sender_name: 'SYSTEM',
+            content: `📎 Uploaded to session: ${file.name}`,
+            created_at: new Date().toISOString(),
+          })
           continue
         }
 
-        const result = await uploadFile(endpoint, file)
-        if (current_context !== 'session' && addMessage) {
-          addMessage(result as ChatMessage)
-        }
+        // For ring/super chat: parse file and insert into input box
         addMessage({
           id: `sys-${crypto.randomUUID()}`,
           role: 'system',
           sender_name: 'SYSTEM',
-          content: `📎 Uploaded: ${file.name}`,
+          content: `⏳ Parsing ${file.name}...`,
+          created_at: new Date().toISOString(),
+        })
+
+        const parsed = await parseFile(file)
+        const fileHeader = `📎 File: ${parsed.filename}\n---\n`
+        const newInput = input ? `${input}\n\n${fileHeader}${parsed.content}` : `${fileHeader}${parsed.content}`
+        setInput(newInput)
+
+        addMessage({
+          id: `sys-${crypto.randomUUID()}`,
+          role: 'system',
+          sender_name: 'SYSTEM',
+          content: `✅ Parsed ${parsed.filename} (${parsed.length} chars). Content inserted into input box.`,
           created_at: new Date().toISOString(),
         })
       } catch (e: any) {
@@ -185,7 +197,7 @@ export function InputArea() {
           id: `sys-${crypto.randomUUID()}`,
           role: 'system',
           sender_name: 'SYSTEM',
-          content: `❌ Upload failed: ${e.message || 'unknown error'}`,
+          content: `❌ Failed to parse ${file.name}: ${e.message || 'unknown error'}`,
           created_at: new Date().toISOString(),
         })
       }

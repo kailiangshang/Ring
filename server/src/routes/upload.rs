@@ -139,6 +139,20 @@ async fn extract_file(multipart: &mut Multipart) -> Result<(String, Vec<u8>)> {
     Ok((filename, data))
 }
 
+pub async fn parse_file(
+    _user: AuthUser,
+    mut multipart: Multipart,
+) -> Result<Json<serde_json::Value>> {
+    let (filename, data) = extract_file(&mut multipart).await?;
+    let content = crate::services::upload::extract_text(&filename, &data)?;
+
+    Ok(Json(serde_json::json!({
+        "filename": filename,
+        "content": content,
+        "length": content.len(),
+    })))
+}
+
 fn sanitize_filename(name: &str) -> String {
     let mut result = String::with_capacity(name.len());
     for c in name.chars() {

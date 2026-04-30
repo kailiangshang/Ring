@@ -409,6 +409,7 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/rings/{ring_id}/upload", post(upload::upload_ring_file))
         .route("/super/upload", post(upload::upload_super_file))
+        .route("/upload/parse", post(upload::parse_file))
         .route(
             "/rings/{ring_id}/sessions/{session_id}/material-prep/upload",
             post(upload::upload_session_file),

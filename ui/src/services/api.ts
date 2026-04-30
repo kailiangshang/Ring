@@ -281,6 +281,22 @@ export async function deleteRing(ringId: string): Promise<void> {
   }
 }
 
+export async function parseFile(file: File): Promise<{ filename: string; content: string; length: number }> {
+  const token = await getToken()
+  const formData = new FormData()
+  formData.append('file', file)
+  const res = await fetch(`${API_BASE}/upload/parse`, {
+    method: 'POST',
+    headers: token ? { 'X-Ring-Token': token } : {},
+    body: formData,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new ApiError(res.status, body?.error?.code ?? 'unknown', body?.error?.message ?? res.statusText)
+  }
+  return res.json()
+}
+
 export async function getGitLog(ringId: string, signal?: AbortSignal): Promise<{ commits: Array<{ sha: string; subject: string; author: string; date: string }> }> {
   const token = await getToken()
   const res = await fetch(`${API_BASE}/rings/${ringId}/repo/git-log`, {
