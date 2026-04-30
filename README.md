@@ -118,6 +118,22 @@ Invoke-WebRequest -Uri https://github.com/kailiangshang/Ring/releases/latest/dow
 
 > 支持自定义端口：`./ring -p 8080`
 
+#### macOS 安装注意事项
+
+首次运行时，macOS 可能会弹出提示："无法验证开发者"。这是因为预编译二进制未经 Apple 公证（Notarization）。
+
+**终端方式（推荐）：**
+```bash
+xattr -d com.apple.quarantine ./ring
+./ring
+```
+
+**图形界面方式：**
+1. 打开 **系统设置** → **隐私与安全性**
+2. 向下滚动到"安全性"部分
+3. 找到 `ring` 被拦截的提示，点击 **"仍要打开"**
+4. 再次运行 `./ring`，在弹出对话框中点击 **"打开"**
+
 ### 方式二：从源码构建
 
 需要 Rust 1.85+ 和 Node.js 20+。
