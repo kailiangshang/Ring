@@ -99,23 +99,31 @@ async fn main() {
     tracing::info!("ring-server listening on http://localhost:{}", cli.port);
 
     let shutdown = async {
-        let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!("failed to install SIGTERM handler: {e}");
-                return;
+        #[cfg(unix)]
+        {
+            let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("failed to install SIGTERM handler: {e}");
+                    return;
+                }
+            };
+            let mut sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!("failed to install SIGINT handler: {e}");
+                    return;
+                }
+            };
+            tokio::select! {
+                _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully"),
+                _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully"),
             }
-        };
-        let mut sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-            Ok(s) => s,
-            Err(e) => {
-                tracing::error!("failed to install SIGINT handler: {e}");
-                return;
-            }
-        };
-        tokio::select! {
-            _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully"),
-            _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully"),
+        }
+        #[cfg(windows)]
+        {
+            let _ = tokio::signal::ctrl_c().await;
+            tracing::info!("received Ctrl+C, shutting down gracefully");
         }
     };
 
