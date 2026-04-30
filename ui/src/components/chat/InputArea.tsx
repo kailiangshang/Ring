@@ -172,8 +172,22 @@ export function InputArea() {
         if (current_context !== 'session' && addMessage) {
           addMessage(result as ChatMessage)
         }
+        addMessage({
+          id: `sys-${crypto.randomUUID()}`,
+          role: 'system',
+          sender_name: 'SYSTEM',
+          content: `📎 Uploaded: ${file.name}`,
+          created_at: new Date().toISOString(),
+        })
       } catch (e: any) {
         console.error('upload failed:', e.message)
+        addMessage({
+          id: `sys-${crypto.randomUUID()}`,
+          role: 'system',
+          sender_name: 'SYSTEM',
+          content: `❌ Upload failed: ${e.message || 'unknown error'}`,
+          created_at: new Date().toISOString(),
+        })
       }
     }
     setUploading(false)

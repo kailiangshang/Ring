@@ -96,7 +96,9 @@ async fn main() {
         }
     };
 
-    tracing::info!("ring-server listening on http://localhost:{}", cli.port);
+    let startup_msg = format!("Ring server listening on http://localhost:{}", cli.port);
+    println!("{}", startup_msg);
+    tracing::info!("{}", startup_msg);
 
     let shutdown = async {
         #[cfg(unix)]

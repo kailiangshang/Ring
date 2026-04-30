@@ -74,10 +74,8 @@ export function AppLayout() {
   }, [fetchRings])
 
   useEffect(() => {
-    if (active_ring_id) {
-      loadHistory()
-    }
-  }, [active_ring_id, loadHistory])
+    loadHistory()
+  }, [active_ring_id, current_context, loadHistory])
 
   return (
     <div style={{ display: 'flex', height: '100%', width: '100%' }}>

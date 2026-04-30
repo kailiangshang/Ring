@@ -186,8 +186,8 @@ export function BlueprintPanel() {
       })
       fetchGraph(active_ring_id)
       useBlueprintStore.setState({ confirmed: true })
-    } catch {
-      // silently ignore
+    } catch (e: any) {
+      alert(`Failed to confirm blueprint: ${e.message || 'unknown error'}`)
     }
     setLoading(false)
   }
