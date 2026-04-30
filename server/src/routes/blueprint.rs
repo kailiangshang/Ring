@@ -55,7 +55,7 @@ pub async fn preview_template(
     user: AuthUser,
     Path(ring_id): Path<String>,
     Json(body): Json<FromTemplateRequest>,
-) -> Result<Json<crate::services::blueprint_service::BlueprintPreview>> {
+) -> Result<Json<serde_json::Value>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     if role != "creator" && role != "admin" {
         return Err(crate::error::RingError::Forbidden(
@@ -63,7 +63,7 @@ pub async fn preview_template(
         ));
     }
     let preview = preview_from_template(&state, &body.template).await?;
-    Ok(Json(preview))
+    Ok(Json(serde_json::json!({ "preview": preview })))
 }
 
 pub async fn confirm_blueprint_handler(

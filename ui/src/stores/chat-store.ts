@@ -333,8 +333,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const ring_id = useRingStore.getState().active_ring_id
     const token = await getToken()
 
+    // Abort any in-flight SSE before switching context
+    const { abort_controller } = get()
+    abort_controller?.abort()
+
     // 立即清空旧消息，避免上下文切换时显示残留内容
-    set({ messages: [], history_loaded: false, streaming_message_id: null, sending: false })
+    set({ messages: [], history_loaded: false, streaming_message_id: null, sending: false, abort_controller: null })
 
     let url = ''
     if (context === 'ring' && ring_id) {
