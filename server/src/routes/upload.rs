@@ -154,13 +154,22 @@ pub async fn parse_file(
 }
 
 fn sanitize_filename(name: &str) -> String {
+    // Find the last '.' to preserve the extension
+    let last_dot = name.rfind('.');
+    let (base, ext) = match last_dot {
+        Some(i) if i > 0 => (&name[..i], &name[i..]),
+        _ => (name, ""),
+    };
+
     let mut result = String::with_capacity(name.len());
-    for c in name.chars() {
+    for c in base.chars() {
         match c {
-            '.' | '/' | '\\' => result.push('_'),
+            '/' | '\\' => result.push('_'),
             _ => result.push(c),
         }
     }
+    result.push_str(ext);
+
     if result.is_empty() {
         "unnamed.txt".to_string()
     } else {

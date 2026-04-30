@@ -171,33 +171,18 @@ export function InputArea() {
         }
 
         // For ring/super chat: parse file and insert into input box
-        addMessage({
-          id: `sys-${crypto.randomUUID()}`,
-          role: 'system',
-          sender_name: 'SYSTEM',
-          content: `⏳ Parsing ${file.name}...`,
-          created_at: new Date().toISOString(),
-        })
-
         const parsed = await parseFile(file)
         const fileHeader = `📎 File: ${parsed.filename}\n---\n`
         const newInput = input ? `${input}\n\n${fileHeader}${parsed.content}` : `${fileHeader}${parsed.content}`
         setInput(newInput)
-
-        addMessage({
-          id: `sys-${crypto.randomUUID()}`,
-          role: 'system',
-          sender_name: 'SYSTEM',
-          content: `✅ Parsed ${parsed.filename} (${parsed.length} chars). Content inserted into input box.`,
-          created_at: new Date().toISOString(),
-        })
       } catch (e: any) {
-        console.error('upload failed:', e.message)
+        const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
+        console.error('upload failed:', errorMsg)
         addMessage({
           id: `sys-${crypto.randomUUID()}`,
           role: 'system',
           sender_name: 'SYSTEM',
-          content: `❌ Failed to parse ${file.name}: ${e.message || 'unknown error'}`,
+          content: `❌ Failed to parse ${file.name}: ${errorMsg || 'unknown error'}`,
           created_at: new Date().toISOString(),
         })
       }

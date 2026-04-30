@@ -75,13 +75,17 @@ export function streamChat(url: string, body: unknown, callbacks: SseCallbacks):
                   callbacks.onStart(parsed)
                   break
                 case 'delta':
-                  callbacks.onDelta(parsed)
+                  if (typeof parsed?.content === 'string') {
+                    callbacks.onDelta(parsed)
+                  }
                   break
                 case 'message_end':
                   callbacks.onEnd(parsed)
                   break
                 case 'error':
-                  callbacks.onError(parsed)
+                  if (typeof parsed?.error === 'string') {
+                    callbacks.onError(parsed)
+                  }
                   break
               }
             } catch {
