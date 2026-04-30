@@ -282,9 +282,19 @@ pub fn get_super_tools() -> Vec<ChatCompletionTool> {
 }
 
 pub async fn build_ring_summary(pool: &sqlx::SqlitePool, user_id: &str) -> String {
-    let rings = sqlx::query_as::<_, (String, String)>(
-        "SELECT r.id, r.name FROM rings r
+    let rows = sqlx::query_as::<_, (String, String, i64, Option<String>)>(
+        "SELECT r.id, r.name, COUNT(m2.user_id) as member_count,
+                GROUP_CONCAT(ar.title, '|') as archive_titles
+         FROM rings r
          JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
+         LEFT JOIN members m2 ON m2.ring_id = r.id
+         LEFT JOIN (
+             SELECT ring_id, title
+             FROM archive_records
+             WHERE status IN ('pushed', 'committed')
+             ORDER BY created_at DESC
+         ) ar ON ar.ring_id = r.id
+         GROUP BY r.id, r.name
          ORDER BY r.created_at",
     )
     .bind(user_id)
@@ -292,35 +302,24 @@ pub async fn build_ring_summary(pool: &sqlx::SqlitePool, user_id: &str) -> Strin
     .await
     .unwrap_or_default();
 
-    if rings.is_empty() {
+    if rows.is_empty() {
         return "用户目前没有任何 Ring。".to_string();
     }
 
     let mut summary = String::from("## 用户的所有 Ring\n\n");
 
-    for (ring_id, ring_name) in &rings {
-        let member_count: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM members WHERE ring_id = ?1")
-                .bind(ring_id)
-                .fetch_one(pool)
-                .await
-                .unwrap_or(0);
-
-        let archive_titles: Vec<String> = sqlx::query_scalar(
-            "SELECT title FROM archive_records
-             WHERE ring_id = ?1 AND status IN ('pushed', 'committed')
-             ORDER BY created_at DESC LIMIT 3",
-        )
-        .bind(ring_id)
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
+    for (_ring_id, ring_name, member_count, archive_titles) in &rows {
+        let titles: Vec<&str> = archive_titles
+            .as_ref()
+            .map(|s| s.split('|').collect())
+            .unwrap_or_default();
+        let titles: Vec<&str> = titles.into_iter().take(3).collect();
 
         summary.push_str(&format!("### {ring_name} ({member_count} 成员)\n"));
-        if archive_titles.is_empty() {
+        if titles.is_empty() {
             summary.push_str("- 暂无归档\n\n");
         } else {
-            summary.push_str(&format!("- 最近归档: {}\n\n", archive_titles.join(", ")));
+            summary.push_str(&format!("- 最近归档: {}\n\n", titles.join(", ")));
         }
     }
 

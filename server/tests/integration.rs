@@ -2034,6 +2034,7 @@ async fn test_recover_token_before_setup() {
 async fn test_gitlab_test_endpoint_invalid_url() {
     let state = setup_app().await;
     let app = build_router(state);
+    let token = do_setup(&app).await;
 
     let body = r#"{"url":"http://not-a-real-gitlab.local","token":"fake"}"#;
     let resp = app
@@ -2042,7 +2043,7 @@ async fn test_gitlab_test_endpoint_invalid_url() {
             "POST",
             "/api/config/gitlab/test",
             Some(body),
-            None,
+            Some(&token),
         ))
         .await
         .unwrap();

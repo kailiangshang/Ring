@@ -5,6 +5,14 @@ use serde::Deserialize;
 
 use crate::state::AppState;
 
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
 #[derive(Debug, Deserialize)]
 pub struct JoinPageQuery {
     pub token: Option<String>,
@@ -157,12 +165,12 @@ h1 {{ font-size: 1.8rem; margin-bottom: 0.5rem; }}
 </div>
 </body>
 </html>"##,
-        ring_name = ring_name,
+        ring_name = html_escape(ring_name),
         member_count = member_count,
-        role = role,
-        token_type = token_type,
+        role = html_escape(role),
+        token_type = html_escape(token_type),
         download_section = download_section,
-        token = token,
+        token = html_escape(token),
         creator_ip_param = creator_ip_param,
     ))
 }

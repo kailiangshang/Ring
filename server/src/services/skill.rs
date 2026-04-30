@@ -302,7 +302,25 @@ pub async fn install_skill(skills_dir: &Path, _name: &str, source_url: &str) -> 
     })
 }
 
+fn validate_skill_url(url: &str) -> Result<()> {
+    let lower = url.to_lowercase();
+    if !lower.starts_with("http://") && !lower.starts_with("https://") {
+        return Err(RingError::BadRequest("Skill URL must use HTTP or HTTPS".into()));
+    }
+    let blocked = [
+        "localhost", "127.0.0.1", "0.0.0.0", "::1", "[::1]",
+        "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.20.",
+        "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.",
+        "172.27.", "172.28.", "172.29.", "172.30.", "172.31.", "192.168.",
+    ];
+    if blocked.iter().any(|b| lower.contains(b)) {
+        return Err(RingError::BadRequest("Access to internal addresses is not allowed".into()));
+    }
+    Ok(())
+}
+
 async fn download_skill_content(url: &str) -> Result<String> {
+    validate_skill_url(url)?;
     if is_single_file_url(url) {
         download_single_file(url).await
     } else {

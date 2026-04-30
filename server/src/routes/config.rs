@@ -42,6 +42,7 @@ pub async fn update_privacy_filters(
 }
 
 pub async fn test_llm_config(
+    _user: AuthUser,
     Json(body): Json<crate::models::config::TestLLMRequest>,
 ) -> Result<Json<serde_json::Value>> {
     let (ok, message) = crate::services::llm::test_connection(
@@ -55,6 +56,7 @@ pub async fn test_llm_config(
 }
 
 pub async fn test_gitlab_config(
+    _user: AuthUser,
     Json(body): Json<crate::models::config::TestGitLabRequest>,
 ) -> Result<Json<serde_json::Value>> {
     let client = reqwest::Client::new();

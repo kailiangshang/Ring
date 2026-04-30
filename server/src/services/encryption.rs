@@ -21,6 +21,11 @@ impl CredentialEncryption {
             let key = generate_key();
             let b64 = base64::engine::general_purpose::STANDARD.encode(&key);
             let _ = std::fs::write(&key_path, &b64);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
+            }
             key
         };
 

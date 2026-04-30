@@ -116,7 +116,7 @@ async fn extract_file(multipart: &mut Multipart) -> Result<(String, Vec<u8>)> {
         .map_err(|e| RingError::BadRequest(format!("failed to read upload: {e}")))?
         .ok_or_else(|| RingError::BadRequest("no file provided".into()))?;
 
-    let filename = field.file_name().unwrap_or("unnamed.txt").to_string();
+    let filename = sanitize_filename(field.file_name().unwrap_or("unnamed.txt"));
 
     let mut data = Vec::new();
     let mut stream = field;
@@ -137,4 +137,19 @@ async fn extract_file(multipart: &mut Multipart) -> Result<(String, Vec<u8>)> {
     crate::services::upload::validate_file(&filename, data.len())?;
 
     Ok((filename, data))
+}
+
+fn sanitize_filename(name: &str) -> String {
+    let mut result = String::with_capacity(name.len());
+    for c in name.chars() {
+        match c {
+            '.' | '/' | '\\' => result.push('_'),
+            _ => result.push(c),
+        }
+    }
+    if result.is_empty() {
+        "unnamed.txt".to_string()
+    } else {
+        result
+    }
 }

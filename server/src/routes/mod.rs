@@ -1,7 +1,7 @@
 use axum::http::HeaderValue;
 use axum::routing::{delete, get, post, put};
 use axum::Router;
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 
 #[cfg(debug_assertions)]
@@ -95,8 +95,19 @@ pub fn build_router(state: AppState) -> Router {
     .collect::<Vec<_>>();
     let cors = CorsLayer::new()
         .allow_origin(localhost)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_methods([
+            axum::http::Method::GET,
+            axum::http::Method::POST,
+            axum::http::Method::PUT,
+            axum::http::Method::DELETE,
+            axum::http::Method::OPTIONS,
+        ])
+        .allow_headers([
+            axum::http::header::AUTHORIZATION,
+            axum::http::header::CONTENT_TYPE,
+            axum::http::header::ACCEPT,
+            axum::http::HeaderName::from_static("x-ring-token"),
+        ]);
 
     let api = Router::new()
         .route("/health", get(health::health_check))
