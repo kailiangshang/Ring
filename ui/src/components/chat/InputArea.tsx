@@ -172,14 +172,10 @@ export function InputArea() {
           continue
         }
 
-        // For ring/super chat: parse file and show only filename in input
+        // For ring/super chat: parse file in background, keep input clean
         const parsed = await parseFile(file)
         setParsedFiles(prev => [...prev, { filename: parsed.filename, content: parsed.content }])
-        
-        // Add file reference to input box (not the full content)
-        const fileRef = `📎 ${parsed.filename}`
-        const newInput = input ? `${input}\n${fileRef}` : fileRef
-        setInput(newInput)
+        // Do NOT add anything to input box
       } catch (e: any) {
         const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
         console.error('upload failed:', errorMsg)
@@ -198,19 +194,20 @@ export function InputArea() {
   const handleSend = () => {
     if (!input.trim() && parsedFiles.length === 0) return
     
-    // Build message with file contents + user input
+    // Build full content (files + user input) for AI, but UI shows clean version
     if (parsedFiles.length > 0) {
       const filesContent = parsedFiles.map(f => 
         `📎 File: ${f.filename}\n---\n${f.content}`
       ).join('\n\n')
-      const finalContent = input.trim() 
+      const fullContent = input.trim() 
         ? `${input}\n\n${filesContent}`
         : filesContent
-      setInput(finalContent)
+      // Send full content to AI, UI will show clean version
+      send(fullContent)
+      setParsedFiles([])
+    } else {
+      send()
     }
-    
-    send()
-    setParsedFiles([])
   }
 
   const handleDrop = (e: React.DragEvent) => {

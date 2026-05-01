@@ -154,8 +154,19 @@ function MessageItemInner({ message }: MessageItemProps) {
   const activeRingId = useRingStore((s) => s.active_ring_id)
   const fileAnalysis = isAi ? parseExtraction(message.content, 'file_analysis') : null
   const knowledgeExtraction = isAi ? parseExtraction(message.content, 'knowledge_extraction') : null
-  const displayContent = (fileAnalysis || knowledgeExtraction) ? stripExtractionTags(message.content) : message.content
   const hasExtraction = !!(fileAnalysis || knowledgeExtraction)
+
+  // Collapse file content in user messages: show filename only, hide full text
+  const FILE_PATTERN = /📎 File: (.+)\n---\n[\s\S]*?(?=\n\n📎 File:|$)/g
+  const hasFileContent = FILE_PATTERN.test(message.content)
+  let displayContent = message.content
+  if (hasFileContent && !isAi) {
+    // Replace each file block with just the filename tag
+    displayContent = message.content.replace(FILE_PATTERN, '📎 $1')
+  }
+  if (fileAnalysis || knowledgeExtraction) {
+    displayContent = stripExtractionTags(displayContent)
+  }
 
   const isFileCard = message.role === 'system' && message.content.startsWith('📎 ')
   const fileCardMatch = isFileCard ? message.content.match(/^📎 (.+)\n---\n([\s\S]*)$/) : null
