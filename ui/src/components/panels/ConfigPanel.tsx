@@ -445,7 +445,8 @@ export function ConfigPanel() {
                   `Synced: ${res.imported.nodes} nodes, ${res.imported.edges} edges, ${res.imported.archive_records} archives, ${res.imported.group_docs} docs`
                 )
               } catch (e: any) {
-                setSyncResult(`Sync failed: ${e?.message || e}`)
+                const msg = typeof e?.message === 'string' ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
+                setSyncResult(`Sync failed: ${msg}`)
               } finally {
                 setSyncing(false)
               }

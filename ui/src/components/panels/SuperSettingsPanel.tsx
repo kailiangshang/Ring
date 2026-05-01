@@ -129,7 +129,10 @@ export function SuperSettingsPanel() {
         body: JSON.stringify({ url: gitlabUrl, token: gitlabToken }),
       })
       const data = await res.json()
-      setGitlabResult(data)
+      setGitlabResult({
+        ok: data.ok === true,
+        message: typeof data.message === 'string' ? data.message : 'Unknown response',
+      })
     } catch (e: unknown) {
       setGitlabResult({ ok: false, message: e instanceof Error ? e.message : 'Test failed' })
     } finally {

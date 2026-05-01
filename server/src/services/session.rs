@@ -112,7 +112,21 @@ pub async fn create_session(
         .ws_hub
         .register_session(id.clone(), user_id.to_string(), participant_ids);
 
-    if input.skill != "discussion" {
+    if input.skill == "discussion" {
+        // Insert welcome message for discussion sessions
+        let welcome_id = ulid::Ulid::new().to_string();
+        let _ = crate::models::session::insert_message(
+            &state.db,
+            &welcome_id,
+            &id,
+            1,
+            "system",
+            "SYSTEM",
+            "Welcome to the discussion! Feel free to start the conversation.",
+            "system",
+        )
+        .await;
+    } else {
         let state_c = state.clone();
         let session_id = id.clone();
         let ring_id_c = ring_id.to_string();

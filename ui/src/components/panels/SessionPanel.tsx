@@ -418,11 +418,11 @@ function SummarizeView() {
               const data = line.slice(6)
               try {
                 const parsed = JSON.parse(data)
-                if (currentEvent === 'delta' && parsed.content) {
+                if (currentEvent === 'delta' && typeof parsed.content === 'string') {
                   setSummary((prev) => prev + parsed.content)
                 }
                 if (currentEvent === 'error') {
-                  setError(parsed.error ?? 'Unknown error')
+                  setError(typeof parsed.error === 'string' ? parsed.error : 'Unknown error')
                 }
                 if (currentEvent === 'message_end') {
                   fetchActiveSession(ring_id)

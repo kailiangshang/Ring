@@ -115,7 +115,11 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
       })
       if (!res.ok) return
       const data = await res.json()
-      set({ messages: data.messages ?? [] })
+      const messages = (data.messages ?? []).map((m: any) => ({
+        ...m,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      }))
+      set({ messages })
     } catch (e) {
       console.error('loadMessages error:', e)
     }

@@ -360,7 +360,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return
       }
       const data = await res.json()
-      set({ messages: data.messages ?? [], history_loaded: true })
+      const messages = (data.messages ?? []).map((m: any) => ({
+        ...m,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      }))
+      set({ messages, history_loaded: true })
     } catch (e) {
       console.error('loadHistory error:', e)
       set({ messages: [], history_loaded: true })

@@ -97,10 +97,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   fetchActiveSession: async (ring_id) => {
     set({ loading: true })
     try {
-      const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions?status=active`)
+      // Query all sessions, not just active, to show closed sessions too
+      const res = await api.get<{ sessions: FlatSessionResponse[] }>(`/rings/${ring_id}/sessions`)
       const items = res.sessions ?? []
-      if (items.length > 0) {
-        const flat = items[0]
+      // Prefer active session, fallback to most recent closed
+      const flat = items.find((s) => s.phase === 'active') ?? items[0]
+      if (flat) {
         set({
           active_session: toSession(flat),
           participants: flat.participants ?? [],
@@ -220,7 +222,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
           seq_num: msg.seq_num as number,
           sender: msg.sender as string,
           sender_name: msg.sender_name as string,
-          content: msg.content as string,
+          content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
           message_type: 'user',
           created_at: msg.created_at as string,
         }
@@ -229,7 +231,11 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
       case 'session_catchup': {
         if (!session_id || !active_session || session_id !== active_session.id) return
-        set({ messages: (msg.messages as SessionMessage[]) ?? [] })
+        const msgs = (msg.messages as any[] ?? []).map((m: any) => ({
+          ...m,
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        }))
+        set({ messages: msgs })
         break
       }
       case 'session_paused': {
