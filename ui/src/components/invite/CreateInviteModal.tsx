@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Modal } from '../common/Modal'
 import { useInviteStore } from '../../stores/invite-store'
 import { useRingStore } from '../../stores/ring-store'
@@ -18,6 +18,21 @@ export function CreateInviteModal() {
   const [created_token, set_created_token] = useState<InviteToken | null>(null)
   const [creating, set_creating] = useState(false)
   const [copied, set_copied] = useState(false)
+  const [localIp, setLocalIp] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/network/info')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.local_ip) {
+          setLocalIp(data.local_ip)
+        }
+      })
+      .catch(() => {
+        // fallback to window.location.hostname
+        setLocalIp(window.location.hostname)
+      })
+  }, [])
 
   const handle_create = async () => {
     if (!active_ring_id) return
@@ -38,9 +53,14 @@ export function CreateInviteModal() {
     }
   }
 
+  const getInviteLink = () => {
+    const host = localIp || window.location.hostname
+    return `http://${host}:7420/ring/join?token=${created_token!.token}`
+  }
+
   const handle_copy = async () => {
     if (!created_token) return
-    const link = `${window.location.origin}/ring/join?token=${created_token.token}`
+    const link = getInviteLink()
     await navigator.clipboard.writeText(link)
     set_copied(true)
     setTimeout(() => set_copied(false), 2000)
@@ -75,7 +95,12 @@ export function CreateInviteModal() {
               <div style={{ fontSize: 9, color: 'var(--accent-cyan)', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 6 }}>Invite Link</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <code style={{ flex: 1, fontSize: 10, color: 'var(--accent-ice)', wordBreak: 'break-all', lineHeight: 1.5 }}>
-                  {`${window.location.origin}/ring/join?token=${created_token.token}`}
+                  {getInviteLink()}
+                  {localIp === null && (
+                    <span style={{ color: 'var(--accent-amber)', fontSize: 9, marginLeft: 4 }}>
+                      (⚠️ using current hostname)
+                    </span>
+                  )}
                 </code>
                 <div
                   style={{ padding: '6px 12px', background: 'var(--accent-cyan)', color: 'var(--bg-base)', borderRadius: 3, fontSize: 9, fontWeight: 700, letterSpacing: 1, cursor: 'pointer', whiteSpace: 'nowrap' }}

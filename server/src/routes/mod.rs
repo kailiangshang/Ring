@@ -19,6 +19,7 @@ static UI_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../ui/dist");
 use crate::state::AppState;
 
 mod archive;
+mod network;
 mod blueprint;
 mod chat;
 mod config;
@@ -111,6 +112,7 @@ pub fn build_router(state: AppState) -> Router {
 
     let api = Router::new()
         .route("/health", get(health::health_check))
+        .route("/network/info", get(network::get_network_info))
         .route("/prompts", get(prompts::list_prompts))
         .route("/ws", get(ws::ws_handler))
         .route("/setup/status", get(setup::get_status))

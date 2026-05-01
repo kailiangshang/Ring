@@ -12,6 +12,7 @@ pub mod group_doc_maintenance;
 pub mod invite;
 pub mod llm;
 pub mod material_prep;
+pub mod network;
 pub mod member;
 pub mod mode;
 pub mod privacy_filter;
