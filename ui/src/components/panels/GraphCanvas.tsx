@@ -223,7 +223,6 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
       .text((d) => (hasChildren(d.id) ? (collapsedNodes.has(d.id) ? '+' : '-') : ''))
 
     const nodeGroup = g.selectAll<SVGGElement, SimNode>('.node-group')
-    const label = g.selectAll<SVGTextElement, SimNode>('.node-label')
 
     g.selectAll<SVGLineElement, SimEdge>('.graph-edge')
       .data(simEdges, (d) => d.id)
@@ -263,7 +262,6 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
         .attr('y', (d) => (((d.source as SimNode).y ?? 0) + ((d.target as SimNode).y ?? 0)) / 2)
 
       nodeGroup.attr('transform', (d) => `translate(${d.x ?? 0},${d.y ?? 0})`)
-      label.attr('x', (d) => d.x ?? 0).attr('y', (d) => d.y ?? 0)
     })
 
     svg.call(zoom!.transform, savedTransform.current)
