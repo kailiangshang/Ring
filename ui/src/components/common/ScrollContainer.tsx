@@ -10,6 +10,7 @@ interface ScrollContainerProps {
 export function ScrollContainer({ children, style, className, autoScroll }: ScrollContainerProps) {
   const ref = useRef<HTMLDivElement>(null)
   const wasAtBottom = useRef(true)
+  const initialScrollDone = useRef(false)
 
   useEffect(() => {
     const el = ref.current
@@ -24,8 +25,19 @@ export function ScrollContainer({ children, style, className, autoScroll }: Scro
   }, [])
 
   useEffect(() => {
-    if (!autoScroll || !ref.current || !wasAtBottom.current) return
-    ref.current.scrollTop = ref.current.scrollHeight
+    if (!ref.current) return
+
+    // Initial scroll to bottom on first render
+    if (!initialScrollDone.current) {
+      ref.current.scrollTop = ref.current.scrollHeight
+      initialScrollDone.current = true
+      return
+    }
+
+    // Auto-scroll during streaming if user was at bottom
+    if (autoScroll && wasAtBottom.current) {
+      ref.current.scrollTop = ref.current.scrollHeight
+    }
   })
 
   return (
