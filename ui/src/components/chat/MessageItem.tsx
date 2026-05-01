@@ -409,11 +409,15 @@ function MessageItemInner({ message }: MessageItemProps) {
               onClick={() => setCollapsed(false)}
             >
               <span style={{
-                fontSize: 10,
+                fontSize: 11,
                 color: 'var(--accent-cyan)',
                 fontWeight: 700,
-                paddingBottom: 4,
+                padding: '4px 12px',
                 letterSpacing: '0.05em',
+                background: 'var(--bg-base)',
+                borderRadius: 4,
+                border: '1px solid var(--accent-cyan)',
+                cursor: 'pointer',
               }}>
                 EXPAND
               </span>

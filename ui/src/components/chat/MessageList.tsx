@@ -16,6 +16,8 @@ export function MessageList() {
       {messages.map((msg) => (
         <MessageItem key={msg.id} message={msg} />
       ))}
+      {/* Bottom padding so last message has breathing room and expand button is easy to click */}
+      <div style={{ height: 80 }} />
     </ScrollContainer>
   )
 }
