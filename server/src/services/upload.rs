@@ -1,5 +1,3 @@
-use lopdf::Document;
-
 use crate::error::{Result, RingError};
 use crate::models::message::{self, MessageRow};
 use crate::models::session::{self, SessionMaterialRow};
@@ -45,13 +43,8 @@ pub fn extract_text(filename: &str, data: &[u8]) -> Result<String> {
 }
 
 fn extract_pdf_text(data: &[u8]) -> Result<String> {
-    let doc = Document::load_mem(data)
-        .map_err(|e| RingError::BadRequest(format!("failed to parse PDF: {e}")))?;
-
-    let pages = doc.get_pages();
-    let page_numbers: Vec<u32> = pages.keys().copied().collect();
-
-    match doc.extract_text(&page_numbers) {
+    // Primary: pdf-extract supports Identity-H and other CMap encodings
+    match pdf_extract::extract_text_from_mem(data) {
         Ok(text) => {
             if text.trim().is_empty() {
                 return Err(RingError::BadRequest(
@@ -62,17 +55,15 @@ fn extract_pdf_text(data: &[u8]) -> Result<String> {
         }
         Err(e) => {
             let err_str = e.to_string();
-            if err_str.contains("Identity-H") || err_str.contains("Unimplemented") {
-                // Try external pdftotext as fallback
-                if let Ok(text) = extract_pdf_with_pdftotext(data) {
-                    return Ok(text);
-                }
-                return Err(RingError::BadRequest(
-                    "This PDF uses an unsupported font encoding (e.g. Identity-H for CJK fonts). \
-                     Please convert it to plain text and upload the .txt file instead.".into(),
-                ));
+            tracing::warn!("pdf-extract failed: {err_str}, trying pdftotext fallback");
+            // Fallback: external pdftotext (poppler-utils)
+            if let Ok(text) = extract_pdf_with_pdftotext(data) {
+                return Ok(text);
             }
-            Err(RingError::BadRequest(format!("failed to extract PDF text: {e}")))
+            Err(RingError::BadRequest(format!(
+                "Failed to extract PDF text. Error: {err_str}. \
+                 If this is a CJK PDF, try converting it to plain text first."
+            )))
         }
     }
 }
