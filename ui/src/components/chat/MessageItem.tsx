@@ -177,9 +177,15 @@ function MessageItemInner({ message }: MessageItemProps) {
   const mdComponents: Record<string, any> = {
     p(props: any) {
       const text = Array.isArray(props.children)
-        ? props.children.join('')
+        ? props.children.map((c: any) => (typeof c === 'string' ? c : '')).join('')
         : String(props.children ?? '')
       const citationRegex = /\[([^\]]+ > [^\]]+)\]/g
+
+      // Fast path: no citation pattern → render as-is to avoid [object Object]
+      if (!citationRegex.test(text)) {
+        return <p style={{ margin: '0 0 8px' }}>{props.children}</p>
+      }
+
       const parts: Array<{ text: string; citation?: { ringName: string; title: string; match: string } }> = []
       let lastIndex = 0
       let match: RegExpExecArray | null
@@ -197,10 +203,6 @@ function MessageItemInner({ message }: MessageItemProps) {
       }
       if (lastIndex < text.length) {
         parts.push({ text: text.slice(lastIndex) })
-      }
-
-      if (parts.length === 0) {
-        return <p style={{ margin: '0 0 8px' }}>{props.children}</p>
       }
 
       return (

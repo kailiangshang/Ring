@@ -51,17 +51,57 @@ fn extract_pdf_text(data: &[u8]) -> Result<String> {
     let pages = doc.get_pages();
     let page_numbers: Vec<u32> = pages.keys().copied().collect();
 
-    let text = doc
-        .extract_text(&page_numbers)
-        .map_err(|e| RingError::BadRequest(format!("failed to extract PDF text: {e}")))?;
-
-    if text.trim().is_empty() {
-        return Err(RingError::BadRequest(
-            "PDF contains no extractable text (possibly scanned image)".into(),
-        ));
+    match doc.extract_text(&page_numbers) {
+        Ok(text) => {
+            if text.trim().is_empty() {
+                return Err(RingError::BadRequest(
+                    "PDF contains no extractable text (possibly scanned image)".into(),
+                ));
+            }
+            Ok(text)
+        }
+        Err(e) => {
+            let err_str = e.to_string();
+            if err_str.contains("Identity-H") || err_str.contains("Unimplemented") {
+                // Try external pdftotext as fallback
+                if let Ok(text) = extract_pdf_with_pdftotext(data) {
+                    return Ok(text);
+                }
+                return Err(RingError::BadRequest(
+                    "This PDF uses an unsupported font encoding (e.g. Identity-H for CJK fonts). \
+                     Please convert it to plain text and upload the .txt file instead.".into(),
+                ));
+            }
+            Err(RingError::BadRequest(format!("failed to extract PDF text: {e}")))
+        }
     }
+}
 
-    Ok(text)
+fn extract_pdf_with_pdftotext(data: &[u8]) -> Result<String> {
+    use std::process::Command;
+
+    let mut temp_pdf = std::env::temp_dir();
+    temp_pdf.push(format!("ring_pdf_{}.pdf", std::process::id()));
+    let mut temp_txt = temp_pdf.clone();
+    temp_txt.set_extension("txt");
+
+    std::fs::write(&temp_pdf, data)?;
+
+    let output = Command::new("pdftotext")
+        .arg(&temp_pdf)
+        .arg(&temp_txt)
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp_pdf);
+
+    if output.status.success() {
+        let text = std::fs::read_to_string(&temp_txt)?;
+        let _ = std::fs::remove_file(&temp_txt);
+        Ok(text)
+    } else {
+        let _ = std::fs::remove_file(&temp_txt);
+        Err(RingError::BadRequest("pdftotext failed".into()))
+    }
 }
 
 pub async fn upload_to_chat(
