@@ -99,7 +99,7 @@ export function InputArea() {
         useCommandHistoryStore.getState().add(input.trim())
       }
       setHistoryIndex(-1)
-      send()
+      handleSend()
     }
   }
 
@@ -145,6 +145,8 @@ export function InputArea() {
     setShowArchiveBanner(false)
   }
 
+  const [parsedFiles, setParsedFiles] = useState<Array<{filename: string, content: string}>>([])
+
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
     setUploading(true)
@@ -170,10 +172,13 @@ export function InputArea() {
           continue
         }
 
-        // For ring/super chat: parse file and insert into input box
+        // For ring/super chat: parse file and show only filename in input
         const parsed = await parseFile(file)
-        const fileHeader = `📎 File: ${parsed.filename}\n---\n`
-        const newInput = input ? `${input}\n\n${fileHeader}${parsed.content}` : `${fileHeader}${parsed.content}`
+        setParsedFiles(prev => [...prev, { filename: parsed.filename, content: parsed.content }])
+        
+        // Add file reference to input box (not the full content)
+        const fileRef = `📎 ${parsed.filename}`
+        const newInput = input ? `${input}\n${fileRef}` : fileRef
         setInput(newInput)
       } catch (e: any) {
         const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
@@ -188,6 +193,24 @@ export function InputArea() {
       }
     }
     setUploading(false)
+  }
+
+  const handleSend = () => {
+    if (!input.trim() && parsedFiles.length === 0) return
+    
+    // Build message with file contents + user input
+    if (parsedFiles.length > 0) {
+      const filesContent = parsedFiles.map(f => 
+        `📎 File: ${f.filename}\n---\n${f.content}`
+      ).join('\n\n')
+      const finalContent = input.trim() 
+        ? `${input}\n\n${filesContent}`
+        : filesContent
+      setInput(finalContent)
+    }
+    
+    send()
+    setParsedFiles([])
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -256,6 +279,40 @@ export function InputArea() {
               Dismiss
             </button>
           </div>
+        </div>
+      )}
+      {parsedFiles.length > 0 && (
+        <div style={{ padding: '4px 12px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {parsedFiles.map((f, i) => (
+            <span
+              key={i}
+              style={{
+                fontSize: 11,
+                color: 'var(--accent-cyan)',
+                background: 'var(--bg-hover)',
+                padding: '2px 8px',
+                borderRadius: 4,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              📎 {f.filename}
+              <button
+                onClick={() => setParsedFiles(prev => prev.filter((_, idx) => idx !== i))}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-dim)',
+                  cursor: 'pointer',
+                  fontSize: 10,
+                  padding: 0,
+                }}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
         </div>
       )}
       <CommandAutocomplete onSelect={handleSelect} />
@@ -331,17 +388,17 @@ export function InputArea() {
           </button>
         ) : (
           <button
-            onClick={send}
-            disabled={!input.trim()}
+            onClick={handleSend}
+            disabled={!input.trim() && parsedFiles.length === 0}
             style={{
-              background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
-              color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+              background: (input.trim() || parsedFiles.length > 0) ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: (input.trim() || parsedFiles.length > 0) ? 'var(--bg-base)' : 'var(--text-dim)',
               border: 'none',
               borderRadius: 4,
               padding: '8px 16px',
               fontSize: 12,
               fontWeight: 700,
-              cursor: input.trim() ? 'pointer' : 'default',
+              cursor: (input.trim() || parsedFiles.length > 0) ? 'pointer' : 'default',
               letterSpacing: '0.05em',
             }}
           >

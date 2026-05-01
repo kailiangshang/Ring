@@ -94,7 +94,7 @@ interface ChatState {
   setInput: (val: string) => void
   addMessage: (msg: ChatMessage) => void
   updateMessageContent: (id: string, content: string) => void
-  send: () => void
+  send: (overrideContent?: string) => void
   loadHistory: () => Promise<void>
   setSessionMode: (mode: 'storage' | 'ephemeral') => void
   stopStreaming: () => void
@@ -118,11 +118,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       messages: s.messages.map((m) => (m.id === id ? { ...m, content } : m)),
     })),
 
-  send: () => {
+  send: (overrideContent?: string) => {
     const { input, addMessage, sending } = get()
-    if (!input.trim() || sending) return
+    const user_content = overrideContent ?? input
+    if (!user_content.trim() || sending) return
 
-    const parsed = parseCommand(input)
+    const parsed = parseCommand(user_content)
 
     const isUICommand = parsed && parsed.every(
       (cmd) => cmd.type === 'action' || cmd.type === 'help' || (cmd.type === 'address' && cmd.target === 'self')
@@ -300,12 +301,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       id: `msg-${crypto.randomUUID()}`,
       role: 'user',
       sender_name: 'You',
-      content: input,
+      content: user_content,
       node_refs: parsed?.filter((c): c is { type: 'address'; target: string; rest: string } => c.type === 'address' && c.target === 'node').map((c) => c.rest),
       created_at: new Date().toISOString(),
     })
 
-    const user_content = input
     const node_refs = parsed?.filter((c): c is { type: 'address'; target: string; rest: string } => c.type === 'address' && c.target === 'node').map((c) => c.rest) ?? []
 
     set({ input: '', sending: true })
