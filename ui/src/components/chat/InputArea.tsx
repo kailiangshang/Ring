@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react'
 import { useChatStore } from '../../stores/chat-store'
 import { useCommandHistoryStore } from '../../stores/command-history-store'
-import { useArchiveStore } from '../../stores/archive-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useAppStore } from '../../stores/app-store'
 import { useSelfStore } from '../../stores/self-store'
@@ -11,31 +10,12 @@ import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete
 import { uploadFile, parseFile } from '../../services/api'
 
 export function InputArea() {
-  const { input, setInput, send, sending, stopStreaming, messages } = useChatStore()
+  const { input, setInput, send, sending, stopStreaming, addMessage } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
-  const [showArchiveBanner, setShowArchiveBanner] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
-  const addMessage = useChatStore((s) => s.addMessage)
-
-  const lastMessage = messages[messages.length - 1]
-  const shouldRecommend = lastMessage && lastMessage.role === 'group_ring' && lastMessage.content && (
-    lastMessage.content.includes('结论') ||
-    lastMessage.content.includes('总结') ||
-    lastMessage.content.includes('决策') ||
-    lastMessage.content.includes('方案') ||
-    lastMessage.content.includes('决定') ||
-    lastMessage.content.includes('agreed') ||
-    lastMessage.content.includes('decided') ||
-    lastMessage.content.includes('conclusion') ||
-    lastMessage.content.includes('resolved') ||
-    lastMessage.content.includes('solution') ||
-    lastMessage.content.includes('finalized') ||
-    lastMessage.content.includes('确定') ||
-    lastMessage.content.includes('共识')
-  )
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (ac.visible) {
@@ -133,18 +113,6 @@ export function InputArea() {
     }
   }
 
-  const handleArchiveConfirm = () => {
-    const ring_id = useRingStore.getState().active_ring_id
-    if (ring_id && lastMessage) {
-      useArchiveStore.getState().triggerArchive(ring_id, lastMessage.content, 'Archive')
-    }
-    setShowArchiveBanner(false)
-  }
-
-  const handleArchiveDismiss = () => {
-    setShowArchiveBanner(false)
-  }
-
   const [parsedFiles, setParsedFiles] = useState<Array<{filename: string, content: string}>>([])
 
   const handleFileUpload = async (files: FileList | null) => {
@@ -230,54 +198,6 @@ export function InputArea() {
 
   return (
     <div style={{ position: 'relative' }} onDrop={handleDrop} onDragOver={handleDragOver}>
-      {shouldRecommend && !showArchiveBanner && (
-        <div
-          style={{
-            padding: '8px 12px',
-            background: 'var(--bg-elevated)',
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-          }}
-        >
-          <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-            AI recommends archiving this conversation
-          </span>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              onClick={handleArchiveConfirm}
-              style={{
-                background: 'var(--accent-cyan)',
-                color: 'var(--bg-base)',
-                border: 'none',
-                borderRadius: 4,
-                padding: '4px 12px',
-                fontSize: 11,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              Archive
-            </button>
-            <button
-              onClick={handleArchiveDismiss}
-              style={{
-                background: 'transparent',
-                color: 'var(--text-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: 4,
-                padding: '4px 12px',
-                fontSize: 11,
-                cursor: 'pointer',
-              }}
-            >
-              Dismiss
-            </button>
-          </div>
-        </div>
-      )}
       {parsedFiles.length > 0 && (
         <div style={{ padding: '4px 12px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {parsedFiles.map((f, i) => (
