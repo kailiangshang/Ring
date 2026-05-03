@@ -9,21 +9,18 @@ const COMPACT_SUMMARY_MAX_TOKENS: usize = 500;
 
 pub fn detect_archive_intent(content: &str) -> bool {
     let lower = content.to_lowercase();
-    let keywords = [
+    // Only trigger on explicit archive commands, not casual mentions
+    let explicit_keywords = [
+        "/save",
+        "/archive",
         "归档",
-        "保存",
-        "记录到图谱",
-        "archive",
-        "save to graph",
-        "值得归档",
-        "mark this",
-        "save this",
         "archive this",
-        "记录一下",
-        "记下来",
+        "archive to graph",
+        "save to graph",
         "存到图谱",
+        "记录到图谱",
     ];
-    keywords.iter().any(|kw| lower.contains(kw))
+    explicit_keywords.iter().any(|kw| lower.contains(kw))
 }
 
 pub fn should_recommend_archive(content: &str) -> bool {
@@ -473,23 +470,25 @@ mod tests {
     #[test]
     fn test_detect_archive_intent_chinese() {
         assert!(detect_archive_intent("请把这段对话归档"));
-        assert!(detect_archive_intent("保存到图谱"));
+        assert!(detect_archive_intent("存到图谱"));
         assert!(detect_archive_intent("记录到图谱"));
-        assert!(detect_archive_intent("值得归档"));
-        assert!(detect_archive_intent("mark this"));
+        assert!(detect_archive_intent("/save"));
     }
 
     #[test]
     fn test_detect_archive_intent_english() {
         assert!(detect_archive_intent("archive this conversation"));
         assert!(detect_archive_intent("save to graph"));
-        assert!(detect_archive_intent("save this for later"));
+        assert!(detect_archive_intent("/archive"));
     }
 
     #[test]
     fn test_detect_archive_intent_negative() {
         assert!(!detect_archive_intent("hello world"));
         assert!(!detect_archive_intent("what is the weather today"));
+        assert!(!detect_archive_intent("请保存这个文件"));
+        assert!(!detect_archive_intent("记录一下会议纪要"));
+        assert!(!detect_archive_intent("mark this as important"));
     }
 
     #[test]
