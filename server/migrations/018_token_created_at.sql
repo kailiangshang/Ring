@@ -1,1 +1,0 @@
-ALTER TABLE users ADD COLUMN token_created_at TEXT NOT NULL DEFAULT '';
