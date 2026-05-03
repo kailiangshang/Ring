@@ -13,7 +13,6 @@ export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, addMessage } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
-  const [showArchiveBanner, setShowArchiveBanner] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)

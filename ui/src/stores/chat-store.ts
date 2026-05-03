@@ -118,7 +118,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
 
   updateMessageContent: (id, content) =>
     set((s) => {
-      const msg = s.messages.find((m) => m.id === id)
+      const msg = s.messages.find((m: ChatMessage) => m.id === id)
       if (msg) msg.content = content
     }),
 
