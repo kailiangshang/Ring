@@ -19,7 +19,6 @@ static UI_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../ui/dist");
 use crate::state::AppState;
 
 mod archive;
-mod network;
 mod blueprint;
 mod chat;
 mod config;
@@ -31,6 +30,7 @@ mod invite;
 mod join_page;
 mod members;
 mod mode;
+mod network;
 mod notification;
 mod prompts;
 mod rings;
@@ -119,7 +119,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/setup/recover", get(setup::recover_token))
         .route("/setup", post(setup::submit_setup).put(setup::update_setup))
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
-        .route("/rings/{ring_id}", get(rings::get_ring).delete(rings::delete_ring))
+        .route(
+            "/rings/{ring_id}",
+            get(rings::get_ring).delete(rings::delete_ring),
+        )
         .route(
             "/rings/{ring_id}/members",
             get(members::list_members).post(members::add_member),
@@ -274,6 +277,10 @@ pub fn build_router(state: AppState) -> Router {
         .route(
             "/rings/{ring_id}/archives/{archive_id}",
             get(archive::get_archive),
+        )
+        .route(
+            "/rings/{ring_id}/archives/{archive_id}/content",
+            get(archive::get_archive_content),
         )
         .route(
             "/rings/{ring_id}/archives/{archive_id}/review",

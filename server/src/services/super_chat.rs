@@ -110,7 +110,8 @@ pub async fn update_user_preferences(hub_dir: &Path, content: &str) -> Result<()
     tokio::task::spawn_blocking(move || update_user_preferences_sync(&hub_dir, &content))
         .await
         .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?
-}#[derive(Debug, Deserialize)]
+}
+#[derive(Debug, Deserialize)]
 struct QueryRingDetailArgs {
     ring_name: String,
 }

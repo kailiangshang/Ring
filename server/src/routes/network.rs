@@ -1,6 +1,6 @@
-use axum::Json;
 use crate::error::Result;
 use crate::services::network;
+use axum::Json;
 
 pub async fn get_network_info() -> Result<Json<serde_json::Value>> {
     match network::get_local_ip() {

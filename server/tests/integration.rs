@@ -2009,7 +2009,12 @@ async fn test_recover_token() {
 
     let resp = app
         .clone()
-        .oneshot(make_request("GET", "/api/setup/recover", None, Some(&token)))
+        .oneshot(make_request(
+            "GET",
+            "/api/setup/recover",
+            None,
+            Some(&token),
+        ))
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
@@ -2499,13 +2504,16 @@ async fn test_export_node_path_traversal_blocked() {
         .clone()
         .oneshot(make_request(
             "GET",
-            &format!("/api/rings/{}/export/node?node_id=../../../etc/passwd", ring_id),
+            &format!(
+                "/api/rings/{}/export/node?node_id=../../../etc/passwd",
+                ring_id
+            ),
             None,
             Some(&token),
         ))
         .await
         .unwrap();
-    
+
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
@@ -2519,6 +2527,6 @@ async fn test_skills_auth_required() {
         .oneshot(make_request("GET", "/api/skills", None, None))
         .await
         .unwrap();
-    
+
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }

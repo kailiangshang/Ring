@@ -145,7 +145,6 @@ function MessageItemInner({ message }: MessageItemProps) {
     if (!el) return
     if (el.scrollHeight > COLLAPSE_HEIGHT + 40) {
       setOverflowing(true)
-      setCollapsed(true)
     }
   }, [message.content, isStreaming])
 
@@ -339,7 +338,7 @@ function MessageItemInner({ message }: MessageItemProps) {
               }}
             >
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
-                {fileCardContent.length > 500 ? fileCardContent.slice(0, 500) + '...' : fileCardContent}
+                {fileCardContent}
               </pre>
               {collapsed && (
                 <div
@@ -363,6 +362,22 @@ function MessageItemInner({ message }: MessageItemProps) {
                 </div>
               )}
             </div>
+            {!collapsed && fileCardContent.length > 500 && (
+              <button
+                onClick={() => setCollapsed(true)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-cyan)',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  padding: '2px 0',
+                }}
+              >
+                COLLAPSE
+              </button>
+            )}
           </div>
         )}
         {!isFileCard && (

@@ -322,6 +322,23 @@ pub async fn get_archive(
     Ok(Json(record))
 }
 
+pub async fn get_archive_content(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, archive_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let record = archive::get_record(&state.db, &archive_id).await?;
+    let repo_path = archive_service::ring_repo_path(&state.rings_dir, &ring_id);
+    let file_path = repo_path.join("archives").join(&record.file_name);
+    let content = std::fs::read_to_string(&file_path)
+        .map_err(|e| RingError::NotFound(format!("archive file not found: {e}")))?;
+    Ok(Json(serde_json::json!({
+        "file_name": record.file_name,
+        "content": content,
+    })))
+}
+
 pub async fn review_archive(
     State(state): State<AppState>,
     user: AuthUser,

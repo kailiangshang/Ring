@@ -239,7 +239,8 @@ pub async fn update_knowledge_summary(
         ring_id,
         "knowledge-summary",
         content.trim(),
-    ).await;
+    )
+    .await;
 
     Ok(())
 }

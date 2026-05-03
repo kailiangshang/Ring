@@ -98,7 +98,8 @@ pub async fn update_group_doc(
         &ring_id,
         &doc_name,
         &body.content,
-    ).await;
+    )
+    .await;
 
     let ring_name = crate::services::search::get_ring_name(&state.db, &ring_id)
         .await

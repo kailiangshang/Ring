@@ -37,6 +37,8 @@ export function ArchivePanel() {
   const [diffData, setDiffData] = useState<Array<{ old_path: string; new_path: string; diff: string }> | null>(null)
   const [diffLoading, setDiffLoading] = useState(false)
   const [initLoading, setInitLoading] = useState(false)
+  const [archiveContent, setArchiveContent] = useState<string | null>(null)
+  const [contentLoading, setContentLoading] = useState(false)
   const [commits, setCommits] = useState<Array<{ sha: string; subject: string; author: string; date: string }>>([])
   const [commitsLoading, setCommitsLoading] = useState(false)
 
@@ -111,7 +113,7 @@ export function ArchivePanel() {
             archives.map((a) => (
               <div
                 key={a.id}
-                onClick={() => setSelected(a)}
+                onClick={() => { setSelected(a); setArchiveContent(null) }}
                 style={{
                   ...row,
                   padding: '8px 12px',
@@ -191,6 +193,61 @@ export function ArchivePanel() {
                   <span style={{ color: 'var(--accent-ice)' }}>
                     MR !{selected.merge_request_iid}
                   </span>
+                )}
+                <button
+                  onClick={async () => {
+                    if (!active_ring_id) return
+                    setContentLoading(true)
+                    try {
+                      const token = await import('../../services/api').then(m => m.getToken())
+                      const res = await fetch(`/api/rings/${active_ring_id}/archives/${selected.id}/content`, {
+                        headers: { 'X-Ring-Token': token ?? '' },
+                      })
+                      if (res.ok) {
+                        const data = await res.json()
+                        setArchiveContent(data.content)
+                      } else {
+                        setArchiveContent('Failed to load content')
+                      }
+                    } catch {
+                      setArchiveContent('Failed to load content')
+                    }
+                    setContentLoading(false)
+                  }}
+                  style={{
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 3,
+                    padding: '3px 8px',
+                    fontSize: 10,
+                    color: 'var(--accent-cyan)',
+                    cursor: 'pointer',
+                    marginTop: 4,
+                  }}
+                >
+                  {contentLoading ? 'Loading...' : archiveContent ? 'Hide Content' : 'View Content'}
+                </button>
+                {archiveContent && (
+                  <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 8 }}>
+                      Content
+                    </div>
+                    <pre style={{
+                      background: 'var(--bg-base)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 3,
+                      padding: 8,
+                      fontSize: 10,
+                      overflow: 'auto',
+                      maxHeight: 400,
+                      color: 'var(--text-primary)',
+                      margin: 0,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}>
+                      {archiveContent}
+                    </pre>
+                  </div>
                 )}
                 {selected.merge_request_iid && (
                   <button

@@ -324,138 +324,180 @@ impl LlmClient {
                 model: self.model.clone(),
                 tools: Some(tools),
                 tool_choice: Some(async_openai::types::ChatCompletionToolChoiceOption::Auto),
+                stream: Some(true),
                 ..Default::default()
             };
 
             let client = self.client.clone();
             let model = self.model.clone();
 
-            match client.chat().create(request).await {
-                Ok(response) => {
-                    if let Some(choice) = response.choices.first() {
-                        if let Some(tool_calls) = &choice.message.tool_calls {
-                            let assistant_content =
-                                choice.message.content.clone().unwrap_or_default();
+            match client.chat().create_stream(request).await {
+                Ok(mut stream) => {
+                    let mut first_pass_content = String::new();
+                    let mut first_pass_usage: Option<String> = None;
+                    let mut tool_calls: Vec<async_openai::types::ChatCompletionMessageToolCall> =
+                        Vec::new();
+                    let mut has_tool_calls = false;
 
-                            let mut tool_messages = vec![];
-                            let mut tc_list = vec![];
-
-                            for tc in tool_calls {
-                                let args: serde_json::Value =
-                                    serde_json::from_str(&tc.function.arguments)
-                                        .unwrap_or(serde_json::json!({}));
-                                let result = tool_executor(tc.function.name.clone(), args).await;
-
-                                let tool_result = match result {
-                                    Ok(r) => r,
-                                    Err(e) => format!("Error: {e}"),
-                                };
-
-                                tc_list.push(async_openai::types::ChatCompletionMessageToolCall {
-                                    id: tc.id.clone(),
-                                    r#type: async_openai::types::ChatCompletionToolType::Function,
-                                    function: async_openai::types::FunctionCall {
-                                        name: tc.function.name.clone(),
-                                        arguments: tc.function.arguments.clone(),
-                                    },
-                                });
-
-                                tool_messages.push(ChatCompletionRequestMessage::Tool(
-                                    ChatCompletionRequestToolMessage {
-                                        content: ChatCompletionRequestToolMessageContent::Text(
-                                            tool_result,
-                                        ),
-                                        tool_call_id: tc.id.clone(),
-                                    },
-                                ));
-                            }
-
-                            messages.push(ChatCompletionRequestMessage::Assistant(
-                                #[allow(deprecated)]
-                                ChatCompletionRequestAssistantMessage {
-                                    content: Some(
-                                        ChatCompletionRequestAssistantMessageContent::Text(
-                                            assistant_content,
-                                        ),
-                                    ),
-                                    name: None,
-                                    tool_calls: Some(tc_list),
-                                    refusal: None,
-                                    audio: None,
-                                    function_call: None,
-                                },
-                            ));
-
-                            for tm in tool_messages {
-                                messages.push(tm);
-                            }
-
-                            let second_request = CreateChatCompletionRequest {
-                                messages,
-                                model,
-                                stream: Some(true),
-                                ..Default::default()
-                            };
-
-                            match client.chat().create_stream(second_request).await {
-                                Ok(mut stream) => {
-                                    let mut full_content = String::new();
-                                    let mut token_usage: Option<String> = None;
-                                    while let Some(result) = stream.next().await {
-                                        match result {
-                                            Ok(chunk) => {
-                                                if let Some(choice) = chunk.choices.first() {
-                                                    if let Some(delta) = &choice.delta.content {
-                                                        full_content.push_str(delta);
-                                                        let _ = tx
-                                                            .send(SseEvent::Delta {
-                                                                content: delta.clone(),
-                                                            })
-                                                            .await;
-                                                    }
-                                                }
-                                                if let Some(usage) = &chunk.usage {
-                                                    token_usage = Some(
-                                                        serde_json::to_string(usage)
-                                                            .unwrap_or_default(),
-                                                    );
-                                                }
+                    while let Some(result) = stream.next().await {
+                        match result {
+                            Ok(chunk) => {
+                                if let Some(choice) = chunk.choices.first() {
+                                    if let Some(delta) = &choice.delta.content {
+                                        first_pass_content.push_str(delta);
+                                        let _ = tx
+                                            .send(SseEvent::Delta {
+                                                content: delta.clone(),
+                                            })
+                                            .await;
+                                    }
+                                    if let Some(tc) = &choice.delta.tool_calls {
+                                        has_tool_calls = true;
+                                        for tc_delta in tc {
+                                            let idx = tc_delta.index as usize;
+                                            while tool_calls.len() <= idx {
+                                                tool_calls.push(async_openai::types::ChatCompletionMessageToolCall {
+                                                    id: String::new(),
+                                                    r#type: async_openai::types::ChatCompletionToolType::Function,
+                                                    function: async_openai::types::FunctionCall {
+                                                        name: String::new(),
+                                                        arguments: String::new(),
+                                                    },
+                                                });
                                             }
-                                            Err(e) => {
-                                                let _ =
-                                                    tx.send(SseEvent::Error(e.to_string())).await;
-                                                break;
+                                            if let Some(id) = &tc_delta.id {
+                                                tool_calls[idx].id = id.clone();
+                                            }
+                                            if let Some(func) = &tc_delta.function {
+                                                if let Some(name) = &func.name {
+                                                    tool_calls[idx].function.name = name.clone();
+                                                }
+                                                if let Some(args) = &func.arguments {
+                                                    tool_calls[idx]
+                                                        .function
+                                                        .arguments
+                                                        .push_str(args);
+                                                }
                                             }
                                         }
                                     }
-                                    let _ = tx
-                                        .send(SseEvent::End {
-                                            message_id: message_id.clone(),
-                                            full_content,
-                                            token_usage,
-                                        })
-                                        .await;
+                                    if choice.finish_reason
+                                        == Some(async_openai::types::FinishReason::ToolCalls)
+                                    {
+                                        break;
+                                    }
                                 }
-                                Err(e) => {
-                                    tracing::error!("self_chat: API call error: {}", e);
-                                    let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                if let Some(usage) = &chunk.usage {
+                                    first_pass_usage =
+                                        Some(serde_json::to_string(usage).unwrap_or_default());
                                 }
                             }
-                        } else {
-                            let content = choice.message.content.clone().unwrap_or_default();
-                            let _ = tx
-                                .send(SseEvent::Delta {
-                                    content: content.clone(),
-                                })
-                                .await;
-                            let _ = tx
-                                .send(SseEvent::End {
-                                    message_id: message_id.clone(),
-                                    full_content: content,
-                                    token_usage: None,
-                                })
-                                .await;
+                            Err(e) => {
+                                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                return;
+                            }
                         }
+                    }
+
+                    if has_tool_calls && !tool_calls.is_empty() {
+                        let mut tool_messages = vec![];
+
+                        for tc in &tool_calls {
+                            let args: serde_json::Value =
+                                serde_json::from_str(&tc.function.arguments)
+                                    .unwrap_or(serde_json::json!({}));
+                            let result = tool_executor(tc.function.name.clone(), args).await;
+
+                            let tool_result = match result {
+                                Ok(r) => r,
+                                Err(e) => format!("Error: {e}"),
+                            };
+
+                            tool_messages.push(ChatCompletionRequestMessage::Tool(
+                                ChatCompletionRequestToolMessage {
+                                    content: ChatCompletionRequestToolMessageContent::Text(
+                                        tool_result,
+                                    ),
+                                    tool_call_id: tc.id.clone(),
+                                },
+                            ));
+                        }
+
+                        messages.push(ChatCompletionRequestMessage::Assistant(
+                            #[allow(deprecated)]
+                            ChatCompletionRequestAssistantMessage {
+                                content: Some(ChatCompletionRequestAssistantMessageContent::Text(
+                                    first_pass_content.clone(),
+                                )),
+                                name: None,
+                                tool_calls: Some(tool_calls),
+                                refusal: None,
+                                audio: None,
+                                function_call: None,
+                            },
+                        ));
+
+                        for tm in tool_messages {
+                            messages.push(tm);
+                        }
+
+                        let second_request = CreateChatCompletionRequest {
+                            messages,
+                            model,
+                            stream: Some(true),
+                            ..Default::default()
+                        };
+
+                        match client.chat().create_stream(second_request).await {
+                            Ok(mut stream2) => {
+                                let mut full_content = String::new();
+                                let mut token_usage: Option<String> = None;
+                                while let Some(result) = stream2.next().await {
+                                    match result {
+                                        Ok(chunk) => {
+                                            if let Some(choice) = chunk.choices.first() {
+                                                if let Some(delta) = &choice.delta.content {
+                                                    full_content.push_str(delta);
+                                                    let _ = tx
+                                                        .send(SseEvent::Delta {
+                                                            content: delta.clone(),
+                                                        })
+                                                        .await;
+                                                }
+                                            }
+                                            if let Some(usage) = &chunk.usage {
+                                                token_usage = Some(
+                                                    serde_json::to_string(usage)
+                                                        .unwrap_or_default(),
+                                                );
+                                            }
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                            break;
+                                        }
+                                    }
+                                }
+                                let _ = tx
+                                    .send(SseEvent::End {
+                                        message_id: message_id.clone(),
+                                        full_content,
+                                        token_usage,
+                                    })
+                                    .await;
+                            }
+                            Err(e) => {
+                                let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                            }
+                        }
+                    } else {
+                        let _ = tx
+                            .send(SseEvent::End {
+                                message_id: message_id.clone(),
+                                full_content: first_pass_content,
+                                token_usage: first_pass_usage,
+                            })
+                            .await;
                     }
                 }
                 Err(e) => {

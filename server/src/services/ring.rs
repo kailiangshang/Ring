@@ -39,7 +39,9 @@ pub async fn get_ring_detail(state: &AppState, ring_id: &str, user_id: &str) -> 
 pub async fn delete_ring(state: &AppState, ring_id: &str, user_id: &str) -> Result<()> {
     let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
     if role != "creator" && role != "admin" {
-        return Err(crate::error::RingError::Forbidden("only creator or admin can delete ring".into()));
+        return Err(crate::error::RingError::Forbidden(
+            "only creator or admin can delete ring".into(),
+        ));
     }
 
     // Delete related records in tables without CASCADE

@@ -52,15 +52,16 @@ impl RateLimiter {
         Ok(next.run(request).await)
     }
 
-    fn cleanup_old_entries(&self,
-        now: Instant,
-    ) {
+    fn cleanup_old_entries(&self, now: Instant) {
         let keys_to_remove: Vec<String> = self
             .requests
             .iter()
             .filter(|entry| {
                 let timestamps = entry.value();
-                timestamps.is_empty() || timestamps.iter().all(|t| now.duration_since(*t) >= self.window)
+                timestamps.is_empty()
+                    || timestamps
+                        .iter()
+                        .all(|t| now.duration_since(*t) >= self.window)
             })
             .map(|entry| entry.key().clone())
             .collect();

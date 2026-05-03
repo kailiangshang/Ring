@@ -13,7 +13,7 @@ export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, addMessage } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
 
@@ -47,7 +47,7 @@ export function InputArea() {
 
     // Command history navigation
     if (e.key === 'ArrowUp' && !e.shiftKey) {
-      const target = e.currentTarget as HTMLInputElement
+      const target = e.currentTarget as HTMLTextAreaElement
       if (target.selectionStart !== 0 || target.selectionEnd !== 0) return
       const history = useCommandHistoryStore.getState().getHistory()
       if (historyIndex < history.length - 1) {
@@ -59,7 +59,7 @@ export function InputArea() {
     }
 
     if (e.key === 'ArrowDown' && !e.shiftKey) {
-      const target = e.currentTarget as HTMLInputElement
+      const target = e.currentTarget as HTMLTextAreaElement
       const len = target.value.length
       if (target.selectionStart !== len || target.selectionEnd !== len) return
       if (historyIndex > 0) {
@@ -73,7 +73,7 @@ export function InputArea() {
       return
     }
 
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
       e.preventDefault()
       if (input.trim()) {
         useCommandHistoryStore.getState().add(input.trim())
@@ -89,6 +89,13 @@ export function InputArea() {
     if (historyIndex !== -1) {
       setHistoryIndex(-1)
     }
+    requestAnimationFrame(() => {
+      const el = inputRef.current
+      if (el) {
+        el.style.height = 'auto'
+        el.style.height = Math.min(el.scrollHeight, 144) + 'px'
+      }
+    })
   }
 
   const handleSelect = (val: string) => {
@@ -125,8 +132,15 @@ export function InputArea() {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
+      const parsingMsgId = `sys-${crypto.randomUUID()}`
+      addMessage({
+        id: parsingMsgId,
+        role: 'system',
+        sender_name: 'SYSTEM',
+        content: `📄 Parsing ${file.name}...`,
+        created_at: new Date().toISOString(),
+      })
       try {
-        // Session uploads go directly to session material storage
         if (current_context === 'session' && active_ring_id && active_session_id) {
           const endpoint = `/rings/${active_ring_id}/sessions/${active_session_id}/material-prep/upload`
           await uploadFile(endpoint, file)
@@ -134,16 +148,20 @@ export function InputArea() {
             id: `sys-${crypto.randomUUID()}`,
             role: 'system',
             sender_name: 'SYSTEM',
-            content: `📎 Uploaded to session: ${file.name}`,
+            content: `✅ Uploaded to session: ${file.name}`,
             created_at: new Date().toISOString(),
           })
-          continue
+        } else {
+          const parsed = await parseFile(file)
+          setParsedFiles(prev => [...prev, { filename: parsed.filename, content: parsed.content }])
+          addMessage({
+            id: `sys-${crypto.randomUUID()}`,
+            role: 'system',
+            sender_name: 'SYSTEM',
+            content: `✅ Parsed ${file.name} (${(parsed.content.length / 1024).toFixed(1)} KB). Add your message and Ctrl+Enter to send.`,
+            created_at: new Date().toISOString(),
+          })
         }
-
-        // For ring/super chat: parse file in background, keep input clean
-        const parsed = await parseFile(file)
-        setParsedFiles(prev => [...prev, { filename: parsed.filename, content: parsed.content }])
-        // Do NOT add anything to input box
       } catch (e: any) {
         const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
         console.error('upload failed:', errorMsg)
@@ -267,14 +285,14 @@ export function InputArea() {
         >
           {uploading ? '⏳' : '📎'}
         </button>
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={input}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
-          placeholder="Type / for commands, @ to address..."
+          placeholder="Type / for commands, @ to address... (Ctrl+Enter to send)"
+          rows={1}
           style={{
             flex: 1,
             background: 'var(--bg-input)',
@@ -285,6 +303,10 @@ export function InputArea() {
             fontSize: 13,
             fontFamily: 'inherit',
             outline: 'none',
+            resize: 'none',
+            minHeight: 36,
+            maxHeight: 144,
+            lineHeight: '20px',
           }}
         />
         {sending ? (

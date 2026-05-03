@@ -576,18 +576,25 @@ pub async fn export_node_markdown(
             let canonical_ring = match state.rings_dir.join(&ring_id).canonicalize() {
                 Ok(p) => p,
                 Err(_) => {
-                    return Err(crate::error::RingError::Internal("ring directory not accessible".into()));
+                    return Err(crate::error::RingError::Internal(
+                        "ring directory not accessible".into(),
+                    ));
                 }
             };
             let canonical_target = match full_path.canonicalize() {
                 Ok(p) => p,
                 Err(_) => {
                     // File doesn't exist or can't be resolved, fallback to node content
-                    return Ok(markdown_response(node.content.clone(), format!("{}.md", node.label.replace(' ', "_"))));
+                    return Ok(markdown_response(
+                        node.content.clone(),
+                        format!("{}.md", node.label.replace(' ', "_")),
+                    ));
                 }
             };
             if canonical_target.starts_with(&canonical_ring) && full_path.exists() {
-                tokio::fs::read_to_string(&full_path).await.unwrap_or_default()
+                tokio::fs::read_to_string(&full_path)
+                    .await
+                    .unwrap_or_default()
             } else {
                 node.content.clone()
             }

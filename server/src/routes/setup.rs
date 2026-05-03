@@ -32,9 +32,7 @@ pub async fn update_setup(
     Ok(Json(result))
 }
 
-pub async fn recover_token(
-    State(state): State<AppState>,
-) -> Result<Json<serde_json::Value>> {
+pub async fn recover_token(State(state): State<AppState>) -> Result<Json<serde_json::Value>> {
     let done = crate::models::config::get_setup_done(&state.db).await?;
     if !done {
         return Err(crate::error::RingError::NotFound(
@@ -43,7 +41,8 @@ pub async fn recover_token(
     }
 
     let token_path = state.hub_dir.join("token");
-    let token = tokio::fs::read_to_string(&token_path).await
+    let token = tokio::fs::read_to_string(&token_path)
+        .await
         .map_err(|_| crate::error::RingError::NotFound("no recovery token found".into()))?;
     Ok(Json(serde_json::json!({ "token_id": token })))
 }

@@ -103,20 +103,22 @@ async fn main() {
     let shutdown = async {
         #[cfg(unix)]
         {
-            let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::error!("failed to install SIGTERM handler: {e}");
-                    return;
-                }
-            };
-            let mut sigint = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::error!("failed to install SIGINT handler: {e}");
-                    return;
-                }
-            };
+            let mut sigterm =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::error!("failed to install SIGTERM handler: {e}");
+                        return;
+                    }
+                };
+            let mut sigint =
+                match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::error!("failed to install SIGINT handler: {e}");
+                        return;
+                    }
+                };
             tokio::select! {
                 _ = sigterm.recv() => tracing::info!("received SIGTERM, shutting down gracefully"),
                 _ = sigint.recv() => tracing::info!("received SIGINT, shutting down gracefully"),
