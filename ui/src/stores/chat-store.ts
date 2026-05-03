@@ -123,7 +123,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const user_content = overrideContent ?? input
     if (!user_content.trim() || sending) return
 
-    const parsed = parseCommand(user_content)
+    // Only parse commands from explicit user input, never from file content
+    const commandSource = overrideContent ? input.trim() : user_content
+    const parsed = parseCommand(commandSource)
 
     const isUICommand = parsed && parsed.every(
       (cmd) => cmd.type === 'action' || cmd.type === 'help' || (cmd.type === 'address' && cmd.target === 'self')
