@@ -100,3 +100,110 @@ fn generate_key_b64() -> String {
 fn base64_decode(s: &str) -> Option<Vec<u8>> {
     base64::engine::general_purpose::STANDARD.decode(s).ok()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn make_encryption() -> (TempDir, CredentialEncryption) {
+        let dir = TempDir::new().unwrap();
+        let enc = CredentialEncryption::new(dir.path());
+        (dir, enc)
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        let (_, enc) = make_encryption();
+        let plaintext = "hello world 你好世界";
+        let encrypted = enc.encrypt(plaintext);
+        let decrypted = enc.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_empty() {
+        let (_, enc) = make_encryption();
+        let encrypted = enc.encrypt("");
+        let decrypted = enc.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, "");
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_large_text() {
+        let (_, enc) = make_encryption();
+        let plaintext: String = "A".repeat(100_000);
+        let encrypted = enc.encrypt(&plaintext);
+        let decrypted = enc.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_encrypt_produces_different_ciphertext() {
+        let (_, enc) = make_encryption();
+        let plaintext = "same text";
+        let a = enc.encrypt(plaintext);
+        let b = enc.encrypt(plaintext);
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_decrypt_invalid_base64() {
+        let (_, enc) = make_encryption();
+        assert!(enc.decrypt("not-valid-base64!!!").is_none());
+    }
+
+    #[test]
+    fn test_decrypt_empty_string() {
+        let (_, enc) = make_encryption();
+        assert!(enc.decrypt("").is_none());
+    }
+
+    #[test]
+    fn test_decrypt_truncated_data() {
+        let (_, enc) = make_encryption();
+        let data = vec![1u8; 5];
+        let encoded = base64::engine::general_purpose::STANDARD.encode(&data);
+        assert!(enc.decrypt(&encoded).is_none());
+    }
+
+    #[test]
+    fn test_legacy_magic_crypt_migration() {
+        let dir = TempDir::new().unwrap();
+        let enc = CredentialEncryption::new(dir.path());
+        let key_b64 = std::fs::read_to_string(dir.path().join(".encryption_key")).unwrap();
+        let mc = magic_crypt::new_magic_crypt!(key_b64, 256);
+        let plaintext = "legacy secret";
+        let legacy_encrypted = mc.encrypt_str_to_base64(plaintext);
+        let decrypted = enc.decrypt(&legacy_encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_key_persistence() {
+        let dir = TempDir::new().unwrap();
+        let enc1 = CredentialEncryption::new(dir.path());
+        let encrypted = enc1.encrypt("persistent");
+        let enc2 = CredentialEncryption::new(dir.path());
+        let decrypted = enc2.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, "persistent");
+    }
+
+    #[test]
+    fn test_encrypt_special_chars() {
+        let (_, enc) = make_encryption();
+        let plaintext = "特殊字符 !@#$%^&*(){}[]|;':\",./<>?\n\t\r";
+        let encrypted = enc.encrypt(plaintext);
+        let decrypted = enc.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+
+    #[test]
+    fn test_encrypt_unicode() {
+        let (_, enc) = make_encryption();
+        let plaintext = "日本語テスト 🎉🚀 Ñoño café";
+        let encrypted = enc.encrypt(plaintext);
+        let decrypted = enc.decrypt(&encrypted).unwrap();
+        assert_eq!(decrypted, plaintext);
+    }
+}

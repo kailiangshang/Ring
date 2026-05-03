@@ -44,11 +44,16 @@ async function request<T>(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(
+    const err = new ApiError(
       res.status,
       body?.error?.code ?? 'unknown',
       body?.error?.message ?? res.statusText,
     )
+    if (res.status === 401 && body?.error?.message?.includes?.('token expired')) {
+      const { useAuthStore } = await import('../stores/auth-store')
+      useAuthStore.getState().setTokenExpired(true)
+    }
+    throw err
   }
 
   if (res.status === 204) return undefined as T

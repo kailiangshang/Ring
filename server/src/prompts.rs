@@ -668,14 +668,14 @@ pub mod blueprint {
 }
 
 pub mod workflow {
-    pub fn file_parse_extraction(focus: Option<&str>) -> String {
+    pub fn file_parse_extraction(focus: Option<&str>, existing_labels: Option<&str>) -> String {
         let mut prompt = String::from(
             r#"<system>
 分析文件内容，提取结构化知识。
 
 <output>
 <file_analysis>
-{"summary": "≤3句", "concepts": [{"label": "概念名", "node_type": "category|topic|leaf", "tags": [...]}], "relations": [{"from": "A", "to": "B", "relation": "depends_on|related_to|derives_from|contradicts"}]}
+{"summary": "≤3句", "concepts": [{"label": "概念名", "node_type": "category|topic|leaf", "tags": [...], "match": "已有节点名" 或 null}], "relations": [{"from": "A", "to": "B", "relation": "depends_on|related_to|derives_from|contradicts"}]}
 </file_analysis>
 </output>
 
@@ -683,12 +683,21 @@ pub mod workflow {
 - 3-10 个概念，优先高频/核心
 - 标签要具体（"gRPC" 而不是 "技术"）
 - relation 必须有语义，不要都填 related_to
+- 如果提取的概念与已有节点语义相同，设置 match 字段为已有节点名，而不是创建新节点
 </rules>
 </system>"#,
         );
         if let Some(f) = focus {
             if !f.is_empty() {
                 prompt.push_str(&format!("\n\n<focus>{f}</focus>"));
+            }
+        }
+        if let Some(labels) = existing_labels {
+            if !labels.is_empty() {
+                prompt.push_str(&format!(
+                    "\n\n<existing_nodes>\n{}\n</existing_nodes>",
+                    labels
+                ));
             }
         }
         prompt

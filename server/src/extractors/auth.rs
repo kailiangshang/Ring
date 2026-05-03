@@ -25,15 +25,30 @@ where
             .and_then(|v| v.to_str().ok())
             .ok_or_else(|| RingError::Unauthorized("missing X-Ring-Token header".into()))?;
 
-        let exists: bool =
-            sqlx::query_scalar::<_, bool>("SELECT COUNT(*) > 0 FROM users WHERE token_id = ?1")
-                .bind(token)
-                .fetch_one(&app_state.db)
-                .await
-                .map_err(|e: sqlx::Error| RingError::Internal(e.to_string()))?;
+        let (exists, token_created_at): (bool, String) =
+            sqlx::query_as(
+                "SELECT COUNT(*) > 0, COALESCE(MAX(token_created_at), '') FROM users WHERE token_id = ?1",
+            )
+            .bind(token)
+            .fetch_one(&app_state.db)
+            .await
+            .map_err(|e: sqlx::Error| RingError::Internal(e.to_string()))?;
 
         if !exists {
             return Err(RingError::Unauthorized("invalid token".into()));
+        }
+
+        if !token_created_at.is_empty() {
+            if let Ok(created) =
+                chrono::NaiveDateTime::parse_from_str(&token_created_at, "%Y-%m-%d %H:%M:%S")
+            {
+                let now = chrono::Utc::now().naive_utc();
+                if (now - created).num_days() > 90 {
+                    return Err(RingError::Unauthorized(
+                        "token expired, please re-setup".into(),
+                    ));
+                }
+            }
         }
 
         Ok(AuthUser {

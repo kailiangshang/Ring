@@ -16,6 +16,7 @@ pub struct UserRow {
     pub gitlab_url: Option<String>,
     pub gitlab_token: Option<String>,
     pub privacy_filters: Option<String>,
+    pub token_created_at: String,
     pub created_at: String,
 }
 

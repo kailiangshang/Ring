@@ -2,52 +2,91 @@ import type { ChatMessage } from '../types/chat'
 import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill } from '../services/api'
 import { useAppStore } from './app-store'
 
-const SCOPE_LABELS: Record<string, string> = {
-  super: 'Super',
-  ring: 'Ring',
-  session: 'Session',
-}
-
 export function buildHelpContent(): string {
-  type CmdInfo = { prefix: string; cmd: string; desc: string; scopes: string[] }
+  type CmdGroup = { title: string; cmds: { usage: string; desc: string; scopes: string[] }[] }
 
-  const slashCmds: CmdInfo[] = [
-    { prefix: '/', cmd: 'graph', desc: 'Open graph panel', scopes: ['ring'] },
-    { prefix: '/', cmd: 'archive', desc: 'Open archive panel', scopes: ['ring'] },
-    { prefix: '/', cmd: 'config', desc: 'Open config panel', scopes: ['ring'] },
-    { prefix: '/', cmd: 'session [create/close/start/summarize]', desc: 'Session operations', scopes: ['ring', 'session'] },
-    { prefix: '/', cmd: 'new <name>', desc: 'Create new ring', scopes: ['ring'] },
-    { prefix: '/', cmd: 'save', desc: 'Archive conversation', scopes: ['ring', 'session'] },
-    { prefix: '/', cmd: 'node [add/link]', desc: 'Graph node operations', scopes: ['ring'] },
-    { prefix: '/', cmd: 'mode [auto/normal]', desc: 'Set interaction mode', scopes: ['ring'] },
-    { prefix: '/', cmd: 'prefs [set key value]', desc: 'Show/set preferences', scopes: ['super', 'ring'] },
-    { prefix: '/', cmd: 'skill [list/install/remove]', desc: 'Manage skills', scopes: ['super', 'ring'] },
-    { prefix: '/', cmd: 'members', desc: 'Show members', scopes: ['ring'] },
-    { prefix: '/', cmd: 'invite [open/audit]', desc: 'Create invite', scopes: ['ring'] },
-    { prefix: '/', cmd: 'help [command]', desc: 'Show help', scopes: ['super', 'ring', 'session'] },
-  ]
-
-  const atCmds: CmdInfo[] = [
-    { prefix: '@', cmd: 'self [message]', desc: 'Talk to Self', scopes: ['super', 'ring', 'session'] },
-    { prefix: '@', cmd: 'ring [message]', desc: 'Talk to Ring AI', scopes: ['ring'] },
-    { prefix: '@', cmd: 'super [message]', desc: 'Talk to Super Ring', scopes: ['super', 'ring'] },
-    { prefix: '@', cmd: 'node <name>', desc: 'Reference graph node', scopes: ['ring'] },
+  const groups: CmdGroup[] = [
+    {
+      title: '图谱',
+      cmds: [
+        { usage: '/node add <label>', desc: '创建节点', scopes: ['ring'] },
+        { usage: '/node link <from> <to> [relation]', desc: '创建关联', scopes: ['ring'] },
+        { usage: '/graph', desc: '打开图谱面板', scopes: ['ring'] },
+      ],
+    },
+    {
+      title: '归档',
+      cmds: [
+        { usage: '/save', desc: '归档对话', scopes: ['ring', 'session'] },
+        { usage: '/archive', desc: '打开归档面板', scopes: ['ring'] },
+      ],
+    },
+    {
+      title: 'Session',
+      cmds: [
+        { usage: '/session create <title>', desc: '创建 Session', scopes: ['ring'] },
+        { usage: '/session start', desc: '开始讨论', scopes: ['ring'] },
+        { usage: '/session summarize', desc: 'AI 总结', scopes: ['ring'] },
+        { usage: '/session close', desc: '关闭 Session', scopes: ['ring'] },
+      ],
+    },
+    {
+      title: '跨 Ring',
+      cmds: [
+        { usage: '/cross-ring-query <query>', desc: '跨 Ring 搜索', scopes: ['super', 'ring'] },
+        { usage: '/cross-ring-analysis <rings> <type>', desc: '跨 Ring 分析', scopes: ['super'] },
+      ],
+    },
+    {
+      title: '配置',
+      cmds: [
+        { usage: '/config', desc: '查看配置', scopes: ['ring'] },
+        { usage: '/prefs', desc: '偏好设置', scopes: ['super', 'ring'] },
+        { usage: '/mode [auto/normal]', desc: '交互模式', scopes: ['ring'] },
+      ],
+    },
+    {
+      title: '成员',
+      cmds: [
+        { usage: '/members', desc: '查看成员', scopes: ['ring'] },
+        { usage: '/invite open', desc: '创建邀请', scopes: ['ring'] },
+        { usage: '/invite audit', desc: '审计邀请', scopes: ['ring'] },
+      ],
+    },
+    {
+      title: 'Self',
+      cmds: [
+        { usage: '/skill [list/install/remove]', desc: '管理 Skills', scopes: ['super', 'ring'] },
+        { usage: '@self [message]', desc: '对话 Self', scopes: ['super', 'ring', 'session'] },
+        { usage: '@ring [message]', desc: '对话 Ring AI', scopes: ['ring'] },
+        { usage: '@super [message]', desc: '对话 Super Ring', scopes: ['super', 'ring'] },
+      ],
+    },
+    {
+      title: '其他',
+      cmds: [
+        { usage: '/new <name>', desc: '创建 Ring', scopes: ['ring'] },
+        { usage: '/help [command]', desc: '帮助', scopes: ['super', 'ring', 'session'] },
+      ],
+    },
   ]
 
   const currentContext = useAppStore.getState().current_context
 
-  const renderTable = (cmds: CmdInfo[]) => {
-    const header = '| Command | Description | Scope |'
-    const sep = '|---------|-------------|-------|'
-    const rows = cmds.map(c => {
-      const scopeStr = c.scopes.map(s => SCOPE_LABELS[s] ?? s).join(', ')
-      const marker = c.scopes.includes(currentContext) ? '' : ' 🔒'
-      return `| ${c.prefix}${c.cmd}${marker} | ${c.desc} | ${scopeStr} |`
-    })
-    return [header, sep, ...rows].join('\n')
+  const lines: string[] = ['## 命令列表\n']
+
+  for (const group of groups) {
+    const visibleCmds = group.cmds.filter((c) => c.scopes.includes(currentContext))
+    if (visibleCmds.length === 0) continue
+
+    lines.push(`### ${group.title}`)
+    for (const cmd of visibleCmds) {
+      lines.push(`- \`${cmd.usage}\` — ${cmd.desc}`)
+    }
+    lines.push('')
   }
 
-  return `## Commands\n\n> Scope: **Super** = Super Ring only · **Ring** = Group Ring · **Session** = Active session · 🔒 = not available in current view\n\n### Slash Commands (/ prefix)\n${renderTable(slashCmds)}\n\n### Addressing (@ prefix)\n${renderTable(atCmds)}`
+  return lines.join('\n')
 }
 
 export function getCommandHelp(command: string): string {

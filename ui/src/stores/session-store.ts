@@ -37,6 +37,11 @@ function toSession(flat: FlatSessionResponse): Session {
   }
 }
 
+interface GraphSuggestion {
+  title: string
+  content: string
+}
+
 interface SessionState {
   active_session: Session | null
   participants: SessionParticipant[]
@@ -46,6 +51,7 @@ interface SessionState {
   error: string | null
   list: Session[]
   sessions_by_ring: Record<string, Session[]>
+  graph_suggestions: GraphSuggestion[]
   createSession: (input: CreateSessionInput) => Promise<Session | null>
   fetchActiveSession: (ring_id: string) => Promise<void>
   fetchSessions: (ring_id: string) => Promise<void>
@@ -59,6 +65,10 @@ interface SessionState {
   startSession: (ring_id: string, session_id: string) => Promise<void>
   fetchMaterials: (ring_id: string, session_id: string) => Promise<void>
   highlightMaterial: (ring_id: string, session_id: string, material_id: string, note: string) => Promise<void>
+  updateMaterial: (ring_id: string, session_id: string, material_id: string, title: string, content: string) => Promise<void>
+  createMaterial: (ring_id: string, session_id: string, item_type: string, title: string, content: string) => Promise<void>
+  updateSummary: (ring_id: string, session_id: string, summary: string) => Promise<void>
+  extractToGraph: (ring_id: string, session_id: string) => Promise<void>
   sendMessage: (session_id: string, content: string) => void
   handleWsMessage: (data: unknown) => void
   fetchMessages: (ring_id: string, session_id: string) => Promise<void>
@@ -74,6 +84,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   error: null,
   list: [],
   sessions_by_ring: {},
+  graph_suggestions: [],
 
   createSession: async (input) => {
     const ring_id = useRingStore.getState().active_ring_id
@@ -267,6 +278,21 @@ export const useSessionStore = create<SessionState>((set, get) => ({
         }
         break;
       }
+      case 'session_ai_message': {
+        if (!session_id || !active_session || session_id !== active_session.id) return
+        const aiMsg: SessionMessage = {
+          id: msg.id as string,
+          session_id,
+          seq_num: msg.seq_num as number,
+          sender: msg.sender as string,
+          sender_name: msg.sender_name as string,
+          content: msg.content as string,
+          message_type: 'ai',
+          created_at: msg.created_at as string,
+        }
+        set((s) => ({ messages: [...s.messages, aiMsg] }))
+        break
+      }
     }
   },
 
@@ -312,5 +338,45 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     }
   },
 
-  clearActive: () => set({ active_session: null, participants: [], messages: [], materials: [] }),
+  updateMaterial: async (ring_id, session_id, material_id, title, content) => {
+    try {
+      const res = await api.put<SessionMaterial>(`/rings/${ring_id}/sessions/${session_id}/material-prep/${material_id}`, { title, content })
+      set((s) => ({
+        materials: s.materials.map((m) =>
+          m.id === material_id ? { ...m, title: res.title, content: res.content } : m
+        ),
+      }))
+    } catch (e) {
+      console.error('updateMaterial error:', e)
+    }
+  },
+
+  createMaterial: async (ring_id, session_id, item_type, title, content) => {
+    try {
+      const res = await api.post<SessionMaterial>(`/rings/${ring_id}/sessions/${session_id}/material-prep`, { item_type, title, content })
+      set((s) => ({ materials: [...s.materials, res] }))
+    } catch (e) {
+      console.error('createMaterial error:', e)
+    }
+  },
+
+  updateSummary: async (ring_id, session_id, summary) => {
+    try {
+      const res = await api.put<FlatSessionResponse>(`/rings/${ring_id}/sessions/${session_id}/summary`, { summary })
+      set({ active_session: toSession(res) })
+    } catch (e) {
+      console.error('updateSummary error:', e)
+    }
+  },
+
+  extractToGraph: async (ring_id, session_id) => {
+    try {
+      const res = await api.post<{ suggestions: GraphSuggestion[] }>(`/rings/${ring_id}/sessions/${session_id}/extract-to-graph`, {})
+      set({ graph_suggestions: res.suggestions ?? [] })
+    } catch (e) {
+      console.error('extractToGraph error:', e)
+    }
+  },
+
+  clearActive: () => set({ active_session: null, participants: [], messages: [], materials: [], graph_suggestions: [] }),
 }))

@@ -38,10 +38,11 @@ export const useWsStore = create<WsState>((set, get) => ({
       if (!token) return
 
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const url = `${protocol}//${window.location.host}/api/ws?token=${encodeURIComponent(token)}`
+      const url = `${protocol}//${window.location.host}/api/ws`
 
       const ws_client = new WsClient(
         url,
+        token,
         (data) => {
           const { handlers } = get()
           for (const handler of handlers) {

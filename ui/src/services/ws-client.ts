@@ -3,6 +3,7 @@ type MessageHandler = (data: unknown) => void
 export class WsClient {
   private ws: WebSocket | null = null
   private url: string
+  private token: string
   private on_message: MessageHandler
   private on_open: () => void
   private on_close: () => void
@@ -11,14 +12,17 @@ export class WsClient {
   private reconnect_timer: ReturnType<typeof setTimeout> | null = null
   private heartbeat_timer: ReturnType<typeof setInterval> | null = null
   private stopped = false
+  private authenticated = false
 
   constructor(
     url: string,
+    token: string,
     on_message: MessageHandler,
     on_open: () => void,
     on_close: () => void,
   ) {
     this.url = url
+    this.token = token
     this.on_message = on_message
     this.on_open = on_open
     this.on_close = on_close
@@ -26,28 +30,39 @@ export class WsClient {
 
   connect(): void {
     this.stopped = false
+    this.authenticated = false
     this.ws = new WebSocket(this.url)
 
     this.ws.onopen = () => {
-      this.reconnect_attempts = 0
-      this.start_heartbeat()
-      this.on_open()
+      this.ws!.send(JSON.stringify({ type: 'auth', token: this.token }))
     }
 
     this.ws.onmessage = (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data as string)
+        if (!this.authenticated) {
+          if (data.type === 'auth_ok') {
+            this.authenticated = true
+            this.reconnect_attempts = 0
+            this.start_heartbeat()
+            this.on_open()
+          } else if (data.type === 'auth_failed') {
+            this.ws?.close()
+          }
+          return
+        }
         if (data.type === 'ping') {
           this.send({ type: 'pong', data: data.data ?? '' })
           return
         }
         this.on_message(data)
       } catch {
-        // skip malformed
+        void 0
       }
     }
 
     this.ws.onclose = () => {
+      this.authenticated = false
       this.stop_heartbeat()
       this.on_close()
       if (!this.stopped) this.schedule_reconnect()
@@ -59,7 +74,7 @@ export class WsClient {
   }
 
   send(data: unknown): void {
-    if (this.ws?.readyState === WebSocket.OPEN) {
+    if (this.authenticated && this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(data))
     }
   }
@@ -76,7 +91,7 @@ export class WsClient {
   }
 
   get connected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN
+    return this.authenticated && this.ws?.readyState === WebSocket.OPEN
   }
 
   private schedule_reconnect(): void {

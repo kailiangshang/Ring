@@ -187,6 +187,70 @@ pub async fn delete_memory(
     Ok(StatusCode::NO_CONTENT)
 }
 
+pub async fn get_greeting(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<serde_json::Value>> {
+    let self_dir = self_data::get_self_dir(&user.token_id);
+    let first_today = self_data::check_first_today(&self_dir);
+    if !first_today {
+        return Ok(Json(
+            serde_json::json!({ "greeting": null, "first_today": false }),
+        ));
+    }
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+    let metrics = self_data::read_metrics(&self_dir);
+    let ctx = self_data::build_greeting_context(&self_dir, &metrics);
+    let most_active_ring = if !ctx.most_active_ring.is_empty() {
+        sqlx::query_scalar::<_, String>("SELECT name FROM rings WHERE id = ?1")
+            .bind(&ctx.most_active_ring)
+            .fetch_optional(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .unwrap_or_default()
+    } else {
+        String::new()
+    };
+    let profile_summary = if ctx.user_profile.is_empty() {
+        "暂无".to_string()
+    } else if ctx.user_profile.len() > 100 {
+        format!("{}...", &ctx.user_profile[..100])
+    } else {
+        ctx.user_profile.clone()
+    };
+    let goals_summary = if ctx.active_goals.is_empty() {
+        "暂无".to_string()
+    } else if ctx.active_goals.len() > 100 {
+        format!("{}...", &ctx.active_goals[..100])
+    } else {
+        ctx.active_goals.clone()
+    };
+    let prompt = format!(
+        "基于以下信息生成一句个性化问候（中文，30字以内，自然亲切，不要用引号）：\n\
+         - 日期：{}\n\
+         - 用户画像：{}\n\
+         - 当前目标：{}\n\
+         - 最活跃 Ring：{}",
+        ctx.date,
+        profile_summary,
+        goals_summary,
+        if most_active_ring.is_empty() {
+            "无".to_string()
+        } else {
+            most_active_ring
+        },
+    );
+    let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
+    let greeting = llm
+        .chat_complete("你是一个温暖的朋友，用一句话打招呼。".into(), prompt)
+        .await
+        .ok();
+    Ok(Json(
+        serde_json::json!({ "greeting": greeting, "first_today": true }),
+    ))
+}
+
 #[derive(Deserialize)]
 pub struct HeartbeatRequest {
     pub view: String,

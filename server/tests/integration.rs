@@ -2530,3 +2530,189 @@ async fn test_skills_auth_required() {
 
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
+
+#[tokio::test]
+async fn test_graph_node_delete_cascades_edges() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.expect("db");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations");
+
+    let ring_id = "test-ring";
+    sqlx::query("INSERT INTO users (token_id, display_name) VALUES ('test-user', 'Test')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO rings (id, name, storage_mode, creator_id) VALUES (?1, ?2, 'local', 'test-user')")
+        .bind(ring_id)
+        .bind("Test Ring")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let graph = ring_server::models::graph::ensure_default_graph(&pool, ring_id)
+        .await
+        .unwrap();
+
+    let node_a = ring_server::models::graph::create_node(
+        &pool,
+        "node-a",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Node A".into(),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    let node_b = ring_server::models::graph::create_node(
+        &pool,
+        "node-b",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Node B".into(),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    let node_c = ring_server::models::graph::create_node(
+        &pool,
+        "node-c",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Node C".into(),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    ring_server::models::graph::create_edge(
+        &pool,
+        "edge-ab",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateEdgeInput {
+            source_id: node_a.id.clone(),
+            target_id: node_b.id.clone(),
+            relation: "related_to".into(),
+            label: "A-B".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    ring_server::models::graph::create_edge(
+        &pool,
+        "edge-ac",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateEdgeInput {
+            source_id: node_a.id.clone(),
+            target_id: node_c.id.clone(),
+            relation: "related_to".into(),
+            label: "A-C".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let edges_before = ring_server::models::graph::list_edges(&pool, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(edges_before.len(), 2);
+
+    ring_server::models::graph::delete_node(&pool, &node_a.id)
+        .await
+        .unwrap();
+
+    let edges_after = ring_server::models::graph::list_edges(&pool, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(edges_after.len(), 0);
+
+    let nodes_after = ring_server::models::graph::list_nodes(&pool, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(nodes_after.len(), 2);
+    assert!(nodes_after.iter().all(|n| n.id != node_a.id));
+}
+
+#[tokio::test]
+async fn test_graph_node_delete_without_edges() {
+    let pool = SqlitePool::connect("sqlite::memory:").await.expect("db");
+    sqlx::migrate!("./migrations")
+        .run(&pool)
+        .await
+        .expect("migrations");
+
+    let ring_id = "test-ring-2";
+    sqlx::query("INSERT INTO users (token_id, display_name) VALUES ('test-user-2', 'Test 2')")
+        .execute(&pool)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO rings (id, name, storage_mode, creator_id) VALUES (?1, ?2, 'local', 'test-user-2')")
+        .bind(ring_id)
+        .bind("Test Ring 2")
+        .execute(&pool)
+        .await
+        .unwrap();
+
+    let graph = ring_server::models::graph::ensure_default_graph(&pool, ring_id)
+        .await
+        .unwrap();
+
+    ring_server::models::graph::create_node(
+        &pool,
+        "node-solo",
+        &graph.id,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Solo Node".into(),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    let nodes_before = ring_server::models::graph::list_nodes(&pool, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(nodes_before.len(), 1);
+
+    ring_server::models::graph::delete_node(&pool, "node-solo")
+        .await
+        .unwrap();
+
+    let nodes_after = ring_server::models::graph::list_nodes(&pool, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(nodes_after.len(), 0);
+}

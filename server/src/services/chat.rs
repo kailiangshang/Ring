@@ -129,6 +129,7 @@ pub async fn auto_compact_history(
 }
 
 pub async fn build_system_prompt(
+    pool: &sqlx::SqlitePool,
     ring_name: Option<&str>,
     role_description: Option<&str>,
     user_id: &str,
@@ -178,6 +179,13 @@ pub async fn build_system_prompt(
         if !memory_ctx.is_empty() {
             extra.push_str(&memory_ctx);
         }
+        let activity_ctx = build_recent_activity(pool, &self_dir, user_id).await;
+        if !activity_ctx.is_empty() {
+            if !extra.is_empty() {
+                extra.push_str("\n\n");
+            }
+            extra.push_str(&activity_ctx);
+        }
         let metrics = crate::services::self_data::read_metrics(&self_dir);
         let metrics_ctx = crate::prompts::self_chat::metrics_context(&metrics);
         if !metrics_ctx.is_empty() {
@@ -193,52 +201,123 @@ pub async fn build_system_prompt(
     prompt
 }
 
+async fn build_recent_activity(
+    pool: &sqlx::SqlitePool,
+    self_dir: &std::path::Path,
+    user_id: &str,
+) -> String {
+    let metrics = crate::services::self_data::read_metrics(self_dir);
+    let chat_patterns = match metrics.get("chat_patterns") {
+        Some(v) if v.is_object() => v,
+        _ => return String::new(),
+    };
+    let mut ring_entries: Vec<(String, i64)> = Vec::new();
+    if let Some(obj) = chat_patterns.as_object() {
+        for (key, val) in obj {
+            if let Some(ring_id) = key.strip_prefix("ring_") {
+                if let Some(count) = val.as_i64() {
+                    ring_entries.push((ring_id.to_string(), count));
+                }
+            }
+        }
+    }
+    if ring_entries.is_empty() {
+        return String::new();
+    }
+    ring_entries.sort_by(|a, b| b.1.cmp(&a.1));
+    let most_active_ring_id = &ring_entries[0].0;
+    let ring_name = sqlx::query_scalar::<_, String>("SELECT name FROM rings WHERE id = ?1")
+        .bind(most_active_ring_id)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default();
+    if ring_name.is_empty() {
+        return String::new();
+    }
+    let messages =
+        crate::models::message::list_messages(pool, Some(most_active_ring_id), user_id, None, 3)
+            .await
+            .unwrap_or_default();
+    let summaries: Vec<String> = messages
+        .into_iter()
+        .rev()
+        .filter(|m| m.role != "system")
+        .take(3)
+        .map(|m| {
+            let sender = if m.role == "user" { "用户" } else { "AI" };
+            let content = if m.content.len() > 100 {
+                format!("{}...", &m.content[..100])
+            } else {
+                m.content.clone()
+            };
+            format!("- {sender}: {content}")
+        })
+        .collect();
+    if summaries.is_empty() {
+        return format!(
+            "<recent_activity>\n## 最近活动\n- 活跃 Ring: {ring_name}\n</recent_activity>"
+        );
+    }
+    let summaries_text = summaries.join("\n");
+    format!(
+        "<recent_activity>\n## 最近活动\n- 活跃 Ring: {ring_name}\n- 最近讨论:\n{summaries_text}\n</recent_activity>"
+    )
+}
+
+async fn query_doc(pool: &sqlx::SqlitePool, ring_id: &str, doc_name: &str) -> Option<String> {
+    sqlx::query_scalar("SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = ?2")
+        .bind(ring_id)
+        .bind(doc_name)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten()
+}
+
+fn format_doc_ctx(results: [(Option<String>, &str); 3]) -> String {
+    let mut ctx = String::new();
+    for (content, name) in results {
+        if let Some(c) = content {
+            if !c.trim().is_empty() {
+                ctx.push_str(&format!("### {name}\n{c}\n\n"));
+            }
+        }
+    }
+    ctx
+}
+
 pub async fn build_group_ring_prompt_with_docs(
     pool: &sqlx::SqlitePool,
     ring_name: &str,
     role_description: Option<&str>,
     ring_id: &str,
+    rings_dir: Option<&std::path::Path>,
 ) -> String {
     let base = crate::prompts::group_ring::system(ring_name, role_description);
 
-    let core_docs = ["role", "conventions", "active-context"];
-    let ext_docs = ["archive-patterns", "corrections", "knowledge-summary"];
+    let (role, conventions, active_ctx) = tokio::join!(
+        query_doc(pool, ring_id, "role"),
+        query_doc(pool, ring_id, "conventions"),
+        query_doc(pool, ring_id, "active-context"),
+    );
+    let (archive_patterns, corrections, knowledge_summary) = tokio::join!(
+        query_doc(pool, ring_id, "archive-patterns"),
+        query_doc(pool, ring_id, "corrections"),
+        query_doc(pool, ring_id, "knowledge-summary"),
+    );
 
-    let mut core_ctx = String::new();
-    for doc_name in &core_docs {
-        let content: Option<String> = sqlx::query_scalar(
-            "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = ?2",
-        )
-        .bind(ring_id)
-        .bind(doc_name)
-        .fetch_optional(pool)
-        .await
-        .ok()
-        .flatten();
-        if let Some(c) = content {
-            if !c.trim().is_empty() {
-                core_ctx.push_str(&format!("### {doc_name}\n{c}\n\n"));
-            }
-        }
-    }
-
-    let mut ext_ctx = String::new();
-    for doc_name in &ext_docs {
-        let content: Option<String> = sqlx::query_scalar(
-            "SELECT content FROM group_docs WHERE ring_id = ?1 AND doc_name = ?2",
-        )
-        .bind(ring_id)
-        .bind(doc_name)
-        .fetch_optional(pool)
-        .await
-        .ok()
-        .flatten();
-        if let Some(c) = content {
-            if !c.trim().is_empty() {
-                ext_ctx.push_str(&format!("### {doc_name}\n{c}\n\n"));
-            }
-        }
-    }
+    let core_ctx = format_doc_ctx([
+        (role, "role"),
+        (conventions, "conventions"),
+        (active_ctx, "active-context"),
+    ]);
+    let ext_ctx = format_doc_ctx([
+        (archive_patterns, "archive-patterns"),
+        (corrections, "corrections"),
+        (knowledge_summary, "knowledge-summary"),
+    ]);
 
     let mut extra = String::new();
     if !core_ctx.is_empty() {
@@ -250,11 +329,63 @@ pub async fn build_group_ring_prompt_with_docs(
         extra.push_str(&ext_ctx);
     }
 
+    if let Some(rd) = rings_dir {
+        let attached = build_attached_docs_section(pool, rd, ring_id).await;
+        if !attached.is_empty() {
+            if !extra.is_empty() {
+                extra.push_str("\n\n");
+            }
+            extra.push_str(&attached);
+        }
+    }
+
     if extra.is_empty() {
         base
     } else {
         format!("{base}\n\n{extra}")
     }
+}
+
+async fn build_attached_docs_section(
+    pool: &sqlx::SqlitePool,
+    rings_dir: &std::path::Path,
+    ring_id: &str,
+) -> String {
+    let g = match crate::models::graph::ensure_default_graph(pool, ring_id).await {
+        Ok(g) => g,
+        Err(_) => return String::new(),
+    };
+    let nodes = match crate::models::graph::list_nodes(pool, &g.id).await {
+        Ok(n) => n,
+        Err(_) => return String::new(),
+    };
+
+    let mut sections = Vec::new();
+    for node in &nodes {
+        let doc_refs = crate::services::graph::get_node_doc_refs(&node.metadata);
+        if doc_refs.is_empty() {
+            continue;
+        }
+        let mut node_docs = String::new();
+        for dr in doc_refs.iter().take(3) {
+            if let Some(content) =
+                crate::services::graph::resolve_doc_content(rings_dir, ring_id, dr)
+            {
+                node_docs.push_str(&format!(
+                    "#### {} ({})\n{}\n\n",
+                    dr.title, dr.doc_type, content
+                ));
+            }
+        }
+        if !node_docs.is_empty() {
+            sections.push(format!("### Node: {}\n\n{}", node.label, node_docs));
+        }
+    }
+
+    if sections.is_empty() {
+        return String::new();
+    }
+    format!("<attached_docs>\n{}\n</attached_docs>", sections.join("\n"))
 }
 
 pub async fn load_history_context(
@@ -342,9 +473,22 @@ pub async fn start_chat_stream(
     params: &ChatParams<'_>,
 ) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
     let system_prompt = if let (Some(name), Some(ring_id)) = (params.ring_name, params.ring_id) {
-        build_group_ring_prompt_with_docs(&state.db, name, params.role_description, ring_id).await
+        build_group_ring_prompt_with_docs(
+            &state.db,
+            name,
+            params.role_description,
+            ring_id,
+            Some(&state.rings_dir),
+        )
+        .await
     } else {
-        build_system_prompt(params.ring_name, params.role_description, &user.token_id).await
+        build_system_prompt(
+            &state.db,
+            params.ring_name,
+            params.role_description,
+            &user.token_id,
+        )
+        .await
     };
     let history = if params.ephemeral {
         vec![]

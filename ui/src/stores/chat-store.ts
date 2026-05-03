@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { immer } from 'zustand/middleware/immer'
 import type { ChatMessage } from '../types/chat'
 import { parseCommand } from '../services/command-parser'
 import { streamChat } from '../services/sse'
@@ -15,7 +16,7 @@ import { useGraphStore } from './graph-store'
 import { useInviteStore } from './invite-store'
 import { buildHelpContent, getCommandHelp, handlePrefsShow, handlePrefsSet, handleSkillList, handleSkillInstall, handleSkillRemove } from './command-handlers'
 
-type SetFn = (partial: Partial<ChatState> | ((s: ChatState) => Partial<ChatState>)) => void
+type SetFn = (partial: Partial<ChatState> | ((s: ChatState) => void)) => void
 type GetFn = () => ChatState
 
 function sysMsg(content: string): ChatMessage {
@@ -36,20 +37,18 @@ function createSseCallbacks(
         content: '',
         created_at: new Date().toISOString(),
       }
-      set((s) => ({
-        messages: [...s.messages, aiMsg],
-        streaming_message_id: data.message_id,
-      }))
+      set((s) => {
+        s.messages.push(aiMsg)
+        s.streaming_message_id = data.message_id
+      })
     },
     onDelta: (data: { content: string }) => {
       const { streaming_message_id } = get()
       if (!streaming_message_id) return
       set((s) => {
         const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
-        if (idx === -1) return s
-        const msgs = [...s.messages]
-        msgs[idx] = { ...msgs[idx], content: msgs[idx].content + data.content }
-        return { messages: msgs }
+        if (idx === -1) return
+        s.messages[idx].content += data.content
       })
     },
     onEnd: (data: { usage?: { prompt_tokens: number; completion_tokens: number } }) => {
@@ -57,10 +56,8 @@ function createSseCallbacks(
       if (streaming_message_id && data.usage) {
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
-          if (idx === -1) return s
-          const msgs = [...s.messages]
-          msgs[idx] = { ...msgs[idx], token_usage: data.usage }
-          return { messages: msgs }
+          if (idx === -1) return
+          s.messages[idx].token_usage = data.usage
         })
       }
       set({ sending: false, streaming_message_id: null, abort_controller: null })
@@ -70,10 +67,16 @@ function createSseCallbacks(
       if (streaming_message_id) {
         set((s) => {
           const idx = s.messages.findIndex((m) => m.id === streaming_message_id)
-          if (idx === -1) return { sending: false, streaming_message_id: null, abort_controller: null }
-          const msgs = [...s.messages]
-          msgs[idx] = { ...msgs[idx], content: msgs[idx].content + `\n\n⚠ Error: ${data.error}` }
-          return { messages: msgs, sending: false, streaming_message_id: null, abort_controller: null }
+          if (idx === -1) {
+            s.sending = false
+            s.streaming_message_id = null
+            s.abort_controller = null
+            return
+          }
+          s.messages[idx].content += `\n\n⚠ Error: ${data.error}`
+          s.sending = false
+          s.streaming_message_id = null
+          s.abort_controller = null
         })
       } else {
         addMessage(sysMsg(`Error: ${data.error}`))
@@ -100,7 +103,7 @@ interface ChatState {
   stopStreaming: () => void
 }
 
-export const useChatStore = create<ChatState>((set, get) => ({
+export const useChatStore = create<ChatState>()(immer((set, get) => ({
   messages: [],
   input: '',
   session_mode: 'storage',
@@ -111,12 +114,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   setInput: (val) => set({ input: val }),
 
-  addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+  addMessage: (msg) => set((s) => { s.messages.push(msg) }),
 
   updateMessageContent: (id, content) =>
-    set((s) => ({
-      messages: s.messages.map((m) => (m.id === id ? { ...m, content } : m)),
-    })),
+    set((s) => {
+      const msg = s.messages.find((m) => m.id === id)
+      if (msg) msg.content = content
+    }),
 
   send: (overrideContent?: string) => {
     const { input, addMessage, sending } = get()
@@ -362,11 +366,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         return
       }
       const data = await res.json()
-      const messages = (data.messages ?? []).map((m: any) => ({
-        ...m,
-        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-      }))
-      set({ messages, history_loaded: true })
+      set((s) => {
+        s.messages = (data.messages ?? []).map((m: any) => ({
+          ...m,
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+        }))
+        s.history_loaded = true
+      })
     } catch (e) {
       console.error('loadHistory error:', e)
       set({ messages: [], history_loaded: true })
@@ -380,4 +386,4 @@ export const useChatStore = create<ChatState>((set, get) => ({
     abort_controller?.abort()
     set({ sending: false, streaming_message_id: null, abort_controller: null })
   },
-}))
+})))

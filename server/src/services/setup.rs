@@ -71,6 +71,11 @@ pub async fn submit_setup(state: &AppState, input: SetupRequest) -> Result<Setup
         privacy_filters: None,
     };
     let user = user::create_user(&state.db, &token_id, &create_input).await?;
+    sqlx::query("UPDATE users SET token_created_at = datetime('now') WHERE token_id = ?1")
+        .bind(&user.token_id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
     set_setup_done(&state.db).await?;
 
     Ok(SetupResponse {

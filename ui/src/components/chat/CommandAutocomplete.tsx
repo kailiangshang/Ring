@@ -24,6 +24,8 @@ const COMMANDS: CommandDef[] = [
   { trigger: '/', cmd: 'skill', subcommands: ['list', 'install', 'remove'], desc: 'Manage skills', context: ['super', 'ring'] },
   { trigger: '/', cmd: 'members', desc: 'Show members', context: ['ring'] },
   { trigger: '/', cmd: 'invite', subcommands: ['open', 'audit'], desc: 'Create invite', context: ['ring'] },
+  { trigger: '/', cmd: 'cross-ring-query', desc: '跨 Ring 搜索知识', context: ['super', 'ring'] },
+  { trigger: '/', cmd: 'cross-ring-analysis', desc: '跨 Ring 分析对比', context: ['super'] },
   { trigger: '@', cmd: 'self', desc: 'Talk to Self', context: ['super', 'ring', 'session'] },
   { trigger: '@', cmd: 'ring', desc: 'Talk to Ring AI', context: ['ring'] },
   { trigger: '@', cmd: 'super', desc: 'Talk to Super Ring', context: ['super', 'ring'] },

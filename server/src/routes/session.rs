@@ -11,7 +11,7 @@ use crate::models::ring;
 use crate::models::session as session_model;
 use crate::models::session::{
     ArchiveToggleInput, CreateSessionInput, InviteParticipantsInput, SessionMaterialRow,
-    SessionParticipantRow,
+    SessionParticipantRow, UpdateMaterialInput, UpdateSummaryInput,
 };
 use crate::services::llm::SseEvent;
 use crate::services::session::{self, SessionResponse};
@@ -340,4 +340,76 @@ pub async fn highlight_material_handler(
     )
     .await?;
     Ok(Json(result))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreateMaterialInput {
+    pub item_type: String,
+    pub title: String,
+    pub content: String,
+}
+
+pub async fn update_material_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, session_id, material_id)): Path<(String, String, String)>,
+    Json(body): Json<UpdateMaterialInput>,
+) -> Result<Json<SessionMaterialRow>> {
+    let result = session::update_material_service(
+        &state,
+        &ring_id,
+        &session_id,
+        &user.token_id,
+        &material_id,
+        &body.title,
+        &body.content,
+    )
+    .await?;
+    Ok(Json(result))
+}
+
+pub async fn create_material_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, session_id)): Path<(String, String)>,
+    Json(body): Json<CreateMaterialInput>,
+) -> Result<Json<SessionMaterialRow>> {
+    let result = session::create_material_service(
+        &state,
+        &ring_id,
+        &session_id,
+        &user.token_id,
+        &body.item_type,
+        &body.title,
+        &body.content,
+    )
+    .await?;
+    Ok(Json(result))
+}
+
+pub async fn update_summary_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, session_id)): Path<(String, String)>,
+    Json(body): Json<UpdateSummaryInput>,
+) -> Result<Json<SessionResponse>> {
+    let result = session::update_summary_service(
+        &state,
+        &ring_id,
+        &session_id,
+        &user.token_id,
+        &body.summary,
+    )
+    .await?;
+    Ok(Json(result))
+}
+
+pub async fn extract_to_graph_handler(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, session_id)): Path<(String, String)>,
+) -> Result<Json<serde_json::Value>> {
+    let suggestions =
+        session::extract_graph_suggestions(&state, &ring_id, &session_id, &user.token_id).await?;
+    Ok(Json(serde_json::json!({ "suggestions": suggestions })))
 }

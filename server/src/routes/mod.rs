@@ -16,9 +16,11 @@ use include_dir::{include_dir, Dir};
 #[cfg(not(debug_assertions))]
 static UI_DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../ui/dist");
 
+use crate::middleware::rate_limit::{rate_limit, RateLimiter};
 use crate::state::AppState;
 
 mod archive;
+mod auth;
 mod blueprint;
 mod chat;
 mod config;
@@ -110,14 +112,23 @@ pub fn build_router(state: AppState) -> Router {
             axum::http::HeaderName::from_static("x-ring-token"),
         ]);
 
+    let strict_limiter = RateLimiter::new(5, 60);
+    let chat_limiter = RateLimiter::new(20, 60);
+
     let api = Router::new()
         .route("/health", get(health::health_check))
         .route("/network/info", get(network::get_network_info))
+        .route("/auth/rotate", post(auth::rotate_token))
         .route("/prompts", get(prompts::list_prompts))
         .route("/ws", get(ws::ws_handler))
         .route("/setup/status", get(setup::get_status))
         .route("/setup/recover", get(setup::recover_token))
-        .route("/setup", post(setup::submit_setup).put(setup::update_setup))
+        .route(
+            "/setup",
+            post(setup::submit_setup).put(setup::update_setup).layer(
+                axum::middleware::from_fn_with_state(strict_limiter, rate_limit),
+            ),
+        )
         .route("/rings", get(rings::list_rings).post(rings::create_ring))
         .route(
             "/rings/{ring_id}",
@@ -161,9 +172,21 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/group-docs/{doc_name}",
             get(group_docs::get_group_doc).put(group_docs::update_group_doc),
         )
-        .route("/rings/{ring_id}/chat", post(chat::ring_chat))
+        .route(
+            "/rings/{ring_id}/chat",
+            post(chat::ring_chat).layer(axum::middleware::from_fn_with_state(
+                chat_limiter.clone(),
+                rate_limit,
+            )),
+        )
         .route("/rings/{ring_id}/chat/history", get(chat::ring_history))
-        .route("/self/chat", post(chat::self_chat))
+        .route(
+            "/self/chat",
+            post(chat::self_chat).layer(axum::middleware::from_fn_with_state(
+                chat_limiter.clone(),
+                rate_limit,
+            )),
+        )
         .route("/self/chat/history", get(chat::self_history))
         .route(
             "/self/identity",
@@ -185,6 +208,7 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route("/self/export", get(self_data::export_data))
         .route("/self/reset", post(self_data::reset_data))
+        .route("/self/greeting", get(self_data::get_greeting))
         .route("/self/memory", get(self_data::list_memories))
         .route(
             "/self/memory/{name}",
@@ -261,12 +285,24 @@ pub fn build_router(state: AppState) -> Router {
             post(session::summarize_session),
         )
         .route(
-            "/rings/{ring_id}/sessions/{session_id}/material-prep",
-            get(session::get_material_prep),
-        )
-        .route(
             "/rings/{ring_id}/sessions/{session_id}/material-prep/highlights",
             post(session::highlight_material_handler),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/material-prep/{material_id}",
+            put(session::update_material_handler),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/material-prep",
+            get(session::get_material_prep).post(session::create_material_handler),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/summary",
+            put(session::update_summary_handler),
+        )
+        .route(
+            "/rings/{ring_id}/sessions/{session_id}/extract-to-graph",
+            post(session::extract_to_graph_handler),
         )
         .route("/rings/{ring_id}/archive", post(archive::trigger_archive))
         .route(
@@ -320,7 +356,13 @@ pub fn build_router(state: AppState) -> Router {
             "/rings/{ring_id}/blueprint/chat/history",
             get(blueprint::blueprint_history),
         )
-        .route("/super/chat", post(super_chat::super_chat_handler))
+        .route(
+            "/super/chat",
+            post(super_chat::super_chat_handler).layer(axum::middleware::from_fn_with_state(
+                chat_limiter,
+                rate_limit,
+            )),
+        )
         .route("/super/chat/history", get(super_chat::super_history))
         .route(
             "/super/system-prompt",

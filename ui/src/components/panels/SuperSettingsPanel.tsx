@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, testLLMConfig } from '../../services/api'
+import { useAuthStore } from '../../stores/auth-store'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -66,6 +67,8 @@ export function SuperSettingsPanel() {
   const [gitlabToken, setGitlabToken] = useState('')
   const [gitlabTesting, setGitlabTesting] = useState(false)
   const [gitlabResult, setGitlabResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [rotateResult, setRotateResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const setAuth = useAuthStore((s) => s.setAuth)
 
   useEffect(() => {
     api.get<{ provider: string; model: string; api_key_set: boolean; base_url: string | null }>('/config/llm')
@@ -140,6 +143,17 @@ export function SuperSettingsPanel() {
     }
   }
 
+  const handleRotateToken = async () => {
+    setRotateResult(null)
+    try {
+      const res = await api.post<{ token_id: string }>('/auth/rotate', {})
+      setAuth(res.token_id, '', null)
+      setRotateResult({ ok: true, message: 'Token rotated successfully' })
+    } catch (e: unknown) {
+      setRotateResult({ ok: false, message: e instanceof Error ? e.message : 'Rotation failed' })
+    }
+  }
+
   return (
     <div style={{ fontSize: 12 }}>
       <p style={{ ...sectionTitle, marginTop: 0 }}>LLM Config</p>
@@ -188,6 +202,12 @@ export function SuperSettingsPanel() {
         {gitlabTesting ? 'TESTING...' : 'TEST CONNECTION'}
       </button>
       <ResultMsg result={gitlabResult} />
+
+      <p style={sectionTitle}>Auth Token</p>
+      <button onClick={handleRotateToken} style={{ ...smallBtn, border: '1px solid #f59e0b', color: '#f59e0b', background: 'transparent', marginBottom: 8 }}>
+        RESET TOKEN
+      </button>
+      <ResultMsg result={rotateResult} />
     </div>
   )
 }

@@ -135,6 +135,23 @@ struct CreateRingArgs {
     storage_mode: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+struct SearchRingsArgs {
+    query: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ManageRingMembersArgs {
+    action: String,
+    ring_name: String,
+    target_user_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct GetRingGraphArgs {
+    ring_name: String,
+}
+
 pub fn get_super_tools() -> Vec<ChatCompletionTool> {
     vec![
         ChatCompletionTool {
@@ -279,6 +296,81 @@ pub fn get_super_tools() -> Vec<ChatCompletionTool> {
                 strict: None,
             },
         },
+        ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "search_rings".to_string(),
+                description: Some(
+                    "Search across all Rings for relevant knowledge. Returns top 10 matching results.".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "query": {
+                                "type": "string",
+                                "description": "Search query"
+                            }
+                        },
+                        "required": ["query"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
+        ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "manage_ring_members".to_string(),
+                description: Some(
+                    "管理 Ring 成员。支持 list（列出成员）、invite（邀请成员）、remove（移除成员）。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["list", "invite", "remove"],
+                                "description": "操作类型"
+                            },
+                            "ring_name": {
+                                "type": "string",
+                                "description": "Ring 名称"
+                            },
+                            "target_user_id": {
+                                "type": "string",
+                                "description": "目标用户 ID（invite/remove 时必填）"
+                            }
+                        },
+                        "required": ["action", "ring_name"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
+        ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "get_ring_graph".to_string(),
+                description: Some(
+                    "获取 Ring 的图谱结构概要，包括所有节点和边。用于了解 Ring 的知识图谱。".to_string(),
+                ),
+                parameters: Some(
+                    serde_json::json!({
+                        "type": "object",
+                        "properties": {
+                            "ring_name": {
+                                "type": "string",
+                                "description": "Ring 名称"
+                            }
+                        },
+                        "required": ["ring_name"]
+                    }),
+                ),
+                strict: None,
+            },
+        },
     ]
 }
 
@@ -360,6 +452,22 @@ pub async fn execute_tool(
             let state = state.ok_or_else(|| RingError::BadRequest("state not available".into()))?;
             execute_create_ring(state, user_id, args).await
         }
+        "search_rings" => {
+            let args: SearchRingsArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            execute_search_rings(pool, user_id, &args.query).await
+        }
+        "manage_ring_members" => {
+            let args: ManageRingMembersArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            let state = state.ok_or_else(|| RingError::BadRequest("state not available".into()))?;
+            execute_manage_ring_members(state, user_id, args).await
+        }
+        "get_ring_graph" => {
+            let args: GetRingGraphArgs = serde_json::from_str(arguments)
+                .map_err(|e| RingError::BadRequest(format!("invalid tool arguments: {e}")))?;
+            execute_get_ring_graph(pool, user_id, &args.ring_name).await
+        }
         _ => Err(RingError::BadRequest(format!("unknown tool: {tool_name}"))),
     }
 }
@@ -434,6 +542,152 @@ async fn execute_query_rings(pool: &sqlx::SqlitePool, user_id: &str) -> Result<S
     Ok(build_ring_summary(pool, user_id).await)
 }
 
+async fn execute_search_rings(
+    pool: &sqlx::SqlitePool,
+    user_id: &str,
+    query: &str,
+) -> Result<String> {
+    let ring_ids = crate::services::search::get_user_ring_ids(pool, user_id)
+        .await
+        .unwrap_or_default();
+    if ring_ids.is_empty() {
+        return Ok("用户目前没有任何 Ring。".to_string());
+    }
+    let results = crate::services::search::search_cross_ring(pool, &ring_ids, query, 10)
+        .await
+        .unwrap_or_default();
+    if results.is_empty() {
+        return Ok("未找到相关结果。".to_string());
+    }
+    Ok(crate::services::search::format_search_context(&results))
+}
+
+async fn resolve_ring_id_by_name(
+    pool: &sqlx::SqlitePool,
+    user_id: &str,
+    ring_name: &str,
+) -> Result<Option<String>> {
+    let ring_id: Option<String> = sqlx::query_scalar(
+        "SELECT r.id FROM rings r
+         JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
+         WHERE r.name LIKE ?2",
+    )
+    .bind(user_id)
+    .bind(format!("%{ring_name}%"))
+    .fetch_optional(pool)
+    .await?
+    .flatten();
+    Ok(ring_id)
+}
+
+async fn execute_manage_ring_members(
+    state: &AppState,
+    user_id: &str,
+    args: ManageRingMembersArgs,
+) -> Result<String> {
+    let ring_id = resolve_ring_id_by_name(&state.db, user_id, &args.ring_name).await?;
+    let ring_id = match ring_id {
+        Some(id) => id,
+        None => return Ok(format!("未找到名为「{}」的 Ring。", args.ring_name)),
+    };
+
+    match args.action.as_str() {
+        "list" => {
+            let members = crate::services::member::list_members(state, &ring_id, user_id).await?;
+            let mut result = format!("## Ring「{}」的成员\n\n", args.ring_name);
+            for m in &members {
+                result.push_str(&format!(
+                    "- {} ({}): {}\n",
+                    m.display_name, m.role, m.token_id
+                ));
+            }
+            Ok(result)
+        }
+        "invite" => {
+            let target_id = match args.target_user_id {
+                Some(ref id) if !id.is_empty() => id.clone(),
+                _ => return Ok("invite 操作需要 target_user_id 参数。".to_string()),
+            };
+            match crate::services::member::add_member_service(state, &ring_id, user_id, &target_id)
+                .await
+            {
+                Ok(_) => Ok(format!(
+                    "已将用户 {} 添加到 Ring「{}」。",
+                    target_id, args.ring_name
+                )),
+                Err(e) => Ok(format!("添加成员失败：{e}")),
+            }
+        }
+        "remove" => {
+            let target_id = match args.target_user_id {
+                Some(ref id) if !id.is_empty() => id.clone(),
+                _ => return Ok("remove 操作需要 target_user_id 参数。".to_string()),
+            };
+            match crate::services::member::remove_member(state, &ring_id, user_id, &target_id).await
+            {
+                Ok(_) => Ok(format!(
+                    "已将用户 {} 从 Ring「{}」移除。",
+                    target_id, args.ring_name
+                )),
+                Err(e) => Ok(format!("移除成员失败：{e}")),
+            }
+        }
+        _ => Ok(format!(
+            "未知操作 '{}'。支持: list, invite, remove",
+            args.action
+        )),
+    }
+}
+
+async fn execute_get_ring_graph(
+    pool: &sqlx::SqlitePool,
+    user_id: &str,
+    ring_name: &str,
+) -> Result<String> {
+    let ring_id = resolve_ring_id_by_name(pool, user_id, ring_name).await?;
+    let ring_id = match ring_id {
+        Some(id) => id,
+        None => return Ok(format!("未找到名为「{ring_name}」的 Ring。")),
+    };
+
+    let g = crate::models::graph::ensure_default_graph(pool, &ring_id).await?;
+    let nodes = crate::models::graph::list_nodes(pool, &g.id).await?;
+    let edges = crate::models::graph::list_edges(pool, &g.id).await?;
+
+    let mut result = format!("## Ring「{ring_name}」图谱概要\n\n");
+    result.push_str(&format!("### 节点（共 {} 个）\n\n", nodes.len()));
+    for node in &nodes {
+        result.push_str(&format!(
+            "- {} [{}] {}\n",
+            node.label,
+            node.node_type,
+            if node.tags == "[]" {
+                String::new()
+            } else {
+                format!("tags: {}", node.tags)
+            }
+        ));
+    }
+    result.push_str(&format!("\n### 边（共 {} 个）\n\n", edges.len()));
+    for edge in &edges {
+        let source_label = nodes
+            .iter()
+            .find(|n| n.id == edge.source_id)
+            .map(|n| n.label.as_str())
+            .unwrap_or(&edge.source_id);
+        let target_label = nodes
+            .iter()
+            .find(|n| n.id == edge.target_id)
+            .map(|n| n.label.as_str())
+            .unwrap_or(&edge.target_id);
+        result.push_str(&format!(
+            "- {} → {} ({})\n",
+            source_label, target_label, edge.relation
+        ));
+    }
+    Ok(result)
+}
+
 async fn execute_create_ring(
     state: &AppState,
     user_id: &str,
@@ -480,9 +734,24 @@ pub async fn execute_query_ring_detail(
         None => return Ok(format!("未找到名为「{ring_name}」的 Ring。")),
     };
 
+    let rings_dir = rings_dir.to_path_buf();
+    let ring_id_clone = ring_id.clone();
+    let result =
+        tokio::task::spawn_blocking(move || read_ring_detail_sync(&rings_dir, &ring_id_clone))
+            .await
+            .map_err(|e| RingError::Internal(format!("blocking task failed: {e}")))?;
+
+    if result.is_empty() {
+        Ok(format!("Ring「{ring_name}」暂无图谱和归档数据。"))
+    } else {
+        Ok(result)
+    }
+}
+
+fn read_ring_detail_sync(rings_dir: &Path, ring_id: &str) -> String {
     let mut result = String::new();
 
-    let graph_path = rings_dir.join(&ring_id).join("graph.json");
+    let graph_path = rings_dir.join(ring_id).join("graph.json");
     if graph_path.exists() {
         match std::fs::read_to_string(&graph_path) {
             Ok(content) => {
@@ -514,7 +783,7 @@ pub async fn execute_query_ring_detail(
         }
     }
 
-    let archives_dir = rings_dir.join(&ring_id).join("archives");
+    let archives_dir = rings_dir.join(ring_id).join("archives");
     if archives_dir.exists() {
         let mut entries: Vec<std::fs::DirEntry> = std::fs::read_dir(&archives_dir)
             .map(|rd| rd.filter_map(|e| e.ok()).collect())
@@ -540,11 +809,7 @@ pub async fn execute_query_ring_detail(
         }
     }
 
-    if result.is_empty() {
-        Ok(format!("Ring「{ring_name}」暂无图谱和归档数据。"))
-    } else {
-        Ok(result)
-    }
+    result
 }
 
 async fn save_super_message(
@@ -691,9 +956,29 @@ async fn stream_super_chat_inner(
         },
     );
 
+    let (msg_id, full_content) = forward_sse_stream(&mut rx, tx).await;
+
+    if let Some(mid) = msg_id {
+        save_super_message(
+            &state.db,
+            &mid,
+            &user.token_id,
+            "super_ring",
+            &full_content,
+            None,
+        )
+        .await;
+    }
+
+    Ok(())
+}
+
+async fn forward_sse_stream(
+    rx: &mut tokio::sync::mpsc::Receiver<SseEvent>,
+    tx: &tokio::sync::mpsc::Sender<SseEvent>,
+) -> (Option<String>, String) {
     let mut full_content = String::new();
     let mut msg_id: Option<String> = None;
-
     while let Some(event) = rx.recv().await {
         match &event {
             SseEvent::Start { message_id, .. } => {
@@ -712,20 +997,7 @@ async fn stream_super_chat_inner(
             }
         }
     }
-
-    if let Some(mid) = msg_id {
-        save_super_message(
-            &state.db,
-            &mid,
-            &user.token_id,
-            "super_ring",
-            &full_content,
-            None,
-        )
-        .await;
-    }
-
-    Ok(())
+    (msg_id, full_content)
 }
 
 pub async fn get_super_history(
@@ -792,27 +1064,7 @@ async fn stream_cross_ring_query_inner(
 
     let mut rx = llm.chat_stream(system_prompt, vec![], query, "super_ring".to_string());
 
-    let mut full_content = String::new();
-    let mut msg_id: Option<String> = None;
-
-    while let Some(event) = rx.recv().await {
-        match &event {
-            SseEvent::Start { message_id, .. } => {
-                msg_id = Some(message_id.clone());
-                let _ = tx.send(event).await;
-            }
-            SseEvent::Delta { content: delta } => {
-                full_content.push_str(delta);
-                let _ = tx.send(event).await;
-            }
-            SseEvent::End { .. } => {
-                let _ = tx.send(event).await;
-            }
-            SseEvent::Error(_) => {
-                let _ = tx.send(event).await;
-            }
-        }
-    }
+    let (msg_id, full_content) = forward_sse_stream(&mut rx, tx).await;
 
     if let Some(mid) = msg_id {
         save_super_message(
@@ -906,27 +1158,7 @@ async fn stream_cross_ring_analysis_inner(
         "super_ring".to_string(),
     );
 
-    let mut full_content = String::new();
-    let mut msg_id: Option<String> = None;
-
-    while let Some(event) = rx.recv().await {
-        match &event {
-            SseEvent::Start { message_id, .. } => {
-                msg_id = Some(message_id.clone());
-                let _ = tx.send(event).await;
-            }
-            SseEvent::Delta { content: delta } => {
-                full_content.push_str(delta);
-                let _ = tx.send(event).await;
-            }
-            SseEvent::End { .. } => {
-                let _ = tx.send(event).await;
-            }
-            SseEvent::Error(_) => {
-                let _ = tx.send(event).await;
-            }
-        }
-    }
+    let (msg_id, full_content) = forward_sse_stream(&mut rx, tx).await;
 
     if let Some(mid) = msg_id {
         save_super_message(

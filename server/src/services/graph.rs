@@ -3,8 +3,33 @@ use crate::models::graph;
 use crate::services::git_service::GitService;
 use crate::state::AppState;
 
-use serde::Serialize;
-use std::path::PathBuf;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct DocRef {
+    pub path: String,
+    pub title: String,
+    #[serde(rename = "type")]
+    pub doc_type: String,
+}
+
+pub fn get_node_doc_refs(metadata: &str) -> Vec<DocRef> {
+    let val: serde_json::Value = serde_json::from_str(metadata).unwrap_or_default();
+    val.get("doc_refs")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default()
+}
+
+pub fn resolve_doc_content(rings_dir: &Path, ring_id: &str, doc_ref: &DocRef) -> Option<String> {
+    let path = rings_dir.join(ring_id).join(&doc_ref.path);
+    if path.exists() {
+        let content = std::fs::read_to_string(&path).ok()?;
+        Some(content.chars().take(5000).collect())
+    } else {
+        None
+    }
+}
 
 #[derive(Debug, Serialize)]
 pub struct GraphResponse {

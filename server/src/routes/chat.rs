@@ -123,6 +123,7 @@ pub async fn ring_chat(
             &ring_info.0,
             ring_info.1.as_deref(),
             &ring_id,
+            Some(&state.rings_dir),
         )
         .await;
         let history =
@@ -331,11 +332,16 @@ pub async fn self_chat(
         request_start.elapsed().as_secs_f64()
     );
 
-    if let Err(e) = chat::auto_compact_history(&state, &user_row, None, &user.token_id).await {
-        tracing::warn!("failed to auto compact history: {e}");
+    {
+        let state_c = state.clone();
+        let user_row_c = user_row.clone();
+        let token_id_c = user.token_id.clone();
+        tokio::spawn(async move {
+            let _ = chat::auto_compact_history(&state_c, &user_row_c, None, &token_id_c).await;
+        });
     }
     tracing::info!(
-        "self_chat route: auto_compact_history done at {:?}",
+        "self_chat route: auto_compact_history spawned at {:?}",
         request_start.elapsed().as_secs_f64()
     );
 

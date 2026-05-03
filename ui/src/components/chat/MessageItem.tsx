@@ -13,6 +13,7 @@ interface ExtractedConcept {
   label: string
   node_type: string
   tags: string[]
+  match?: string | null
 }
 
 interface ExtractionData {
@@ -68,8 +69,12 @@ function ExtractionCard({
             key={i}
             style={{
               fontSize: 9,
-              background:
-                c.node_type === 'category'
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              background: c.match
+                ? 'rgba(52,211,153,0.15)'
+                : c.node_type === 'category'
                   ? 'rgba(34,211,238,0.15)'
                   : c.node_type === 'leaf'
                     ? 'rgba(52,211,153,0.15)'
@@ -80,6 +85,17 @@ function ExtractionCard({
             }}
           >
             {c.label}
+            {c.match ? (
+              <span style={{
+                fontSize: 8,
+                background: 'rgba(52,211,153,0.3)',
+                padding: '0 3px',
+                borderRadius: 2,
+                color: 'var(--accent-green, #34d399)',
+              }}>
+                关联已有节点
+              </span>
+            ) : null}
           </span>
         ))}
       </div>

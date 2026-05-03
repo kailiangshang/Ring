@@ -319,3 +319,55 @@ pub fn export_all_data(self_dir: &Path) -> Result<serde_json::Value> {
 
     Ok(serde_json::Value::Object(result))
 }
+
+pub struct GreetingContext {
+    pub date: String,
+    pub user_profile: String,
+    pub active_goals: String,
+    pub most_active_ring: String,
+}
+
+pub fn build_greeting_context(self_dir: &Path, metrics: &serde_json::Value) -> GreetingContext {
+    let date = chrono::Local::now().format("%Y年%m月%d日").to_string();
+    let (user_profile, _) =
+        crate::services::self_memory::read_memory_file_sync(self_dir, "user_profile")
+            .unwrap_or_default();
+    let (active_goals, _) =
+        crate::services::self_memory::read_memory_file_sync(self_dir, "active_goals")
+            .unwrap_or_default();
+    let chat_patterns = metrics.get("chat_patterns");
+    let mut ring_entries: Vec<(String, i64)> = Vec::new();
+    if let Some(Some(obj)) = chat_patterns.map(|v| v.as_object()) {
+        for (key, val) in obj {
+            if let Some(ring_id) = key.strip_prefix("ring_") {
+                if let Some(count) = val.as_i64() {
+                    ring_entries.push((ring_id.to_string(), count));
+                }
+            }
+        }
+    }
+    let most_active_ring = if !ring_entries.is_empty() {
+        ring_entries.sort_by(|a, b| b.1.cmp(&a.1));
+        ring_entries[0].0.clone()
+    } else {
+        String::new()
+    };
+    GreetingContext {
+        date,
+        user_profile,
+        active_goals,
+        most_active_ring,
+    }
+}
+
+pub fn check_first_today(self_dir: &Path) -> bool {
+    let metrics = read_metrics(self_dir);
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let daily_key = format!("daily_{}", today);
+    if let Some(cp) = metrics.get("chat_patterns") {
+        if cp.get(&daily_key).and_then(|v| v.as_i64()).unwrap_or(0) > 0 {
+            return false;
+        }
+    }
+    true
+}

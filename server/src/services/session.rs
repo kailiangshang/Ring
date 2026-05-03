@@ -533,6 +533,61 @@ pub async fn highlight_material(
     session::update_material_highlight(&state.db, material_id, note).await
 }
 
+pub async fn update_material_service(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+    material_id: &str,
+    title: &str,
+    content: &str,
+) -> Result<session::SessionMaterialRow> {
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
+    if !session::is_participant(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden("not a session participant".into()));
+    }
+    session::update_material(&state.db, material_id, title, content).await
+}
+
+pub async fn create_material_service(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+    item_type: &str,
+    title: &str,
+    content: &str,
+) -> Result<session::SessionMaterialRow> {
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
+    if !session::is_participant(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden("not a session participant".into()));
+    }
+    let id = ulid::Ulid::new().to_string();
+    session::create_material(&state.db, &id, session_id, item_type, title, content).await
+}
+
+pub async fn update_summary_service(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+    summary: &str,
+) -> Result<SessionResponse> {
+    let role = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    ring::reject_readonly(&role)?;
+    if !session::is_owner(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden("only owner can edit summary".into()));
+    }
+    let session = session::set_summary(&state.db, session_id, summary).await?;
+    let participants = session::get_participants(&state.db, session_id).await?;
+    Ok(SessionResponse {
+        session,
+        participants,
+    })
+}
+
 pub struct SummarizeContext {
     pub session_id: String,
     pub skill: String,
@@ -568,4 +623,86 @@ pub fn start_summarize_stream(
         "session_ring".to_string(),
     );
     Ok(rx)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub async fn generate_session_ai_response(
+    state: &AppState,
+    _ring_id: &str,
+    _session_id: &str,
+    skill: &str,
+    materials_text: &str,
+    messages_text: &str,
+    trigger_message: &str,
+    user_row: &user::UserRow,
+) -> Result<String> {
+    let system_prompt = crate::services::skill::load_skill_prompt(skill, &state.skills_dir)
+        .or_else(|| crate::services::skill::build_summary_system_prompt(skill))
+        .unwrap_or_else(|| "You are a helpful session AI assistant.".to_string());
+
+    let filters = user_row
+        .privacy_filters
+        .as_deref()
+        .map(PrivacyFilters::from_json)
+        .unwrap_or_default();
+    let filtered_messages = apply_filters(messages_text, &filters);
+    let filtered_trigger = apply_filters(trigger_message, &filters);
+
+    let user_message = format!(
+        "Session materials:\n{}\n\nRecent discussion:\n{}\n\nA participant mentioned you: {}\n\nPlease respond helpfully to the discussion.",
+        materials_text, filtered_messages, filtered_trigger
+    );
+
+    let llm = LlmClient::from_user(user_row)?;
+    let response = llm
+        .chat_complete(format!("{system_prompt}\n\nYou are participating in a group discussion. Respond concisely and helpfully in the same language as the discussion."), user_message)
+        .await?;
+    Ok(response)
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct GraphSuggestion {
+    pub title: String,
+    pub content: String,
+}
+
+pub async fn extract_graph_suggestions(
+    state: &AppState,
+    ring_id: &str,
+    session_id: &str,
+    user_id: &str,
+) -> Result<Vec<GraphSuggestion>> {
+    let _ = ring::get_user_role(&state.db, ring_id, user_id).await?;
+    if !session::is_participant(&state.db, session_id, user_id).await? {
+        return Err(RingError::Forbidden("not a session participant".into()));
+    }
+    let sess = session::get_session(&state.db, session_id).await?;
+    let summary = sess
+        .summary
+        .ok_or_else(|| RingError::BadRequest("session has no summary".into()))?;
+
+    let user_row = state.get_user_decrypted(user_id).await?;
+    let system_prompt = crate::prompts::archive::EXTRACT_SYSTEM.to_string();
+    let user_message = format!(
+        "Session 标题: {}\nSkill: {}\n\nSummary:\n{}",
+        sess.title, sess.skill, summary
+    );
+
+    let llm = LlmClient::from_user(&user_row)?;
+    let response = llm.chat_complete(system_prompt, user_message).await?;
+
+    let cleaned = response.trim();
+    let json_str = if cleaned.starts_with("```") {
+        cleaned
+            .lines()
+            .skip(1)
+            .take_while(|l| !l.starts_with("```"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        cleaned.to_string()
+    };
+
+    let units: Vec<GraphSuggestion> = serde_json::from_str(&json_str).unwrap_or_default();
+    Ok(units)
 }

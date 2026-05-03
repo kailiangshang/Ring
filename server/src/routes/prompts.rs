@@ -48,7 +48,7 @@ pub async fn list_prompts() -> Json<Vec<PromptEntry>> {
         PromptEntry {
             module: "workflow".into(),
             name: "file_parse".into(),
-            content: crate::prompts::workflow::file_parse_extraction(None),
+            content: crate::prompts::workflow::file_parse_extraction(None, None),
         },
         PromptEntry {
             module: "workflow".into(),

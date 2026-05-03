@@ -6,21 +6,33 @@ use crate::services::llm::LlmClient;
 
 const MEMORY_DIR: &str = "memory";
 const MAX_FILE_CHARS: usize = 2000;
-const MEMORY_FILES: &[&str] = &["user_profile", "preferences", "active_goals", "growth"];
+const MAX_TOTAL_MEMORY_CHARS: usize = 3000;
+const DEFAULT_MEMORY_FILES: &[&str] = &["user_profile", "preferences", "active_goals", "growth"];
 
 fn ensure_memory_dir(self_dir: &Path) -> PathBuf {
     let dir = self_dir.join(MEMORY_DIR);
     let _ = std::fs::create_dir_all(&dir);
+    for name in DEFAULT_MEMORY_FILES {
+        let path = dir.join(format!("{name}.md"));
+        if !path.exists() {
+            let _ = std::fs::write(&path, "");
+        }
+    }
     dir
 }
 
-fn read_memory_file_sync(self_dir: &Path, name: &str) -> Result<(String, bool)> {
+pub fn read_memory_file_sync(self_dir: &Path, name: &str) -> Result<(String, bool)> {
     validate_memory_name(name)?;
     let path = ensure_memory_dir(self_dir).join(format!("{name}.md"));
     if !path.exists() {
         return Ok((String::new(), false));
     }
-    Ok((std::fs::read_to_string(&path)?, true))
+    let content = std::fs::read_to_string(&path)?;
+    if content.is_empty() {
+        Ok((String::new(), false))
+    } else {
+        Ok((content, true))
+    }
 }
 
 fn write_memory_file_sync(self_dir: &Path, name: &str, content: &str) -> Result<()> {
@@ -31,9 +43,11 @@ fn write_memory_file_sync(self_dir: &Path, name: &str, content: &str) -> Result<
 }
 
 fn list_memory_files_sync(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
-    let _dir = ensure_memory_dir(self_dir);
+    let dir = ensure_memory_dir(self_dir);
     let mut files = Vec::new();
-    for name in MEMORY_FILES {
+    let mut seen = std::collections::HashSet::new();
+    for name in DEFAULT_MEMORY_FILES {
+        seen.insert(name.to_string());
         let (content, exists) = read_memory_file_sync(self_dir, name)?;
         let line_count = if exists {
             content.lines().filter(|l| !l.trim().is_empty()).count()
@@ -46,6 +60,33 @@ fn list_memory_files_sync(self_dir: &Path) -> Result<Vec<serde_json::Value>> {
             "line_count": line_count,
             "size": content.len(),
         }));
+    }
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            if seen.contains(stem) {
+                continue;
+            }
+            if validate_memory_name(stem).is_err() {
+                continue;
+            }
+            let (content, exists) = read_memory_file_sync(self_dir, stem)?;
+            let line_count = if exists {
+                content.lines().filter(|l| !l.trim().is_empty()).count()
+            } else {
+                0
+            };
+            files.push(serde_json::json!({
+                "name": stem,
+                "exists": exists,
+                "line_count": line_count,
+                "size": content.len(),
+            }));
+        }
     }
     Ok(files)
 }
@@ -92,27 +133,70 @@ pub async fn delete_memory_file(self_dir: &Path, name: &str) -> Result<()> {
 }
 
 fn validate_memory_name(name: &str) -> Result<()> {
-    if !MEMORY_FILES.contains(&name) {
+    if name.is_empty() || name.len() > 64 {
         return Err(RingError::BadRequest(format!(
-            "invalid memory file: {name}"
+            "invalid memory file name: {name}"
+        )));
+    }
+    if name.contains("..") {
+        return Err(RingError::BadRequest("invalid memory file name".into()));
+    }
+    if name.starts_with('.') {
+        return Err(RingError::BadRequest("invalid memory file name".into()));
+    }
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-')
+    {
+        return Err(RingError::BadRequest(format!(
+            "invalid memory file name: {name}"
         )));
     }
     Ok(())
 }
 
 fn build_memory_context_sync(self_dir: &Path) -> String {
+    let dir = ensure_memory_dir(self_dir);
     let mut ctx = String::new();
-    for name in MEMORY_FILES {
+    let mut total_chars = 0;
+
+    let mut entries: Vec<String> = Vec::new();
+    if let Ok(dir_entries) = std::fs::read_dir(&dir) {
+        for entry in dir_entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                if validate_memory_name(stem).is_ok() {
+                    entries.push(stem.to_string());
+                }
+            }
+        }
+    }
+    entries.sort();
+
+    for name in &entries {
+        if total_chars >= MAX_TOTAL_MEMORY_CHARS {
+            break;
+        }
         if let Ok((content, exists)) = read_memory_file_sync(self_dir, name) {
             if exists && !content.trim().is_empty() {
-                let label = match *name {
+                let remaining = MAX_TOTAL_MEMORY_CHARS.saturating_sub(total_chars);
+                let truncated = if content.len() > remaining {
+                    &content[..remaining]
+                } else {
+                    &content
+                };
+                let label = match name.as_str() {
                     "user_profile" => "用户画像",
                     "preferences" => "偏好",
                     "active_goals" => "当前目标",
                     "growth" => "成长轨迹",
                     _ => name,
                 };
-                ctx.push_str(&format!("### {label}\n{content}\n\n"));
+                ctx.push_str(&format!("### {label}\n{truncated}\n\n"));
+                total_chars += truncated.len();
             }
         }
     }
@@ -206,11 +290,20 @@ pub async fn extract_memories(
 
 pub async fn check_and_compress(user: &UserRow, user_id: &str) -> Result<()> {
     let self_dir = crate::services::self_data::get_self_dir(user_id);
-    for name in MEMORY_FILES {
-        if let Ok((content, exists)) = read_memory_file(&self_dir, name).await {
-            if exists && content.len() > MAX_FILE_CHARS {
-                if let Ok(llm) = LlmClient::from_user(user) {
-                    compress_memory_file(llm, &self_dir, name, &content).await;
+    let dir = self_dir.join(MEMORY_DIR);
+    if let Ok(entries) = std::fs::read_dir(&dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("md") {
+                continue;
+            }
+            if let Some(name) = path.file_stem().and_then(|s| s.to_str()) {
+                if let Ok((content, exists)) = read_memory_file(&self_dir, name).await {
+                    if exists && content.len() > MAX_FILE_CHARS {
+                        if let Ok(llm) = LlmClient::from_user(user) {
+                            compress_memory_file(llm, &self_dir, name, &content).await;
+                        }
+                    }
                 }
             }
         }

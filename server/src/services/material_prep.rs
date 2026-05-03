@@ -37,6 +37,33 @@ pub async fn generate_materials(
         .collect::<Vec<_>>()
         .join("\n");
 
+    let archives_dir = state.rings_dir.join(ring_id).join("archives");
+    let mut archive_context = String::new();
+    if archives_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&archives_dir) {
+            let mut md_files: Vec<std::path::PathBuf> = entries
+                .flatten()
+                .filter(|e| e.path().extension().is_some_and(|ext| ext == "md"))
+                .map(|e| e.path())
+                .collect();
+            md_files.sort_by_cached_key(|f| {
+                std::fs::metadata(f)
+                    .and_then(|m| m.modified())
+                    .unwrap_or(std::time::SystemTime::UNIX_EPOCH)
+            });
+            for path in md_files.iter().rev().take(5) {
+                if let Ok(content) = std::fs::read_to_string(path) {
+                    let truncated: String = content.chars().take(2000).collect();
+                    let name = path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    archive_context.push_str(&format!("\n--- {} ---\n{}\n", name, truncated));
+                }
+            }
+        }
+    }
+
     let filters = user
         .privacy_filters
         .as_deref()
@@ -45,10 +72,25 @@ pub async fn generate_materials(
     let filtered_title = apply_filters(title, &filters);
     let filtered_description = apply_filters(description, &filters);
     let filtered_context = apply_filters(&context, &filters);
+    let filtered_archive = apply_filters(&archive_context, &filters);
+
+    let archive_section = if filtered_archive.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\n<recent_archives>\n{}</recent_archives>",
+            filtered_archive
+        )
+    };
 
     let prompt = format!(
-        "{}\nSkill: {}\n标题: {}\n描述: {}\n\n群组图谱上下文:\n{}",
-        MATERIAL_PREP_PROMPT, skill, filtered_title, filtered_description, filtered_context
+        "{}\nSkill: {}\n标题: {}\n描述: {}\n\n群组图谱上下文:\n{}{}",
+        MATERIAL_PREP_PROMPT,
+        skill,
+        filtered_title,
+        filtered_description,
+        filtered_context,
+        archive_section
     );
 
     let llm = LlmClient::from_user(user)?;

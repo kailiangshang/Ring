@@ -37,7 +37,41 @@ pub async fn execute_file_parse(
     let file_text = row.0;
     let truncated: String = file_text.chars().take(30000).collect();
 
-    let prompt = crate::prompts::workflow::file_parse_extraction(args.focus.as_deref());
+    let ring_id: Option<String> = sqlx::query_scalar("SELECT ring_id FROM messages WHERE id = ?1")
+        .bind(&args.file_reference)
+        .fetch_optional(pool)
+        .await?
+        .flatten();
+
+    let existing_labels = if let Some(ref rid) = ring_id {
+        let g = crate::models::graph::ensure_default_graph(pool, rid)
+            .await
+            .ok();
+        if let Some(graph) = g {
+            let nodes = crate::models::graph::list_nodes(pool, &graph.id)
+                .await
+                .unwrap_or_default();
+            let labels: Vec<String> = nodes.iter().map(|n| n.label.clone()).collect();
+            if labels.is_empty() {
+                String::new()
+            } else {
+                labels.join(", ")
+            }
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    let prompt = crate::prompts::workflow::file_parse_extraction(
+        args.focus.as_deref(),
+        if existing_labels.is_empty() {
+            None
+        } else {
+            Some(&existing_labels)
+        },
+    );
     let llm = LlmClient::from_user(user)?;
     let result = llm.chat_complete(prompt, truncated).await?;
     Ok(result)
@@ -129,7 +163,22 @@ pub async fn execute_fetch_url(args: &FetchUrlArgs) -> Result<String> {
 
     let text = if is_html {
         let html = String::from_utf8_lossy(&body);
-        strip_html(&html)
+        let title = extract_html_title(&html);
+        let main_content = extract_main_content(&html);
+        if !main_content.is_empty() {
+            format!(
+                "Title: {}\n\n{}",
+                title.unwrap_or_default(),
+                strip_html(&main_content)
+            )
+        } else {
+            let stripped = strip_html(&html);
+            if let Some(t) = title {
+                format!("Title: {}\n\n{}", t, stripped)
+            } else {
+                stripped
+            }
+        }
     } else {
         String::from_utf8_lossy(&body).to_string()
     };
@@ -144,6 +193,38 @@ pub async fn execute_fetch_url(args: &FetchUrlArgs) -> Result<String> {
     } else {
         Ok(format!("## Source: {}\n\n{}", args.url, truncated))
     }
+}
+
+fn extract_html_title(html: &str) -> Option<String> {
+    let lower = html.to_lowercase();
+    let start = lower.find("<title>")?;
+    let end = lower.find("</title>")?;
+    if end <= start + 7 {
+        return None;
+    }
+    let title = html[start + 7..end].trim().to_string();
+    if title.is_empty() {
+        None
+    } else {
+        Some(title)
+    }
+}
+
+fn extract_main_content(html: &str) -> String {
+    let lower = html.to_lowercase();
+    for tag in &["article", "main"] {
+        let open = format!("<{}", tag);
+        let close = format!("</{}>", tag);
+        if let Some(s) = lower.find(&open) {
+            if let Some(gt) = lower[s..].find('>') {
+                let tag_end = s + gt + 1;
+                if let Some(e) = lower[tag_end..].find(&close) {
+                    return html[tag_end..tag_end + e].to_string();
+                }
+            }
+        }
+    }
+    String::new()
 }
 
 fn strip_html(html: &str) -> String {

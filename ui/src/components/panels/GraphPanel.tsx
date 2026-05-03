@@ -1,11 +1,32 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useGraphStore } from '../../stores/graph-store'
 import { useRingStore } from '../../stores/ring-store'
 import { exportRingGraph } from '../../services/api'
+import { api } from '../../services/api'
 import { GraphCanvas } from './GraphCanvas'
 import { NodeTreeList } from './NodeTreeList'
+import type { EdgeRelation } from '../../types/graph'
+
+interface DocRef {
+  path: string
+  title: string
+  type: string
+}
 
 type ViewMode = 'canvas' | 'tree'
+
+const EDGE_RELATIONS: { value: EdgeRelation; label: string }[] = [
+  { value: 'related_to', label: 'related_to' },
+  { value: 'depends_on', label: 'depends_on' },
+  { value: 'derives_from', label: 'derives_from' },
+  { value: 'contradicts', label: 'contradicts' },
+]
+
+function getNodeDocRefs(metadata: Record<string, unknown>): DocRef[] {
+  const refs = metadata?.doc_refs
+  if (!Array.isArray(refs)) return []
+  return refs as DocRef[]
+}
 
 export function GraphPanel() {
   const active_ring_id = useRingStore((s) => s.active_ring_id)
@@ -33,6 +54,11 @@ export function GraphPanel() {
   const [showNewGraph, setShowNewGraph] = useState(false)
   const [exportMsg, setExportMsg] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('canvas')
+  const [multiSelected, setMultiSelected] = useState<string[]>([])
+  const [edgeRelation, setEdgeRelation] = useState<EdgeRelation>('related_to')
+  const [edgeLabel, setEdgeLabel] = useState('')
+  const [showDocRefForm, setShowDocRefForm] = useState(false)
+  const [newDocRef, setNewDocRef] = useState<DocRef>({ path: '', title: '', type: 'archive' })
 
   useEffect(() => {
     if (active_ring_id) {
@@ -40,14 +66,12 @@ export function GraphPanel() {
     }
   }, [active_ring_id, fetchGraph])
 
-  // Extract all unique tags
   const allTags = useMemo(() => {
     const tags = new Set<string>()
     nodes.forEach((n) => n.tags.forEach((t) => tags.add(t)))
     return Array.from(tags).sort()
   }, [nodes])
 
-  // Filter nodes by selected tags
   const filteredNodes = useMemo(() => {
     if (selectedTags.size === 0) return nodes
     return nodes.filter((n) => n.tags.some((t) => selectedTags.has(t)))
@@ -55,9 +79,37 @@ export function GraphPanel() {
 
   const selectedNode = nodes.find((n) => n.id === selected_node_id)
 
+  const selectedDocRefs = useMemo(() => {
+    if (!selectedNode) return []
+    return getNodeDocRefs(selectedNode.metadata)
+  }, [selectedNode])
+
   const parentNodeIds = useMemo(() => {
     return nodes.filter((n) => nodes.some((c) => c.parent_id === n.id)).map((n) => n.id)
   }, [nodes])
+
+  const handleSelectNode = (nodeId: string | null, shiftKey: boolean = false) => {
+    if (nodeId === null) {
+      selectNode(null)
+      setMultiSelected([])
+      return
+    }
+    if (shiftKey) {
+      setMultiSelected((prev) => {
+        if (prev.includes(nodeId)) {
+          return prev.filter((id) => id !== nodeId)
+        }
+        if (prev.length >= 2) {
+          return [prev[1], nodeId]
+        }
+        return [...prev, nodeId]
+      })
+      selectNode(nodeId)
+    } else {
+      setMultiSelected([nodeId])
+      selectNode(nodeId)
+    }
+  }
 
   const handleCreateNode = () => {
     if (!newNodeLabel.trim() || !active_ring_id) return
@@ -74,6 +126,47 @@ export function GraphPanel() {
     }
     setSelectedTags(newTags)
   }
+
+  const handleAddDocRef = useCallback(async () => {
+    if (!active_ring_id || !selectedNode) return
+    if (!newDocRef.path.trim() || !newDocRef.title.trim()) return
+    const currentRefs = getNodeDocRefs(selectedNode.metadata)
+    const updatedRefs = [...currentRefs, { ...newDocRef }]
+    const currentMetadata = typeof selectedNode.metadata === 'object' && selectedNode.metadata !== null
+      ? { ...selectedNode.metadata } as Record<string, unknown>
+      : {}
+    currentMetadata.doc_refs = updatedRefs
+    try {
+      await api.put(
+        `/rings/${active_ring_id}/graph/nodes/${selectedNode.id}`,
+        { metadata: currentMetadata },
+      )
+      await fetchGraph(active_ring_id)
+      setNewDocRef({ path: '', title: '', type: 'archive' })
+      setShowDocRefForm(false)
+    } catch (e) {
+      console.error('update doc refs failed:', e)
+    }
+  }, [active_ring_id, selectedNode, newDocRef, fetchGraph])
+
+  const handleRemoveDocRef = useCallback(async (index: number) => {
+    if (!active_ring_id || !selectedNode) return
+    const currentRefs = getNodeDocRefs(selectedNode.metadata)
+    const updatedRefs = currentRefs.filter((_, i) => i !== index)
+    const currentMetadata = typeof selectedNode.metadata === 'object' && selectedNode.metadata !== null
+      ? { ...selectedNode.metadata } as Record<string, unknown>
+      : {}
+    currentMetadata.doc_refs = updatedRefs
+    try {
+      await api.put(
+        `/rings/${active_ring_id}/graph/nodes/${selectedNode.id}`,
+        { metadata: currentMetadata },
+      )
+      await fetchGraph(active_ring_id)
+    } catch (e) {
+      console.error('remove doc ref failed:', e)
+    }
+  }, [active_ring_id, selectedNode, fetchGraph])
 
   if (loading) {
     return (
@@ -253,7 +346,6 @@ export function GraphPanel() {
           </div>
         )}
 
-        {/* Tag filter */}
         {allTags.length > 0 && (
           <div style={{ marginTop: 6, display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Filter:</span>
@@ -319,7 +411,7 @@ export function GraphPanel() {
             edges={edges}
             selectedNodeId={selected_node_id}
             collapsedNodes={collapsed_nodes}
-            onSelectNode={selectNode}
+            onSelectNode={handleSelectNode}
             onToggleCollapse={toggleCollapse}
           />
         ) : (
@@ -327,7 +419,7 @@ export function GraphPanel() {
             nodes={filteredNodes}
             selectedNodeId={selected_node_id}
             collapsedNodes={collapsed_nodes}
-            onSelectNode={selectNode}
+            onSelectNode={(id) => handleSelectNode(id)}
             onToggleCollapse={toggleCollapse}
             onExpandAll={() => expandAll(parentNodeIds)}
             onCollapseAll={() => collapseAll(parentNodeIds)}
@@ -342,6 +434,8 @@ export function GraphPanel() {
             borderTop: '1px solid var(--border)',
             background: 'var(--bg-panel)',
             fontSize: 11,
+            maxHeight: 200,
+            overflowY: 'auto',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -397,8 +491,264 @@ export function GraphPanel() {
               ))}
             </div>
           )}
+          {selectedDocRefs.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 3, fontWeight: 700 }}>
+                关联文档
+              </div>
+              {selectedDocRefs.map((ref, i) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span style={{
+                    fontSize: 9,
+                    padding: '1px 4px',
+                    borderRadius: 2,
+                    background: ref.type === 'archive' ? 'rgba(34,211,238,0.15)' : 'rgba(167,139,250,0.15)',
+                    color: 'var(--text-secondary)',
+                  }}>
+                    {ref.type}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-primary)' }}>
+                    {ref.title}
+                  </span>
+                  <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
+                    {ref.path}
+                  </span>
+                  <button
+                    onClick={() => handleRemoveDocRef(i)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--accent-amber)',
+                      cursor: 'pointer',
+                      fontSize: 9,
+                      padding: '0 2px',
+                    }}
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {showDocRefForm && (
+            <div style={{ marginTop: 6, display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                value={newDocRef.path}
+                onChange={(e) => setNewDocRef((prev) => ({ ...prev, path: e.target.value }))}
+                placeholder="path..."
+                style={{
+                  flex: 1,
+                  minWidth: 60,
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '2px 6px',
+                  color: 'var(--text-primary)',
+                  fontSize: 10,
+                  outline: 'none',
+                }}
+              />
+              <input
+                value={newDocRef.title}
+                onChange={(e) => setNewDocRef((prev) => ({ ...prev, title: e.target.value }))}
+                placeholder="title..."
+                style={{
+                  flex: 1,
+                  minWidth: 60,
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '2px 6px',
+                  color: 'var(--text-primary)',
+                  fontSize: 10,
+                  outline: 'none',
+                }}
+              />
+              <select
+                value={newDocRef.type}
+                onChange={(e) => setNewDocRef((prev) => ({ ...prev, type: e.target.value }))}
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '2px 4px',
+                  color: 'var(--text-primary)',
+                  fontSize: 10,
+                }}
+              >
+                <option value="archive">archive</option>
+                <option value="upload">upload</option>
+              </select>
+              <button
+                onClick={handleAddDocRef}
+                disabled={!newDocRef.path.trim() || !newDocRef.title.trim()}
+                style={{
+                  fontSize: 9,
+                  background: 'var(--accent-cyan)',
+                  color: 'var(--bg-base)',
+                  border: 'none',
+                  borderRadius: 3,
+                  padding: '2px 8px',
+                  cursor: newDocRef.path.trim() && newDocRef.title.trim() ? 'pointer' : 'default',
+                  opacity: newDocRef.path.trim() && newDocRef.title.trim() ? 1 : 0.4,
+                }}
+              >
+                保存
+              </button>
+              <button
+                onClick={() => { setShowDocRefForm(false); setNewDocRef({ path: '', title: '', type: 'archive' }) }}
+                style={{
+                  fontSize: 9,
+                  background: 'none',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '2px 6px',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                取消
+              </button>
+            </div>
+          )}
+          {!showDocRefForm && (
+            <button
+              onClick={() => setShowDocRefForm(true)}
+              style={{
+                marginTop: 4,
+                fontSize: 9,
+                background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '2px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              添加文档
+            </button>
+          )}
         </div>
       )}
+
+      {multiSelected.length === 2 && (() => {
+        const src = nodes.find((n) => n.id === multiSelected[0])
+        const tgt = nodes.find((n) => n.id === multiSelected[1])
+        if (!src || !tgt) return null
+        const existingEdge = edges.find(
+          (e) =>
+            (e.source_id === src.id && e.target_id === tgt.id) ||
+            (e.source_id === tgt.id && e.target_id === src.id),
+        )
+        return (
+          <div
+            style={{
+              padding: '8px 12px',
+              borderTop: '1px solid var(--border)',
+              background: 'var(--bg-panel)',
+              fontSize: 11,
+            }}
+          >
+            <div style={{ marginBottom: 6, fontWeight: 700, color: 'var(--accent-cyan)', fontSize: 11 }}>
+              创建关联
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
+                {src.label}
+              </span>
+              <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>→</span>
+              <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
+                {tgt.label}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+              <select
+                value={edgeRelation}
+                onChange={(e) => setEdgeRelation(e.target.value as EdgeRelation)}
+                style={{
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 6px',
+                  color: 'var(--text-primary)',
+                  fontSize: 10,
+                  fontFamily: 'inherit',
+                }}
+              >
+                {EDGE_RELATIONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+              <input
+                value={edgeLabel}
+                onChange={(e) => setEdgeLabel(e.target.value)}
+                placeholder="label (optional)"
+                style={{
+                  flex: 1,
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 6px',
+                  color: 'var(--text-primary)',
+                  fontSize: 10,
+                  fontFamily: 'inherit',
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <button
+              onClick={() => {
+                if (!active_ring_id) return
+                if (existingEdge) {
+                  setMultiSelected([])
+                  return
+                }
+                useGraphStore.getState().createEdge(active_ring_id, src.id, tgt.id, edgeRelation)
+                setMultiSelected([])
+                setEdgeLabel('')
+              }}
+              disabled={!!existingEdge}
+              style={{
+                background: existingEdge ? 'var(--bg-hover)' : 'var(--accent-cyan)',
+                color: existingEdge ? 'var(--text-dim)' : 'var(--bg-base)',
+                border: 'none',
+                borderRadius: 3,
+                padding: '4px 12px',
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: existingEdge ? 'default' : 'pointer',
+                width: '100%',
+              }}
+            >
+              {existingEdge ? '已关联' : '创建'}
+            </button>
+            <button
+              onClick={() => setMultiSelected([])}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-dim)',
+                cursor: 'pointer',
+                fontSize: 9,
+                padding: '2px 0',
+                marginTop: 4,
+                width: '100%',
+                textAlign: 'center',
+              }}
+            >
+              取消选择
+            </button>
+          </div>
+        )
+      })()}
     </div>
   )
 }

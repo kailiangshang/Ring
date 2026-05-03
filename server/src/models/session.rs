@@ -74,6 +74,17 @@ pub struct InviteParticipantsInput {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct UpdateMaterialInput {
+    pub title: String,
+    pub content: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateSummaryInput {
+    pub summary: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ArchiveToggleInput {
     pub enabled: bool,
 }
@@ -407,6 +418,23 @@ pub async fn create_material(
     .fetch_one(pool)
     .await
     .map_err(|e| RingError::Internal(e.to_string()))
+}
+
+pub async fn update_material(
+    pool: &sqlx::SqlitePool,
+    material_id: &str,
+    title: &str,
+    content: &str,
+) -> Result<SessionMaterialRow> {
+    sqlx::query_as::<_, SessionMaterialRow>(
+        "UPDATE session_materials SET title = ?1, content = ?2 WHERE id = ?3 RETURNING *",
+    )
+    .bind(title)
+    .bind(content)
+    .bind(material_id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or_else(|| RingError::NotFound(format!("material {material_id} not found")))
 }
 
 pub async fn update_material_highlight(

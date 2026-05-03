@@ -13,6 +13,7 @@ export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, addMessage } = useChatStore()
   const ac = useAutocompleteStore()
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [showArchiveBanner, setShowArchiveBanner] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
@@ -93,7 +94,9 @@ export function InputArea() {
       const el = inputRef.current
       if (el) {
         el.style.height = 'auto'
-        el.style.height = Math.min(el.scrollHeight, 144) + 'px'
+        const line_height = parseFloat(getComputedStyle(el).lineHeight) || 20
+        const max_height = line_height * 6
+        el.style.height = Math.min(el.scrollHeight, max_height) + 'px'
       }
     })
   }
@@ -287,12 +290,12 @@ export function InputArea() {
         </button>
         <textarea
           ref={inputRef}
+          rows={1}
           value={input}
           onChange={(e) => handleChange(e.target.value)}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="Type / for commands, @ to address... (Ctrl+Enter to send)"
-          rows={1}
           style={{
             flex: 1,
             background: 'var(--bg-input)',
@@ -307,6 +310,7 @@ export function InputArea() {
             minHeight: 36,
             maxHeight: 144,
             lineHeight: '20px',
+            overflowY: 'auto',
           }}
         />
         {sending ? (

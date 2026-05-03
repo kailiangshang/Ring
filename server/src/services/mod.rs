@@ -1,4 +1,5 @@
 pub mod archive_service;
+pub mod auth;
 pub mod blueprint;
 pub mod blueprint_service;
 pub mod chat;

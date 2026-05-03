@@ -279,14 +279,26 @@ pub async fn update_node(
 }
 
 pub async fn delete_node(pool: &sqlx::SqlitePool, node_id: &str) -> Result<()> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
+    sqlx::query("DELETE FROM graph_edges WHERE source_id = ?1 OR target_id = ?1")
+        .bind(node_id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
     let result = sqlx::query("DELETE FROM graph_nodes WHERE id = ?1")
         .bind(node_id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await
         .map_err(|e| RingError::Internal(e.to_string()))?;
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("node not found".into()));
     }
+    tx.commit()
+        .await
+        .map_err(|e| RingError::Internal(e.to_string()))?;
     Ok(())
 }
 

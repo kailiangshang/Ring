@@ -30,7 +30,7 @@ export interface SessionMessage {
   sender: string
   sender_name: string
   content: string
-  message_type: 'user' | 'system' | 'ai_delta' | 'ai_end'
+  message_type: 'user' | 'system' | 'ai_delta' | 'ai_end' | 'ai'
   created_at: string
 }
 

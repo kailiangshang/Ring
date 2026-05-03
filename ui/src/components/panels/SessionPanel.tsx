@@ -4,7 +4,7 @@ import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
 import { exportSessionMessages, getToken, uploadFile } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
-import type { SessionSkill } from '../../types/session'
+import type { SessionSkill, SessionMaterial } from '../../types/session'
 const PHASE_LABELS: Record<string, string> = {
   material_prep: 'Preparing Materials',
   discussion: 'In Discussion',
@@ -20,6 +20,19 @@ const SKILLS: { value: SessionSkill; label: string }[] = [
   { value: 'retrospective', label: 'Retrospective' },
   { value: 'knowledge_sharing', label: 'Knowledge Sharing' },
 ]
+
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg-input)',
+  border: '1px solid var(--border)',
+  borderRadius: 4,
+  padding: '6px 10px',
+  color: 'var(--text-primary)',
+  fontSize: 11,
+  fontFamily: 'inherit',
+  outline: 'none',
+  width: '100%',
+  boxSizing: 'border-box',
+}
 
 function CreateSessionForm() {
   const createSession = useSessionStore((s) => s.createSession)
@@ -68,18 +81,7 @@ function CreateSessionForm() {
           if (e.key === 'Enter' && title.trim()) handleCreate()
         }}
         placeholder="Session title..."
-        style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
-          borderRadius: 4,
-          padding: '8px 10px',
-          color: 'var(--text-primary)',
-          fontSize: 12,
-          fontFamily: 'inherit',
-          outline: 'none',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
+        style={{ ...inputStyle, fontSize: 12 }}
       />
 
       <textarea
@@ -87,19 +89,7 @@ function CreateSessionForm() {
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Description (optional)..."
         rows={2}
-        style={{
-          background: 'var(--bg-input)',
-          border: '1px solid var(--border)',
-          borderRadius: 4,
-          padding: '8px 10px',
-          color: 'var(--text-primary)',
-          fontSize: 11,
-          fontFamily: 'inherit',
-          outline: 'none',
-          resize: 'vertical',
-          width: '100%',
-          boxSizing: 'border-box',
-        }}
+        style={{ ...inputStyle, resize: 'vertical' }}
       />
 
       <div>
@@ -159,16 +149,165 @@ function CreateSessionForm() {
   )
 }
 
+function MaterialCard({
+  mat,
+  onHighlight,
+  onSave,
+}: {
+  mat: SessionMaterial
+  onHighlight: (id: string) => void
+  onSave: (id: string, title: string, content: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [editTitle, setEditTitle] = useState(mat.title)
+  const [editContent, setEditContent] = useState(mat.content)
+
+  const startEditing = () => {
+    setEditTitle(mat.title)
+    setEditContent(mat.content)
+    setEditing(true)
+  }
+
+  const handleSave = () => {
+    onSave(mat.id, editTitle.trim(), editContent.trim())
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+        <input
+          value={editTitle}
+          onChange={(e) => setEditTitle(e.target.value)}
+          style={{ ...inputStyle, fontWeight: 700, marginBottom: 4 }}
+        />
+        <textarea
+          value={editContent}
+          onChange={(e) => setEditContent(e.target.value)}
+          rows={3}
+          style={{ ...inputStyle, resize: 'vertical' }}
+        />
+        <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+          <button
+            onClick={handleSave}
+            disabled={!editTitle.trim()}
+            style={{
+              background: 'var(--accent-cyan)',
+              color: 'var(--bg-base)',
+              border: 'none',
+              borderRadius: 3,
+              padding: '3px 8px',
+              fontSize: 10,
+              fontWeight: 700,
+              cursor: editTitle.trim() ? 'pointer' : 'default',
+            }}
+          >
+            Save
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            style={{
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 3,
+              padding: '3px 8px',
+              fontSize: 10,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
+          {mat.title}
+        </span>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          <span
+            style={{
+              fontSize: 9,
+              padding: '1px 6px',
+              borderRadius: 2,
+              background: mat.status === 'ready' ? 'var(--accent-green)' : mat.status === 'analyzing' ? 'var(--accent-amber)' : 'var(--bg-hover)',
+              color: mat.status === 'ready' ? 'var(--bg-base)' : 'var(--text-dim)',
+            }}
+          >
+            {mat.status}
+          </span>
+          <span
+            style={{
+              fontSize: 9,
+              padding: '1px 4px',
+              borderRadius: 2,
+              background: 'var(--bg-hover)',
+              color: 'var(--text-dim)',
+            }}
+          >
+            {mat.item_type}
+          </span>
+          <button
+            onClick={startEditing}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-dim)',
+              cursor: 'pointer',
+              fontSize: 10,
+              padding: '0 2px',
+            }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => onHighlight(mat.id)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: mat.highlight ? 'var(--accent-cyan)' : 'var(--text-dim)',
+              cursor: 'pointer',
+              fontSize: 10,
+              padding: '0 2px',
+            }}
+          >
+            ★
+          </button>
+        </div>
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+        {mat.content}
+      </div>
+      {mat.highlight && (
+        <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4, fontStyle: 'italic' }}>
+          ★ {mat.highlight}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function MaterialPrepView() {
   const session = useSessionStore((s) => s.active_session)
   const materials = useSessionStore((s) => s.materials)
   const fetchMaterials = useSessionStore((s) => s.fetchMaterials)
   const highlightMaterial = useSessionStore((s) => s.highlightMaterial)
+  const updateMaterial = useSessionStore((s) => s.updateMaterial)
+  const createMaterial = useSessionStore((s) => s.createMaterial)
   const startSession = useSessionStore((s) => s.startSession)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newContent, setNewContent] = useState('')
+  const [newType, setNewType] = useState('context')
 
   useEffect(() => {
     if (session && active_ring_id) {
@@ -191,6 +330,20 @@ function MaterialPrepView() {
     }
   }
 
+  const handleSaveMaterial = async (material_id: string, title: string, content: string) => {
+    if (!active_ring_id) return
+    await updateMaterial(active_ring_id, session.id, material_id, title, content)
+  }
+
+  const handleAddMaterial = async () => {
+    if (!active_ring_id || !newTitle.trim()) return
+    await createMaterial(active_ring_id, session.id, newType, newTitle.trim(), newContent.trim())
+    setNewTitle('')
+    setNewContent('')
+    setNewType('context')
+    setShowAddForm(false)
+  }
+
   const handleUpload = async (files: FileList | null) => {
     if (!files || files.length === 0 || !active_ring_id) return
     setUploading(true)
@@ -201,8 +354,8 @@ function MaterialPrepView() {
           files[i],
         )
         fetchMaterials(active_ring_id, session.id)
-      } catch (e: any) {
-        console.error('upload failed:', e.message)
+      } catch (e: unknown) {
+        console.error('upload failed:', e)
       }
     }
     setUploading(false)
@@ -265,7 +418,7 @@ function MaterialPrepView() {
           </div>
         </div>
 
-        {materials.length === 0 ? (
+        {materials.length === 0 && !showAddForm && (
           <div style={{ padding: '16px 0', textAlign: 'center' }}>
             <div style={{ color: 'var(--text-dim)', fontSize: 11, marginBottom: 8 }}>
               No materials prepared yet.
@@ -274,68 +427,107 @@ function MaterialPrepView() {
               Materials can be suggested by AI based on your session topic, or added manually during discussion.
             </div>
           </div>
-        ) : (
-          materials.map((mat) => (
-            <div
-              key={mat.id}
-              style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
-                  {mat.title}
-                </span>
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      padding: '1px 6px',
-                      borderRadius: 2,
-                      background: mat.status === 'ready' ? 'var(--accent-green)' : mat.status === 'analyzing' ? 'var(--accent-amber)' : 'var(--bg-hover)',
-                      color: mat.status === 'ready' ? 'var(--bg-base)' : 'var(--text-dim)',
-                    }}
-                  >
-                    {mat.status}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      padding: '1px 4px',
-                      borderRadius: 2,
-                      background: 'var(--bg-hover)',
-                      color: 'var(--text-dim)',
-                    }}
-                  >
-                    {mat.item_type}
-                  </span>
-                  <button
-                    onClick={() => handleHighlight(mat.id)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: mat.highlight ? 'var(--accent-cyan)' : 'var(--text-dim)',
-                      cursor: 'pointer',
-                      fontSize: 10,
-                      padding: '0 2px',
-                    }}
-                  >
-                    ★
-                  </button>
-                </div>
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
-                {mat.content}
-              </div>
-              {mat.highlight && (
-                <div style={{ fontSize: 10, color: 'var(--accent-cyan)', marginTop: 4, fontStyle: 'italic' }}>
-                  ★ {mat.highlight}
-                </div>
-              )}
+        )}
+        {materials.map((mat) => (
+          <MaterialCard
+            key={mat.id}
+            mat={mat}
+            onHighlight={handleHighlight}
+            onSave={handleSaveMaterial}
+          />
+        ))}
+
+        {showAddForm && (
+          <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, letterSpacing: '0.05em' }}>
+              Add Material
             </div>
-          ))
+            <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+              {['context', 'question', 'data', 'reference'].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setNewType(t)}
+                  style={{
+                    background: newType === t ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                    color: newType === t ? 'var(--bg-base)' : 'var(--text-dim)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 2,
+                    padding: '1px 6px',
+                    fontSize: 9,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <input
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+              placeholder="Material title..."
+              style={{ ...inputStyle, fontWeight: 700, marginBottom: 4 }}
+            />
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="Material content..."
+              rows={3}
+              style={{ ...inputStyle, resize: 'vertical' }}
+            />
+            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <button
+                onClick={handleAddMaterial}
+                disabled={!newTitle.trim()}
+                style={{
+                  background: newTitle.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                  color: newTitle.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+                  border: 'none',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: newTitle.trim() ? 'pointer' : 'default',
+                }}
+              >
+                Add
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         )}
       </ScrollContainer>
 
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {!showAddForm && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            style={{
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '6px 12px',
+              fontSize: 11,
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            + Add Material
+          </button>
+        )}
         <button
           onClick={handleStart}
           style={{
@@ -361,9 +553,13 @@ function MaterialPrepView() {
 function SummarizeView() {
   const session = useSessionStore((s) => s.active_session)
   const fetchActiveSession = useSessionStore((s) => s.fetchActiveSession)
+  const updateSummary = useSessionStore((s) => s.updateSummary)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
   const [summary, setSummary] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [started, setStarted] = useState(false)
+  const [editingSummary, setEditingSummary] = useState(false)
+  const [editSummaryText, setEditSummaryText] = useState('')
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
@@ -440,19 +636,51 @@ function SummarizeView() {
 
   if (!session) return null
 
+  const is_complete = session.phase === 'closed' && session.summary
+  const display_summary = is_complete ? (session.summary ?? '') : summary
+
+  const handleSaveSummary = async () => {
+    if (!active_ring_id || !session) return
+    await updateSummary(active_ring_id, session.id, editSummaryText.trim())
+    setEditingSummary(false)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
-          {session.title}
-        </div>
-        <div style={{ fontSize: 10, color: 'var(--accent-amber)' }}>
-          {started ? 'Generating summary...' : 'Ready to summarize'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+              {session.title}
+            </div>
+            <div style={{ fontSize: 10, color: is_complete ? 'var(--accent-green)' : 'var(--accent-amber)' }}>
+              {is_complete ? 'Summary complete' : started ? 'Generating summary...' : 'Ready to summarize'}
+            </div>
+          </div>
+          {is_complete && !editingSummary && (
+            <button
+              onClick={() => {
+                setEditSummaryText(display_summary)
+                setEditingSummary(true)
+              }}
+              style={{
+                background: 'var(--bg-hover)',
+                border: '1px solid var(--border)',
+                borderRadius: 3,
+                padding: '3px 8px',
+                fontSize: 10,
+                color: 'var(--accent-cyan)',
+                cursor: 'pointer',
+              }}
+            >
+              Edit
+            </button>
+          )}
         </div>
       </div>
 
       <ScrollContainer>
-        {!started ? (
+        {!started && !is_complete ? (
           <div style={{ padding: 16, textAlign: 'center' }}>
             <button
               onClick={triggerSummarize}
@@ -474,12 +702,52 @@ function SummarizeView() {
           <div style={{ padding: 16, color: 'var(--accent-amber)', fontSize: 12 }}>
             Error: {error}
           </div>
+        ) : editingSummary ? (
+          <div style={{ padding: '8px 0' }}>
+            <textarea
+              value={editSummaryText}
+              onChange={(e) => setEditSummaryText(e.target.value)}
+              rows={12}
+              style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}
+            />
+            <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
+              <button
+                onClick={handleSaveSummary}
+                style={{
+                  background: 'var(--accent-cyan)',
+                  color: 'var(--bg-base)',
+                  border: 'none',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => setEditingSummary(false)}
+                style={{
+                  background: 'var(--bg-hover)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 3,
+                  padding: '3px 8px',
+                  fontSize: 10,
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         ) : (
           <div style={{ color: 'var(--text-primary)', fontSize: 11, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {summary || (
+            {display_summary || (
               <span style={{ color: 'var(--text-dim)' }}>Waiting for AI response...</span>
             )}
-            {summary && !error && (
+            {!is_complete && display_summary && !error && (
               <span style={{
                 display: 'inline-block',
                 width: 6,
@@ -501,11 +769,13 @@ function SessionChat() {
   const session = useSessionStore((s) => s.active_session)
   const participants = useSessionStore((s) => s.participants)
   const messages = useSessionStore((s) => s.messages)
+  const graph_suggestions = useSessionStore((s) => s.graph_suggestions)
   const sendMessage = useSessionStore((s) => s.sendMessage)
   const closeSession = useSessionStore((s) => s.closeSession)
   const reopenSession = useSessionStore((s) => s.reopenSession)
   const deleteSession = useSessionStore((s) => s.deleteSession)
   const toggleArchive = useSessionStore((s) => s.toggleArchive)
+  const extractToGraph = useSessionStore((s) => s.extractToGraph)
   const clearActive = useSessionStore((s) => s.clearActive)
   const active_ring_id = useRingStore((s) => s.active_ring_id)
   const connected = useWsStore((s) => s.connected)
@@ -546,6 +816,13 @@ function SessionChat() {
     await toggleArchive(active_ring_id, session.id, !session.archive_enabled)
   }
 
+  const handleExtractToGraph = async () => {
+    if (!active_ring_id) return
+    await extractToGraph(active_ring_id, session.id)
+  }
+
+  const is_ai_message = (msg: typeof messages[0]) => msg.message_type === 'ai' || msg.sender === 'session-ai'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
@@ -566,14 +843,22 @@ function SessionChat() {
         {messages.map((msg) => (
           <div
             key={msg.id}
-            style={{ padding: '6px 0', borderBottom: '1px solid var(--border)' }}
+            style={{
+              padding: '6px 0',
+              borderBottom: '1px solid var(--border)',
+              borderLeft: is_ai_message(msg) ? '2px solid var(--accent-teal)' : undefined,
+              paddingLeft: is_ai_message(msg) ? 6 : undefined,
+              background: is_ai_message(msg) ? 'rgba(6, 182, 212, 0.04)' : undefined,
+            }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
               <span
                 style={{
                   fontSize: 10,
                   fontWeight: 700,
-                  color: msg.sender === session.owner ? 'var(--accent-ice)' : 'var(--accent-cyan)',
+                  color: is_ai_message(msg)
+                    ? 'var(--accent-teal)'
+                    : msg.sender === session.owner ? 'var(--accent-ice)' : 'var(--accent-cyan)',
                   letterSpacing: '0.05em',
                 }}
               >
@@ -593,11 +878,60 @@ function SessionChat() {
             No messages yet
           </div>
         )}
+        {is_closed && graph_suggestions.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-ice)', marginBottom: 4 }}>
+              Graph Suggestions
+            </div>
+            {graph_suggestions.map((suggestion, idx) => (
+              <div
+                key={idx}
+                style={{
+                  padding: '6px 8px',
+                  marginBottom: 4,
+                  background: 'var(--bg-hover)',
+                  borderRadius: 4,
+                  borderLeft: '2px solid var(--accent-teal)',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    {suggestion.title}
+                  </span>
+                  <button
+                    style={{
+                      background: 'var(--accent-cyan)',
+                      color: 'var(--bg-base)',
+                      border: 'none',
+                      borderRadius: 3,
+                      padding: '2px 8px',
+                      fontSize: 9,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => {
+                      if (active_ring_id) {
+                        import('../../stores/graph-store').then(({ useGraphStore }) => {
+                          useGraphStore.getState().createNode(active_ring_id, suggestion.title, 'concept')
+                        })
+                      }
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2, lineHeight: 1.4 }}>
+                  {suggestion.content}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </ScrollContainer>
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 8 }}>
         {can_send && (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+          <div style={{ marginBottom: 4 }}>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -618,24 +952,32 @@ function SessionChat() {
                 fontSize: 11,
                 fontFamily: 'inherit',
                 outline: 'none',
+                width: '100%',
+                boxSizing: 'border-box',
               }}
             />
-            <button
-              onClick={handleSend}
-              disabled={!input.trim()}
-              style={{
-                background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
-                color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
-                border: 'none',
-                borderRadius: 4,
-                padding: '6px 12px',
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: input.trim() ? 'pointer' : 'default',
-              }}
-            >
-              SEND
-            </button>
+            <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+              <span style={{ fontSize: 9, color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                Mention @session-ai to get AI assistance
+              </span>
+              <div style={{ flex: 1 }} />
+              <button
+                onClick={handleSend}
+                disabled={!input.trim()}
+                style={{
+                  background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                  color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '6px 12px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: input.trim() ? 'pointer' : 'default',
+                }}
+              >
+                SEND
+              </button>
+            </div>
           </div>
         )}
 
@@ -708,6 +1050,22 @@ function SessionChat() {
               >
                 Delete
               </button>
+              {session.summary && (
+                <button
+                  onClick={handleExtractToGraph}
+                  style={{
+                    background: 'var(--bg-hover)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 3,
+                    padding: '3px 8px',
+                    fontSize: 10,
+                    color: 'var(--accent-teal)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Extract to Graph
+                </button>
+              )}
             </>
           )}
           {session.archivable && (

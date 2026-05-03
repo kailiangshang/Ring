@@ -3,7 +3,7 @@ import { create } from 'zustand'
 interface SelfState {
   open: boolean
   position: { x: number; y: number }
-  active_tab: 'chat' | 'memory' | 'settings'
+  active_tab: 'chat' | 'memory' | 'activity' | 'settings'
   trigger_position: { x: number; y: number }
   setOpen: (open: boolean) => void
   toggle: () => void

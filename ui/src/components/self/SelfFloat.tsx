@@ -1,24 +1,43 @@
+import { useEffect, useState } from 'react'
 import { useSelfStore } from '../../stores/self-store'
 import { useDrag } from '../../hooks/use-drag'
 import { SelfChat } from './SelfChat'
 import { SelfMemory } from './SelfMemory'
 import { SelfSettings } from './SelfSettings'
+import { SelfActivity } from './SelfActivity'
+import { api } from '../../services/api'
 
 const TABS = [
   { key: 'chat' as const, label: 'Chat' },
   { key: 'memory' as const, label: 'Memory' },
+  { key: 'activity' as const, label: '活动' },
   { key: 'settings' as const, label: 'Settings' },
 ]
 
 const TAB_CONTENT = {
   chat: SelfChat,
   memory: SelfMemory,
+  activity: SelfActivity,
   settings: SelfSettings,
 }
 
 export function SelfFloat() {
   const { open, position, setPosition, active_tab, setTab, setOpen } = useSelfStore()
   const { onMouseDown } = useDrag(setPosition, { width: 340, height: 380 })
+  const [greeting, setGreeting] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) {
+      api.get<{ greeting: string | null; first_today: boolean }>('/self/greeting')
+        .then((res) => {
+          if (res.greeting) {
+            setGreeting(res.greeting)
+            setTimeout(() => setGreeting(null), 10000)
+          }
+        })
+        .catch(() => {})
+    }
+  }, [open])
 
   if (!open) return null
 
@@ -41,6 +60,28 @@ export function SelfFloat() {
         boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
       }}
     >
+      {greeting && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '6px 12px',
+            background: 'rgba(245,158,11,0.08)',
+            borderBottom: '1px solid rgba(245,158,11,0.15)',
+            fontSize: 11,
+            color: 'var(--accent-amber)',
+          }}
+        >
+          <span>{greeting}</span>
+          <button
+            onClick={() => setGreeting(null)}
+            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div
         onMouseDown={onMouseDown}
         style={{

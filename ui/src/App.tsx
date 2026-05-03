@@ -19,6 +19,8 @@ export default function App() {
   const { is_setup, loading, init } = useAppStore()
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
   const setAuth = useAuthStore((s) => s.setAuth)
+  const token_expired = useAuthStore((s) => s.token_expired)
+  const setTokenExpired = useAuthStore((s) => s.setTokenExpired)
   const [recovering, setRecovering] = useState(false)
 
   useEffect(() => {
@@ -57,6 +59,23 @@ export default function App() {
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
         <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Loading...</span>
       </div>
+    )
+  }
+
+  if (token_expired) {
+    return (
+      <ErrorBoundary>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)', gap: 12 }}>
+          <span style={{ color: '#f59e0b', fontSize: 14, fontWeight: 600 }}>Auth Token Expired</span>
+          <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Your auth token has expired (90 days). Please re-setup.</span>
+          <button
+            onClick={() => setTokenExpired(false)}
+            style={{ background: 'var(--accent-cyan)', color: 'var(--bg-base)', border: 'none', borderRadius: 4, padding: '6px 16px', fontSize: 12, cursor: 'pointer' }}
+          >
+            Go to Setup
+          </button>
+        </div>
+      </ErrorBoundary>
     )
   }
 
