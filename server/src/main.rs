@@ -194,21 +194,23 @@ fn dirs_data_dir() -> String {
 
 fn print_banner(port: u16, data_dir: &str) {
     let version = env!("CARGO_PKG_VERSION");
-    let banner = format!(
-        "\n\x1b[36m  ╭──────────────────────────────────────────────╮\x1b[0m\n\
-         \x1b[36m  │\x1b[0m                                              \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██████╗\x1b[0m \x1b[1;37m██╗\x1b[0m      \x1b[1;37m█████╗\x1b[0m \x1b[1;37m██████╗\x1b[0m                    \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔══██╗\x1b[0m \x1b[1;37m██║\x1b[0m     \x1b[1;37m██╔══██╗\x1b[0m \x1b[1;37m██╔══██╗\x1b[0m  \x1b[2;37mGroup Knowledge Workspace\x1b[0m  \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██████╔╝\x1b[0m \x1b[1;37m██║\x1b[0m     \x1b[1;37m███████║\x1b[0m \x1b[1;37m██║  ██║\x1b[0m  \x1b[2;37mv{version:<30}\x1b[0m\x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔═══╝\x1b[0m  \x1b[1;37m██║\x1b[0m     \x1b[1;37m██╔══██║\x1b[0m \x1b[1;37m██║  ██║\x1b[0m                    \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m       \x1b[1;37m████████╗\x1b[0m \x1b[1;37m██║  ██║\x1b[0m \x1b[1;37m██████╔╝\x1b[0m                    \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m╚═╝\x1b[0m       \x1b[1;37m╚═══════╝\x1b[0m \x1b[1;37m╚═╝  ╚═╝\x1b[0m \x1b[1;37m╚═════╝\x1b[0m                     \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m                                              \x1b[36m│\x1b[0m\n\
-         \x1b[36m  ├──────────────────────────────────────────────┤\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mLocal:\x1b[0m   http://localhost:{port:<16} \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mData:\x1b[0m    {data_dir:<28}\x1b[36m│\x1b[0m\n\
-         \x1b[36m  ╰──────────────────────────────────────────────╯\x1b[0m\n"
-    );
-    println!("{banner}");
+    let cyan = "\x1b[1;36m";
+    let dim = "\x1b[2;37m";
+    let bold = "\x1b[1;37m";
+    let reset = "\x1b[0m";
+    println!();
+    println!("{cyan}  ┌─────────────────────────────────────────────────┐{reset}");
+    println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╦═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╠╦╝║╣ ║║║║╣ ║║║║ ╦╠╦╝{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╩╚═╚═╝╩ ╩╚═╝╚╩╝╚═╝╩╚═{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {dim}Group Knowledge Workspace  v{version:<14}{reset}    {cyan}│{reset}");
+    println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
+    println!("{cyan}  ├─────────────────────────────────────────────────┤{reset}");
+    println!("{cyan}  │{reset}   {dim}➜{reset}  {cyan}Local:{reset}   http://localhost:{port:<18} {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {dim}➜{reset}  {cyan}Data:{reset}    {data_dir:<29}{cyan}│{reset}");
+    println!("{cyan}  └─────────────────────────────────────────────────┘{reset}");
+    println!();
     tracing::info!("Ring v{version} starting on http://localhost:{port}, data_dir: {data_dir}");
 }
