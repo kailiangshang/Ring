@@ -195,18 +195,19 @@ fn dirs_data_dir() -> String {
 fn print_banner(port: u16, data_dir: &str) {
     let version = env!("CARGO_PKG_VERSION");
     let banner = format!(
-        "\n\x1b[36m  ╭──────────────────────────────────────────╮\x1b[0m\n\
-         \x1b[36m  │\x1b[0m                                          \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m  ██╗\x1b[0m \x1b[1;37m███╗\x1b[0m   \x1b[1;37m██╗\x1b[0m                              \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔╝\x1b[0m \x1b[1;37m████╗\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[2;37mGroup Knowledge Workspace\x1b[0m      \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[1;37m██╔██╗\x1b[0m \x1b[1;37m██║\x1b[0m  \x1b[2;37mv{version:<27}\x1b[0m \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[1;37m██║╚██╗\x1b[0m\x1b[1;37m██║\x1b[0m                              \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[1;37m╚██╝\x1b[0m \x1b[1;37m██║ ╚████\x1b[0m                              \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m                                          \x1b[36m│\x1b[0m\n\
-         \x1b[36m  ├──────────────────────────────────────────┤\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mLocal:\x1b[0m   http://localhost:{port:<14} \x1b[36m│\x1b[0m\n\
-         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mData:\x1b[0m    {data_dir:<25}\x1b[36m│\x1b[0m\n\
-         \x1b[36m  ╰──────────────────────────────────────────╯\x1b[0m\n"
+        "\n\x1b[36m  ╭──────────────────────────────────────────────╮\x1b[0m\n\
+         \x1b[36m  │\x1b[0m                                              \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██████╗\x1b[0m \x1b[1;37m██╗\x1b[0m      \x1b[1;37m█████╗\x1b[0m \x1b[1;37m██████╗\x1b[0m                    \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔══██╗\x1b[0m \x1b[1;37m██║\x1b[0m     \x1b[1;37m██╔══██╗\x1b[0m \x1b[1;37m██╔══██╗\x1b[0m  \x1b[2;37mGroup Knowledge Workspace\x1b[0m  \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██████╔╝\x1b[0m \x1b[1;37m██║\x1b[0m     \x1b[1;37m███████║\x1b[0m \x1b[1;37m██║  ██║\x1b[0m  \x1b[2;37mv{version:<30}\x1b[0m\x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔═══╝\x1b[0m  \x1b[1;37m██║\x1b[0m     \x1b[1;37m██╔══██║\x1b[0m \x1b[1;37m██║  ██║\x1b[0m                    \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m       \x1b[1;37m████████╗\x1b[0m \x1b[1;37m██║  ██║\x1b[0m \x1b[1;37m██████╔╝\x1b[0m                    \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m╚═╝\x1b[0m       \x1b[1;37m╚═══════╝\x1b[0m \x1b[1;37m╚═╝  ╚═╝\x1b[0m \x1b[1;37m╚═════╝\x1b[0m                     \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m                                              \x1b[36m│\x1b[0m\n\
+         \x1b[36m  ├──────────────────────────────────────────────┤\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mLocal:\x1b[0m   http://localhost:{port:<16} \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mData:\x1b[0m    {data_dir:<28}\x1b[36m│\x1b[0m\n\
+         \x1b[36m  ╰──────────────────────────────────────────────╯\x1b[0m\n"
     );
     println!("{banner}");
     tracing::info!("Ring v{version} starting on http://localhost:{port}, data_dir: {data_dir}");
