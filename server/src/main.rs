@@ -201,9 +201,9 @@ fn print_banner(port: u16, data_dir: &str) {
     println!();
     println!("{cyan}  ┌─────────────────────────────────────────────────┐{reset}");
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╦═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗{reset}                     {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╠╦╝║╣ ║║║║╣ ║║║║ ╦╠╦╝{reset}                     {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╩╚═╚═╝╩ ╩╚═╝╚╩╝╚═╝╩╚═{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╔═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╠╦╝║╣  ║ ║╣ ║║║║ ╦╠╦╝{reset}                     {cyan}│{reset}");
+    println!("{cyan}  │{reset}   {bold}╩╚═╚═╝ ╩ ╚═╝╚╩╝╚═╝╩╚═{reset}                     {cyan}│{reset}");
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
     println!("{cyan}  │{reset}   {dim}Group Knowledge Workspace  v{version:<14}{reset}    {cyan}│{reset}");
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
