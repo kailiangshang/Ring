@@ -18,6 +18,26 @@
   --placeholder: #2a3540;
 }
 
+[data-theme="light"] {
+  --bg-base: #ffffff;
+  --bg-panel: #f8f9fa;
+  --bg-sidebar: #f0f1f3;
+  --bg-input: #e8eaed;
+  --bg-hover: #e2e5e9;
+  --bg-active: #d0ecf4;
+  --border: #d0d5dd;
+  --text-primary: #1a1a2e;
+  --text-secondary: #5a6070;
+  --text-muted: #8892a0;
+  --text-dim: #b0b8c4;
+  --accent-cyan: #0891B2;
+  --accent-ice: #0e7490;
+  --accent-teal: #06B6D4;
+  --accent-green: #16a34a;
+  --accent-amber: #d97706;
+  --placeholder: #c0c8d4;
+}
+
 :focus-visible {
   outline: 2px solid var(--accent-cyan);
   outline-offset: 1px;

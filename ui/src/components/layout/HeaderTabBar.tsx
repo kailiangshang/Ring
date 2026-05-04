@@ -1,10 +1,36 @@
 import { usePanelStore, type PanelType } from '../../stores/panel-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useSessionStore } from '../../stores/session-store'
+import { useThemeStore } from '../../stores/theme-store'
 import { TabItem } from '../header/TabItem'
 import { HeaderActions } from '../header/HeaderActions'
 import { NotificationBell } from '../NotificationBell'
 import { ExportButton } from '../chat/ExportButton'
+
+function ThemeToggle() {
+  const theme = useThemeStore((s) => s.theme)
+  const toggleTheme = useThemeStore((s) => s.toggleTheme)
+
+  return (
+    <button
+      onClick={toggleTheme}
+      style={{
+        background: 'none',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        padding: '2px 6px',
+        cursor: 'pointer',
+        fontSize: 14,
+        lineHeight: 1,
+        color: 'var(--text-secondary)',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  )
+}
 
 const TABS: { type: PanelType; label: string }[] = [
   { type: 'session', label: 'Session' },
@@ -73,6 +99,7 @@ export function HeaderTabBar() {
       ))}
 
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ThemeToggle />
         <ExportButton />
         <NotificationBell />
         <HeaderActions />

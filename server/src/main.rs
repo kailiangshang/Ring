@@ -12,6 +12,12 @@ struct Cli {
     /// 监听端口
     #[arg(short, long, default_value = "7420")]
     port: u16,
+
+    #[arg(short, long)]
+    daemon: bool,
+
+    #[arg(long)]
+    pid_file: Option<String>,
 }
 
 #[tokio::main]
@@ -23,6 +29,39 @@ async fn main() {
         .init();
 
     let data_dir = dirs_data_dir();
+
+    print_banner(cli.port, &data_dir);
+
+    if cli.daemon {
+        #[cfg(unix)]
+        {
+            let _ = std::fs::create_dir_all(&data_dir);
+            let pid_path = cli
+                .pid_file
+                .clone()
+                .unwrap_or_else(|| format!("{}/ring.pid", data_dir));
+            let exe = std::env::current_exe().expect("failed to get current executable");
+            let args: Vec<String> = std::env::args()
+                .skip(1)
+                .filter(|a| a != "-d" && a != "--daemon")
+                .collect();
+            let mut cmd = std::process::Command::new(exe);
+            cmd.args(&args);
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+            let child = cmd.spawn().expect("failed to spawn daemon process");
+            let pid = child.id();
+            std::fs::write(&pid_path, pid.to_string()).expect("failed to write pid file");
+            tracing::info!("daemon started with pid {pid}");
+            println!("daemon started with pid {pid}");
+            std::process::exit(0);
+        }
+        #[cfg(not(unix))]
+        {
+            println!("daemon mode not supported on Windows");
+        }
+    }
+
     if let Err(e) = tokio::fs::create_dir_all(&data_dir).await {
         tracing::error!("failed to create data dir: {e}");
         std::process::exit(1);
@@ -138,6 +177,9 @@ async fn main() {
         tracing::error!("server error: {e}");
         std::process::exit(1);
     }
+
+    println!("Ring stopped. Goodbye.");
+    tracing::info!("Ring stopped. Goodbye.");
 }
 
 fn dirs_data_dir() -> String {
@@ -148,4 +190,20 @@ fn dirs_data_dir() -> String {
     #[cfg(not(target_os = "windows"))]
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
     format!("{home}/.ring")
+}
+
+fn print_banner(port: u16, data_dir: &str) {
+    let version = env!("CARGO_PKG_VERSION");
+    let banner = format!(
+        "\
+╔══════════════════════════════════════╗
+║           R I N G  v{version}           ║
+║     群组知识协作空间                  ║
+╠══════════════════════════════════════╣
+║  http://localhost:{port}             ║
+║  Data: {data_dir}                    ║
+╚══════════════════════════════════════╝"
+    );
+    println!("{banner}");
+    tracing::info!("Ring v{version} starting on http://localhost:{port}, data_dir: {data_dir}");
 }

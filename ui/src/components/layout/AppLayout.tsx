@@ -11,9 +11,35 @@ import { useAppStore } from '../../stores/app-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
 import { usePanelStore } from '../../stores/panel-store'
+import { useThemeStore } from '../../stores/theme-store'
 import { TabItem } from '../header/TabItem'
 
 const SelfFloat = lazy(() => import('../self/SelfFloat').then(m => ({ default: m.SelfFloat })))
+
+function ThemeToggle() {
+  const theme = useThemeStore((s) => s.theme)
+  const toggleTheme = useThemeStore((s) => s.toggleTheme)
+
+  return (
+    <button
+      onClick={toggleTheme}
+      style={{
+        background: 'none',
+        border: '1px solid var(--border)',
+        borderRadius: 4,
+        padding: '2px 6px',
+        cursor: 'pointer',
+        fontSize: 14,
+        lineHeight: 1,
+        color: 'var(--text-secondary)',
+        display: 'flex',
+        alignItems: 'center',
+      }}
+    >
+      {theme === 'dark' ? '☀️' : '🌙'}
+    </button>
+  )
+}
 
 function SuperRingHeader() {
   const panels = usePanelStore((s) => s.panels)
@@ -56,6 +82,7 @@ function SuperRingHeader() {
         onClick={() => toggle('super_settings')}
       />
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <ThemeToggle />
         <ExportButton />
         <NotificationBell />
       </div>

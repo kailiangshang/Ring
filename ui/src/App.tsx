@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAppStore } from './stores/app-store'
 import { useAuthStore } from './stores/auth-store'
+import { useThemeStore } from './stores/theme-store'
 import { AppLayout } from './components/layout/AppLayout'
 import { SetupWizard } from './components/setup/SetupWizard'
 import { ErrorBoundary } from './components/common/ErrorBoundary'
@@ -26,6 +27,11 @@ export default function App() {
   useEffect(() => {
     loadFromStorage()
     init()
+    const saved = localStorage.getItem('ring_theme')
+    if (saved === 'light' || saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', saved)
+      useThemeStore.setState({ theme: saved })
+    }
   }, [init, loadFromStorage])
 
   useEffect(() => {
