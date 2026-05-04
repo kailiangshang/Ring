@@ -195,14 +195,18 @@ fn dirs_data_dir() -> String {
 fn print_banner(port: u16, data_dir: &str) {
     let version = env!("CARGO_PKG_VERSION");
     let banner = format!(
-        "\
-╔══════════════════════════════════════╗
-║           R I N G  v{version}           ║
-║     群组知识协作空间                  ║
-╠══════════════════════════════════════╣
-║  http://localhost:{port}             ║
-║  Data: {data_dir}                    ║
-╚══════════════════════════════════════╝"
+        "\n\x1b[36m  ╭──────────────────────────────────────────╮\x1b[0m\n\
+         \x1b[36m  │\x1b[0m                                          \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m  ██╗\x1b[0m \x1b[1;37m███╗\x1b[0m   \x1b[1;37m██╗\x1b[0m                              \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██╔╝\x1b[0m \x1b[1;37m████╗\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[2;37mGroup Knowledge Workspace\x1b[0m      \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[1;37m██╔██╗\x1b[0m \x1b[1;37m██║\x1b[0m  \x1b[2;37mv{version:<27}\x1b[0m \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m██║\x1b[0m  \x1b[1;37m██║╚██╗\x1b[0m\x1b[1;37m██║\x1b[0m                              \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[1;37m╚██╝\x1b[0m \x1b[1;37m██║ ╚████\x1b[0m                              \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m                                          \x1b[36m│\x1b[0m\n\
+         \x1b[36m  ├──────────────────────────────────────────┤\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mLocal:\x1b[0m   http://localhost:{port:<14} \x1b[36m│\x1b[0m\n\
+         \x1b[36m  │\x1b[0m  \x1b[2;37m➜\x1b[0m  \x1b[1;36mData:\x1b[0m    {data_dir:<25}\x1b[36m│\x1b[0m\n\
+         \x1b[36m  ╰──────────────────────────────────────────╯\x1b[0m\n"
     );
     println!("{banner}");
     tracing::info!("Ring v{version} starting on http://localhost:{port}, data_dir: {data_dir}");
