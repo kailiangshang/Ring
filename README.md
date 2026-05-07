@@ -8,7 +8,7 @@
 <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.85+-orange?logo=rust" alt="Rust"></a>
 <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="#"><img src="https://img.shields.io/badge/Tests-71%2F71%20passing-brightgreen" alt="Tests"></a>
+<a href="#"><img src="https://img.shields.io/badge/Tests-73%2F73%20passing-brightgreen" alt="Tests"></a>
 </p>
 
 </div>
@@ -142,11 +142,12 @@ xattr -d com.apple.quarantine ./ring
 git clone https://github.com/kailiangshang/Ring.git
 cd Ring
 
-# 构建前端
-cd ui && npm install && npm run build && cd ..
+# 一键构建（前端 + 后端 release）
+./build.sh
 
-# 构建后端（Release 模式，~17MB 二进制，产物为 target/release/ring）
-cd server && cargo build --release && cd ..
+# 或手动分步：
+# cd ui && npm install && npm run build && cd ..
+# cd server && cargo build --release && cd ..
 
 # 启动（默认端口 7420）
 ./server/target/release/ring
@@ -231,7 +232,7 @@ Ring/
 │   │   ├── services/       业务逻辑（chat/archive/graph/session/...）
 │   │   ├── models/         数据模型 + SQL 查询
 │   │   └── prompts.rs      所有 AI 提示词集中管理
-│   ├── migrations/         18 个 SQLite 迁移文件
+│   ├── migrations/         19 个 SQLite 迁移文件
 │   └── Cargo.toml
 ├── ui/                     React 19 + TypeScript 前端
 │   ├── src/
@@ -240,12 +241,7 @@ Ring/
 │   │   └── services/       API 调用封装
 │   └── package.json
 └── docs/                   文档
-    ├── STATUS.md           功能状态 + 路线图
-    ├── ARCHITECTURE.md     架构全流程 + 数据模型
-    ├── BACKEND_TEST.md     后端 API 测试清单（26 个模块）
-    └── product/
-        ├── PRD.md          产品需求文档
-        └── UI-DESIGN.md    前端设计规范
+    └── (见 GitHub Wiki)
 ```
 
 ---
@@ -307,9 +303,12 @@ Ring 所有数据存放在 `~/.ring/`，完全本地，你可以直接 `cp -r ~/
 ## 测试
 
 ```bash
-# 后端测试（71 个集成测试）
+# 后端测试（73 个集成测试）
 cd server && cargo test
-# test result: ok. 71 passed; 0 failed
+# test result: ok. 73 passed; 0 failed
+
+# 前端测试（75 个单元测试）
+cd ui && npm test
 
 # 前端构建验证
 cd ui && npm run build
@@ -324,7 +323,7 @@ cat docs/BACKEND_TEST.md
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| v0.1.0 | 2026-04-30 | 首个发布版本 — 安全加固完成，71 测试通过，支持 CLI 参数 |
+| v0.1.0 | 2026-05-07 | 首个发布版本 — 全量安全加固 + 架构优化，73 后端测试 + 75 前端测试通过 |
 
 ### v0.1.0 完整功能清单
 
@@ -362,7 +361,6 @@ cat docs/BACKEND_TEST.md
 
 ### v1.1 — 体验优化（2026 Q2）
 - 移动端响应式适配
-- Linux / Windows / macOS ARM 多平台预编译二进制
 - npm 全局安装
 - 自动更新检查
 
@@ -384,14 +382,9 @@ cat docs/BACKEND_TEST.md
 
 ## 文档
 
-| 文档 | 内容 | 面向谁 |
-|------|------|--------|
-| [STATUS.md](docs/STATUS.md) | 功能状态 + 路线图 + 技术债 | 开发者 |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | 数据模型、请求流程、多人协作架构 | 开发者 |
-| [BACKEND_TEST.md](docs/BACKEND_TEST.md) | 26 个模块 API 测试清单 | QA / 测试 |
-| [PRD.md](docs/product/PRD.md) | 产品需求文档 | 产品经理 |
-| [UI-DESIGN.md](docs/product/UI-DESIGN.md) | 设计规范（颜色/字体/布局） | 设计师 |
-| [AGENTS.md](AGENTS.md) | AI 编码指引 | AI 助手 |
+| 文档 | 内容 |
+|------|------|
+| [CHANGELOG.md](CHANGELOG.md) | 版本历史与变更记录 |
 
 ---
 

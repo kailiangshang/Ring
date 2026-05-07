@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.1.0] - 2026-04-30
+## [0.1.0] - 2026-05-07
 
 ### 核心功能
 
@@ -69,6 +69,43 @@ All notable changes to this project will be documented in this file.
 - `super_chat.rs` — `build_ring_summary` 修复 N+1 查询（单次 JOIN）
 - `chat.rs` — `build_system_prompt` 改为异步
 
+### v0.1.0 Pre-release Optimization
+
+**Phase 1 — Security & Stability**
+- `sync_import` SSRF protection (reuse `is_url_allowed`)
+- Fix non-ASCII string slicing (`chars().take()` instead of byte slice)
+- Hide `ErrorBoundary` stack traces in production
+- WebSocket rate limiting (10/min)
+- Atomic `create_ring`, `increment_use_count`, `conversation_token` (eliminate race conditions)
+- Remove manual `map_err` overrides, use `?` with `From<sqlx::Error> for RingError`
+- Fix `unwrap_or(false)` bypassing safety checks
+
+**Phase 2 — Architecture & Dedup**
+- Extract `sse_event_to_axum()` shared SSE helper (3 duplicates → 1)
+- Merge 3 delete_message handlers into shared `delete_message_for_user()`
+- Merge 3 export_chat functions into `build_chat_markdown()` + `record_export_usage()`
+- Move `remove_member` session check to service layer (handler → service pattern)
+- Move ad-hoc `ALTER TABLE` from `main.rs` to migration 018
+- Add `codegen-units = 1` to release profile
+
+**Phase 3 — Performance**
+- Replace `std::fs` with `tokio::fs` for all async I/O paths
+- Consolidate `list_rings_for_user` from 3 queries to 1 (correlated subqueries)
+- Batch `delete_messages` with `DELETE WHERE id IN (...)`
+- `React.memo` on 5 list components (RingListItem, SessionRow, TreeNodeRow, TabItem, MaterialCard)
+
+**Phase 4 — Frontend Cleanup**
+- Extract `MarkdownRenderer` shared component (3 duplicates → 1)
+- Extract `LLMConfigForm` + `useLLMTest` shared (3 duplicates → 1)
+- Replace 10 `window.confirm` with `ConfirmModal`, 1 `window.prompt` with `PromptModal`
+- Remove unused dependencies: `mermaid`, `react-router-dom`, `rehype-highlight`, `@testing-library/user-event`
+- Move `@types/d3` to devDependencies
+
+**Phase 5 — Engineering**
+- CI pipeline with caching + security audit (`.github/workflows/ci.yml`)
+- Remove dead code: `OptionalUser` extractor, `should_recommend_archive` function, orphaned `RingListItem.tsx`
+- One-click `build.sh` script
+
 ### CLI 功能
 
 - 支持 `--port` / `-p` 参数指定监听端口（默认 7420）
@@ -83,14 +120,16 @@ All notable changes to this project will be documented in this file.
 
 ### 测试
 
-- 71 个集成测试全部通过（+2 安全回归测试）
+- 73 个集成测试全部通过（+2 安全回归测试）
 - 新增：路径遍历防护测试、skills 认证测试、super settings 权限测试
 
 ### 基础设施
 
 - 单一 17MB 二进制（前后端一体）
 - SQLite + 文件系统，零外部依赖
-- 18 个数据库迁移
+- 19 个数据库迁移
 - clippy 完全清洁（0 warnings）
+- CI 自动化（fmt + clippy + test + lint + build）
+- 73 后端测试 + 75 前端测试全部通过
 
 [0.1.0]: https://github.com/kailiangshang/Ring/releases/tag/v0.1.0
