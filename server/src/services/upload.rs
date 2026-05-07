@@ -3,7 +3,8 @@ use crate::models::message::{self, MessageRow};
 use crate::models::session::{self, SessionMaterialRow};
 
 const MAX_FILE_SIZE: usize = 10 * 1024 * 1024;
-const MAX_CONTENT_CHARS: usize = 50000;
+const CHUNK_SIZE: usize = 20000;
+const TOKEN_WARNING_THRESHOLD: usize = 10000;
 
 const ALLOWED_EXTENSIONS: &[&str] = &[
     "txt", "md", "csv", "json", "py", "js", "ts", "tsx", "rs", "go", "java", "yaml", "yml", "xml",
@@ -31,15 +32,12 @@ pub fn validate_file(filename: &str, size: usize) -> Result<()> {
 
 pub fn extract_text(filename: &str, data: &[u8]) -> Result<String> {
     let ext = filename.rsplit('.').next().unwrap_or("").to_lowercase();
-
     let text = if ext == "pdf" {
         extract_pdf_text(data)?
     } else {
         String::from_utf8_lossy(data).into_owned()
     };
-
-    let truncated: String = text.chars().take(MAX_CONTENT_CHARS).collect();
-    Ok(truncated)
+    Ok(text)
 }
 
 fn extract_pdf_text(data: &[u8]) -> Result<String> {
@@ -95,6 +93,61 @@ fn extract_pdf_with_pdftotext(data: &[u8]) -> Result<String> {
     }
 }
 
+pub fn estimate_tokens(text: &str) -> usize {
+    let cjk = text
+        .chars()
+        .filter(|c| {
+            (*c >= '\u{4E00}' && *c <= '\u{9FFF}')
+                || (*c >= '\u{3040}' && *c <= '\u{309F}')
+                || (*c >= '\u{30A0}' && *c <= '\u{30FF}')
+                || (*c >= '\u{AC00}' && *c <= '\u{D7AF}')
+        })
+        .count();
+    let other = text.chars().count().saturating_sub(cjk);
+    (other / 4) + (cjk * 3 / 2)
+}
+
+pub fn split_into_chunks(text: &str, max_chars: usize) -> Vec<String> {
+    if text.chars().count() <= max_chars {
+        return vec![text.to_string()];
+    }
+
+    let paragraphs: Vec<&str> = text.split("\n\n").collect();
+    let mut chunks = Vec::new();
+    let mut current = String::new();
+
+    for para in paragraphs {
+        let combined = if current.is_empty() {
+            para.to_string()
+        } else {
+            format!("{current}\n\n{para}")
+        };
+
+        if combined.chars().count() > max_chars && !current.is_empty() {
+            chunks.push(current);
+            current = para.to_string();
+        } else {
+            current = combined;
+        }
+    }
+
+    if !current.is_empty() {
+        chunks.push(current);
+    }
+
+    chunks
+}
+
+pub fn chunk_info(text: &str) -> (usize, usize) {
+    let tokens = estimate_tokens(text);
+    let count = split_into_chunks(text, CHUNK_SIZE).len();
+    (tokens, count)
+}
+
+pub fn exceeds_token_warning(text: &str) -> bool {
+    estimate_tokens(text) > TOKEN_WARNING_THRESHOLD
+}
+
 pub async fn upload_to_chat(
     db: &sqlx::SqlitePool,
     ring_id: Option<&str>,
@@ -102,50 +155,68 @@ pub async fn upload_to_chat(
     sender_name: &str,
     filename: &str,
     data: &[u8],
-) -> Result<MessageRow> {
+) -> Result<Vec<MessageRow>> {
     validate_file(filename, data.len())?;
     let content = extract_text(filename, data)?;
 
-    let msg_id = ulid::Ulid::new().to_string();
-    let file_content = format!("\u{1f4ce} {filename}\n---\n{content}");
+    let chunks = split_into_chunks(&content, CHUNK_SIZE);
+    let total_chunks = chunks.len();
+    let mut messages = Vec::with_capacity(total_chunks);
 
-    let msg = message::insert_message(
-        db,
-        &message::NewMessage {
-            id: &msg_id,
-            ring_id,
-            user_id,
-            role: "system",
-            sender_name,
-            content: &file_content,
-            node_refs: &[],
-            tag_refs: &[],
-            token_usage: None,
-        },
-    )
-    .await?;
+    for (i, chunk) in chunks.iter().enumerate() {
+        let msg_id = ulid::Ulid::new().to_string();
+        let label = if total_chunks > 1 {
+            format!(
+                "\u{1f4ce} {filename} [{}/{}]\n---\n{chunk}",
+                i + 1,
+                total_chunks
+            )
+        } else {
+            format!("\u{1f4ce} {filename}\n---\n{chunk}")
+        };
 
-    if let Some(rid) = ring_id {
-        let ring_name = crate::services::search::get_ring_name(db, rid)
-            .await
-            .unwrap_or_default();
-        if let Err(e) = crate::services::search::upsert_search_index(
+        let msg = message::insert_message(
             db,
-            "message",
-            &msg_id,
-            rid,
-            &ring_name,
-            &format!("\u{1f4ce} {filename}"),
-            &content,
-            &serde_json::json!({"role": "system", "filename": filename}).to_string(),
+            &message::NewMessage {
+                id: &msg_id,
+                ring_id,
+                user_id,
+                role: "system",
+                sender_name,
+                content: &label,
+                node_refs: &[],
+                tag_refs: &[],
+                token_usage: None,
+            },
         )
-        .await
-        {
-            tracing::warn!("failed to update search index: {e}");
+        .await?;
+
+        if i == 0 {
+            if let Some(rid) = ring_id {
+                let ring_name = crate::services::search::get_ring_name(db, rid)
+                    .await
+                    .unwrap_or_default();
+                if let Err(e) = crate::services::search::upsert_search_index(
+                    db,
+                    "message",
+                    &msg_id,
+                    rid,
+                    &ring_name,
+                    &format!("\u{1f4ce} {filename}"),
+                    &content,
+                    &serde_json::json!({"role": "system", "filename": filename}).to_string(),
+                )
+                .await
+                {
+                    tracing::warn!("failed to update search index: {e}");
+                }
+            }
         }
+
+        messages.push(msg);
     }
 
-    Ok(msg)
+    Ok(messages)
 }
 
 pub async fn upload_to_session(

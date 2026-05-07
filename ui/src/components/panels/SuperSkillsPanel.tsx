@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { SkillInfo } from '../../types/skill'
 import { listSkills, installSkill, removeSkill } from '../../services/api'
+import { ConfirmModal } from '../common/ConfirmModal'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -21,6 +22,7 @@ export function SuperSkillsPanel() {
   const [installName, setInstallName] = useState('')
   const [installUrl, setInstallUrl] = useState('')
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
 
   const load = () => {
     listSkills().then((res) => setSkills(res.skills)).catch(() => {})
@@ -42,14 +44,20 @@ export function SuperSkillsPanel() {
     }
   }
 
-  const handleRemove = async (name: string) => {
-    if (!window.confirm(`Remove skill "${name}"?`)) return
-    try {
-      await removeSkill(name)
-      load()
-    } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'Failed to remove' })
-    }
+  const handleRemove = (name: string) => {
+    setConfirmDialog({
+      title: 'Remove Skill',
+      message: `Remove skill "${name}"?`,
+      variant: 'danger',
+      action: async () => {
+        try {
+          await removeSkill(name)
+          load()
+        } catch (e) {
+          setMsg({ ok: false, text: e instanceof Error ? e.message : 'Failed to remove' })
+        }
+      },
+    })
   }
 
   return (
@@ -114,6 +122,14 @@ export function SuperSkillsPanel() {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

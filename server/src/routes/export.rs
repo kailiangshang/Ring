@@ -202,33 +202,36 @@ fn json_response(body: String, filename: String) -> impl IntoResponse {
     )
 }
 
-pub async fn export_ring_chat(
-    State(state): State<AppState>,
-    user: AuthUser,
-    Path(ring_id): Path<String>,
-) -> Result<impl IntoResponse> {
-    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
-
-    let messages =
-        message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
-
+fn build_chat_markdown(title: &str, messages: &[crate::models::message::MessageRow]) -> String {
     let mut md = String::new();
-    md.push_str(&format!("# Chat Export - Ring {}\n\n", ring_id));
-    md.push_str(&format!("Exported by: {}\n", user.token_id));
+    md.push_str(&format!("# {}\n\n", title));
     md.push_str(&format!("Total messages: {}\n\n", messages.len()));
-
     for msg in messages.iter().rev() {
         let role_label = if msg.role == "user" { "User" } else { "AI" };
         md.push_str(&format!("## {} ({})\n\n", role_label, msg.sender_name));
         md.push_str(&msg.content);
         md.push_str("\n\n---\n\n");
     }
+    md
+}
 
-    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+fn record_export_usage(user_id: &str) {
+    let self_dir = crate::services::self_data::get_self_dir(user_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export") {
         tracing::warn!("failed to record tool usage: {e}");
     }
+}
 
+pub async fn export_ring_chat(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<impl IntoResponse> {
+    let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    let messages =
+        message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
+    let md = build_chat_markdown(&format!("Chat Export - Ring {}", ring_id), &messages);
+    record_export_usage(&user.token_id);
     Ok(markdown_response(md, format!("ring_{}_chat.md", ring_id)))
 }
 
@@ -237,24 +240,8 @@ pub async fn export_self_chat(
     user: AuthUser,
 ) -> Result<impl IntoResponse> {
     let messages = message::list_messages(&state.db, None, &user.token_id, None, 10000).await?;
-
-    let mut md = String::new();
-    md.push_str("# Self Chat Export\n\n");
-    md.push_str(&format!("Exported by: {}\n", user.token_id));
-    md.push_str(&format!("Total messages: {}\n\n", messages.len()));
-
-    for msg in messages.iter().rev() {
-        let role_label = if msg.role == "user" { "User" } else { "AI" };
-        md.push_str(&format!("## {} ({})\n\n", role_label, msg.sender_name));
-        md.push_str(&msg.content);
-        md.push_str("\n\n---\n\n");
-    }
-
-    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export") {
-        tracing::warn!("failed to record tool usage: {e}");
-    }
-
+    let md = build_chat_markdown("Self Chat Export", &messages);
+    record_export_usage(&user.token_id);
     Ok(markdown_response(md, "self_chat.md".into()))
 }
 
@@ -263,24 +250,8 @@ pub async fn export_super_chat(
     user: AuthUser,
 ) -> Result<impl IntoResponse> {
     let messages = message::list_messages(&state.db, None, &user.token_id, None, 10000).await?;
-
-    let mut md = String::new();
-    md.push_str("# Super Ring Chat Export\n\n");
-    md.push_str(&format!("Exported by: {}\n", user.token_id));
-    md.push_str(&format!("Total messages: {}\n\n", messages.len()));
-
-    for msg in messages.iter().rev() {
-        let role_label = if msg.role == "user" { "User" } else { "AI" };
-        md.push_str(&format!("## {} ({})\n\n", role_label, msg.sender_name));
-        md.push_str(&msg.content);
-        md.push_str("\n\n---\n\n");
-    }
-
-    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
-    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export") {
-        tracing::warn!("failed to record tool usage: {e}");
-    }
-
+    let md = build_chat_markdown("Super Ring Chat Export", &messages);
+    record_export_usage(&user.token_id);
     Ok(markdown_response(md, "super_chat.md".into()))
 }
 
@@ -304,7 +275,7 @@ pub async fn export_ring_graph(
     });
 
     let json_str = serde_json::to_string_pretty(&json)
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .map_err(Into::<crate::error::RingError>::into)?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export") {
@@ -328,7 +299,7 @@ pub async fn export_ring_backup(
         .bind(&ring_id)
         .fetch_one(&state.db)
         .await
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .map_err(Into::<crate::error::RingError>::into)?;
 
     let messages =
         message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
@@ -343,7 +314,7 @@ pub async fn export_ring_backup(
     .bind(&ring_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    .map_err(Into::<crate::error::RingError>::into)?;
 
     let archives = sqlx::query_as::<_, crate::models::archive::ArchiveRecord>(
         "SELECT * FROM archive_records WHERE ring_id = ?1",
@@ -351,7 +322,7 @@ pub async fn export_ring_backup(
     .bind(&ring_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    .map_err(Into::<crate::error::RingError>::into)?;
 
     let metadata = serde_json::json!({
         "version": "1.0",
@@ -384,10 +355,10 @@ pub async fn export_ring_backup(
     }
 
     let sessions_json = serde_json::to_string_pretty(&sessions)
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .map_err(Into::<crate::error::RingError>::into)?;
 
     let archives_json = serde_json::to_string_pretty(&archives)
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .map_err(Into::<crate::error::RingError>::into)?;
 
     let mut buf = Vec::new();
     {
@@ -397,19 +368,19 @@ pub async fn export_ring_backup(
             &mut tar,
             "metadata.json",
             &serde_json::to_string_pretty(&metadata)
-                .map_err(|e| crate::error::RingError::Internal(e.to_string()))?,
+                .map_err(Into::<crate::error::RingError>::into)?,
         )?;
         tar_append(
             &mut tar,
             "graph.json",
             &serde_json::to_string_pretty(&graph_json)
-                .map_err(|e| crate::error::RingError::Internal(e.to_string()))?,
+                .map_err(Into::<crate::error::RingError>::into)?,
         )?;
         tar_append(&mut tar, "chat.md", &chat_md)?;
         tar_append(&mut tar, "sessions.json", &sessions_json)?;
         tar_append(&mut tar, "archives.json", &archives_json)?;
         tar.finish()
-            .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+            .map_err(Into::<crate::error::RingError>::into)?;
     }
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
@@ -436,7 +407,7 @@ fn tar_append(tar: &mut Builder<GzEncoder<&mut Vec<u8>>>, path: &str, content: &
     header.set_mode(0o644);
     header.set_cksum();
     tar.append_data(&mut header, path, data)
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))
+        .map_err(Into::<crate::error::RingError>::into)
 }
 
 pub async fn export_session_messages(
@@ -452,7 +423,7 @@ pub async fn export_session_messages(
     .bind(&session_id)
     .fetch_all(&state.db)
     .await
-    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+    .map_err(Into::<crate::error::RingError>::into)?;
 
     let mut md = String::new();
     md.push_str(&format!("# Session Export - {}\n\n", session_id));

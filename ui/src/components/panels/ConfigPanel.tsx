@@ -1,24 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { Member } from '../../types/ring'
 import type { LLMConfig, LLMProvider } from '../../types/config'
-import { api, testLLMConfig, exportRingBackup, exportAIReport, postSyncImport } from '../../services/api'
+import { api, exportRingBackup, exportAIReport, postSyncImport } from '../../services/api'
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
 import { useInviteStore } from '../../stores/invite-store'
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  background: 'var(--bg-input)',
-  border: '1px solid var(--border)',
-  borderRadius: 4,
-  padding: '6px 10px',
-  color: 'var(--text-primary)',
-  fontSize: 12,
-  fontFamily: 'inherit',
-  outline: 'none',
-  marginBottom: 8,
-  marginTop: 2,
-}
+import { LLMConfigForm, useLLMTest, ResultMsg, type LLMFormState } from '../common/LLMConfigForm'
+import { ConfirmModal } from '../common/ConfirmModal'
+import { PromptModal } from '../common/PromptModal'
 
 const smallBtn: React.CSSProperties = {
   background: 'var(--bg-hover)',
@@ -39,17 +28,15 @@ export function ConfigPanel() {
   const [members, setMembers] = useState<Member[]>([])
   const [llmConfig, setLlmConfig] = useState<LLMConfig | null>(null)
   const [editing, setEditing] = useState(false)
-  const [editProvider, setEditProvider] = useState<string>('openai')
-  const [editModel, setEditModel] = useState('')
-  const [editApiKey, setEditApiKey] = useState('')
-  const [editBaseUrl, setEditBaseUrl] = useState('')
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
+  const [editForm, setEditForm] = useState<LLMFormState>({ provider: 'openai', model: '', api_key: '', base_url: '' })
+  const { testing, result: testResult, setResult: setTestResult, test: runTest } = useLLMTest()
   const [saveError, setSaveError] = useState<string | null>(null)
   const [autoCompact, setAutoCompact] = useState<boolean | null>(null)
   const [autoCompactError, setAutoCompactError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [syncResult, setSyncResult] = useState<string | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
+  const [promptDialog, setPromptDialog] = useState<{ title: string; placeholder: string; action: (value: string) => void } | null>(null)
 
   const tokens = useInviteStore((s) => s.tokens)
   const join_requests = useInviteStore((s) => s.join_requests)
@@ -68,9 +55,7 @@ export function ConfigPanel() {
       .then((res) => {
         setLlmConfig({ ...res, provider: res.provider as LLMProvider })
         if (!editing) {
-          setEditProvider(res.provider)
-          setEditModel(res.model)
-          setEditBaseUrl(res.base_url || '')
+          setEditForm({ provider: res.provider, model: res.model, api_key: '', base_url: res.base_url || '' })
         }
       })
       .catch(() => {})
@@ -97,10 +82,7 @@ export function ConfigPanel() {
 
   const startEdit = () => {
     if (!llmConfig) return
-    setEditProvider(llmConfig.provider)
-    setEditModel(llmConfig.model)
-    setEditBaseUrl(llmConfig.base_url || '')
-    setEditApiKey('')
+    setEditForm({ provider: llmConfig.provider, model: llmConfig.model, api_key: '', base_url: llmConfig.base_url || '' })
     setTestResult(null)
     setSaveError(null)
     setEditing(true)
@@ -112,33 +94,15 @@ export function ConfigPanel() {
     setSaveError(null)
   }
 
-  const handleTest = async () => {
-    setTesting(true)
-    setTestResult(null)
-    try {
-      const result = await testLLMConfig({
-        provider: editProvider,
-        model: editModel,
-        api_key: editApiKey || undefined,
-        base_url: editBaseUrl || undefined,
-      })
-      setTestResult(result)
-    } catch (e: unknown) {
-      setTestResult({ ok: false, message: e instanceof Error ? e.message : 'Test failed' })
-    } finally {
-      setTesting(false)
-    }
-  }
-
   const handleSave = async () => {
     setSaveError(null)
     try {
       const body: Record<string, string> = {
-        provider: editProvider,
-        model: editModel,
+        provider: editForm.provider,
+        model: editForm.model,
       }
-      if (editApiKey) body.api_key = editApiKey
-      if (editBaseUrl) body.base_url = editBaseUrl
+      if (editForm.api_key) body.api_key = editForm.api_key
+      if (editForm.base_url) body.base_url = editForm.base_url
       await api.put<LLMConfig>('/config/llm', body)
       setEditing(false)
       loadLlm()
@@ -213,45 +177,10 @@ export function ConfigPanel() {
 
       {editing && (
         <div style={{ marginBottom: 16 }}>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
-            {(['openai', 'anthropic', 'ollama'] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setEditProvider(p)}
-                style={{
-                  background: editProvider === p ? 'var(--accent-cyan)' : 'var(--bg-hover)',
-                  color: editProvider === p ? 'var(--bg-base)' : 'var(--text-secondary)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 3,
-                  padding: '4px 10px',
-                  fontSize: 10,
-                  cursor: 'pointer',
-                  fontWeight: editProvider === p ? 700 : 400,
-                }}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-
-          <label htmlFor="cfg-model" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Model</label>
-          <input id="cfg-model" value={editModel} onChange={(e) => setEditModel(e.target.value)} style={inputStyle} />
-
-          <label htmlFor="cfg-apikey" style={{ fontSize: 10, color: 'var(--text-dim)' }}>API Key</label>
-          <input
-            id="cfg-apikey"
-            type="password"
-            value={editApiKey}
-            onChange={(e) => setEditApiKey(e.target.value)}
-            placeholder="Leave blank to keep current"
-            style={inputStyle}
-          />
-
-          <label htmlFor="cfg-baseurl" style={{ fontSize: 10, color: 'var(--text-dim)' }}>Base URL</label>
-          <input id="cfg-baseurl" value={editBaseUrl} onChange={(e) => setEditBaseUrl(e.target.value)} style={inputStyle} />
+          <LLMConfigForm value={editForm} onChange={(p) => setEditForm((prev) => ({ ...prev, ...p }))} idPrefix="cfg" />
 
           <button
-            onClick={handleTest}
+            onClick={() => runTest(editForm)}
             disabled={testing}
             style={{
               ...smallBtn,
@@ -267,19 +196,7 @@ export function ConfigPanel() {
             {testing ? 'TESTING...' : 'TEST CONNECTION'}
           </button>
 
-          {testResult && (
-            <div style={{
-              fontSize: 10,
-              padding: '4px 8px',
-              borderRadius: 3,
-              marginBottom: 8,
-              background: testResult.ok ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-              color: testResult.ok ? 'var(--accent-green)' : '#ef4444',
-              border: `1px solid ${testResult.ok ? 'var(--accent-green)' : '#ef4444'}`,
-            }}>
-              {testResult.message}
-            </div>
-          )}
+          <ResultMsg result={testResult} />
 
           {saveError && (
             <div style={{
@@ -288,8 +205,8 @@ export function ConfigPanel() {
               borderRadius: 3,
               marginBottom: 8,
               background: 'rgba(239,68,68,0.1)',
-              color: '#ef4444',
-              border: '1px solid #ef4444',
+              color: 'var(--accent-red, #ef4444)',
+              border: '1px solid var(--accent-red, #ef4444)',
             }}>
               {saveError}
             </div>
@@ -333,10 +250,13 @@ export function ConfigPanel() {
               <span style={{ color: t.type === 'open' ? 'var(--accent-cyan)' : 'var(--accent-amber)', fontSize: 9 }}>{t.type}</span>
               <span style={{ flex: 1, color: 'var(--text-muted)', fontSize: 9 }}>{t.use_count}/{t.max_uses} uses · {time_remaining(t.expires_at)}</span>
                <span style={{ color: 'var(--text-dim)', fontSize: 9, cursor: 'pointer' }} onClick={() => {
-                 if (window.confirm('Revoke this invite? Anyone with the link will lose access.')) {
-                   revoke_token(active_ring_id!, t.token)
-                 }
-               }}>revoke</span>
+                  setConfirmDialog({
+                    title: 'Revoke Invite',
+                    message: 'Revoke this invite? Anyone with the link will lose access.',
+                    variant: 'danger',
+                    action: () => { revoke_token(active_ring_id!, t.token) },
+                  })
+                }}>revoke</span>
             </div>
           ))}
         </>
@@ -356,7 +276,13 @@ export function ConfigPanel() {
               {req.message && <div style={{ color: 'var(--text-muted)', fontSize: 9, marginBottom: 6 }}>"{req.message}"</div>}
               <div style={{ display: 'flex', gap: 6 }}>
                 <div style={{ flex: 1, padding: 4, background: 'var(--accent-green)', color: 'var(--bg-base)', borderRadius: 2, textAlign: 'center', fontSize: 9, fontWeight: 700, cursor: 'pointer' }} onClick={() => approve_request(active_ring_id!, req.id)}>APPROVE</div>
-                <div style={{ flex: 1, padding: 4, border: '1px solid var(--border)', borderRadius: 2, textAlign: 'center', fontSize: 9, color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => { const note = window.prompt('Rejection reason (optional):'); reject_request(active_ring_id!, req.id, note || undefined) }}>REJECT</div>
+                <div style={{ flex: 1, padding: 4, border: '1px solid var(--border)', borderRadius: 2, textAlign: 'center', fontSize: 9, color: 'var(--text-secondary)', cursor: 'pointer' }} onClick={() => {
+                  setPromptDialog({
+                    title: 'Reject Request',
+                    placeholder: 'Rejection reason (optional):',
+                    action: (note) => { reject_request(active_ring_id!, req.id, note || undefined) },
+                  })
+                }}>REJECT</div>
               </div>
             </div>
           ))}
@@ -469,6 +395,21 @@ export function ConfigPanel() {
           )}
         </div>
       )}
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
+      <PromptModal
+        open={promptDialog !== null}
+        title={promptDialog?.title ?? ''}
+        placeholder={promptDialog?.placeholder}
+        on_submit={(value) => { promptDialog?.action(value); setPromptDialog(null) }}
+        on_cancel={() => setPromptDialog(null)}
+      />
     </div>
   )
 }

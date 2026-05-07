@@ -127,10 +127,15 @@ pub async fn find_token_by_value(
 }
 
 pub async fn increment_use_count(pool: &sqlx::SqlitePool, token: &str) -> Result<()> {
-    sqlx::query("UPDATE invite_tokens SET use_count = use_count + 1 WHERE token = ?1")
-        .bind(token)
-        .execute(pool)
-        .await?;
+    let result = sqlx::query(
+        "UPDATE invite_tokens SET use_count = use_count + 1 WHERE token = ?1 AND use_count < max_uses",
+    )
+    .bind(token)
+    .execute(pool)
+    .await?;
+    if result.rows_affected() == 0 {
+        return Err(RingError::BadRequest("invite token has reached max uses".into()));
+    }
     Ok(())
 }
 

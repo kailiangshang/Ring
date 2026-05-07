@@ -119,7 +119,7 @@ pub async fn quick_archive(
 
     let file_name = sanitize_filename(&title);
     let file_path = repo_path.join("archives").join(&file_name);
-    std::fs::write(&file_path, content)?;
+    tokio::fs::write(&file_path, content).await?;
 
     let record_id = ulid::Ulid::new().to_string();
 
@@ -268,7 +268,7 @@ pub async fn archive_content_creator(
 
     let file_name = sanitize_filename(title);
     let file_path = repo_path.join("archives").join(&file_name);
-    std::fs::write(&file_path, content)?;
+    tokio::fs::write(&file_path, content).await?;
 
     if let Some(nid) = node_id {
         let relative = format!("archives/{file_name}");
@@ -333,7 +333,7 @@ pub async fn archive_content_member(
 
     let file_name = sanitize_filename(title);
     let file_path = repo_path.join("archives").join(&file_name);
-    std::fs::write(&file_path, content)?;
+    tokio::fs::write(&file_path, content).await?;
 
     if let Some(nid) = node_id {
         let relative = format!("archives/{file_name}");
@@ -453,6 +453,7 @@ pub async fn review_mr(
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
+#[allow(dead_code)]
 pub enum ArchiveStep {
     Pulling,
     Generating,

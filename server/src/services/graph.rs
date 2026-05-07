@@ -81,13 +81,13 @@ async fn persist_graph_snapshot(state: &AppState, ring_id: &str) {
     };
 
     let graphs_dir = state.rings_dir.join(ring_id).join("graphs");
-    if let Err(e) = std::fs::create_dir_all(&graphs_dir) {
+    if let Err(e) = tokio::fs::create_dir_all(&graphs_dir).await {
         tracing::error!("persist_graph_snapshot: create_dir_all failed: {e}");
         return;
     }
 
     let file_path = graphs_dir.join("main.json");
-    if let Err(e) = std::fs::write(&file_path, &json_str) {
+    if let Err(e) = tokio::fs::write(&file_path, &json_str).await {
         tracing::error!("persist_graph_snapshot: write failed: {e}");
         return;
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { api } from '../../services/api'
 
 interface PromptEntry {
@@ -88,7 +88,7 @@ function buildTree(prompts: PromptEntry[]): TreeNode[] {
     })
 }
 
-function TreeItem({
+const TreeItem = memo(function TreeItem({
   node,
   depth,
   selected,
@@ -180,7 +180,7 @@ function TreeItem({
         ))}
     </>
   )
-}
+})
 
 export function PromptsModal({ onClose }: { onClose: () => void }) {
   const [prompts, setPrompts] = useState<PromptEntry[]>([])

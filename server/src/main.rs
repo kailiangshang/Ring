@@ -26,6 +26,7 @@ async fn main() {
 
     tracing_subscriber::fmt()
         .with_env_filter("ring_server=debug,tower_http=debug")
+        .with_writer(std::io::stderr)
         .init();
 
     let data_dir = dirs_data_dir();
@@ -201,15 +202,23 @@ fn print_banner(port: u16, data_dir: &str) {
     println!();
     println!("{cyan}  ┌─────────────────────────────────────────────────┐{reset}");
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╔═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗{reset}                     {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╠╦╝║╣  ║ ║╣ ║║║║ ╦╠╦╝{reset}                     {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {bold}╩╚═╚═╝ ╩ ╚═╝╚╩╝╚═╝╩╚═{reset}                     {cyan}│{reset}");
+    println!(
+        "{cyan}  │{reset}   {bold}╔═╗╔═╗╔╦╗╔═╗╦ ╦╔═╗╦═╗{reset}                     {cyan}│{reset}"
+    );
+    println!(
+        "{cyan}  │{reset}   {bold}╠╦╝║╣  ║ ║╣ ║║║║ ╦╠╦╝{reset}                     {cyan}│{reset}"
+    );
+    println!(
+        "{cyan}  │{reset}   {bold}╩╚═╚═╝ ╩ ╚═╝╚╩╝╚═╝╩╚═{reset}                     {cyan}│{reset}"
+    );
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
     println!("{cyan}  │{reset}   {dim}Group Knowledge Workspace  v{version:<14}{reset}    {cyan}│{reset}");
     println!("{cyan}  │{reset}                                                 {cyan}│{reset}");
     println!("{cyan}  ├─────────────────────────────────────────────────┤{reset}");
     println!("{cyan}  │{reset}   {dim}➜{reset}  {cyan}Local:{reset}   http://localhost:{port:<18} {cyan}│{reset}");
-    println!("{cyan}  │{reset}   {dim}➜{reset}  {cyan}Data:{reset}    {data_dir:<29}{cyan}│{reset}");
+    println!(
+        "{cyan}  │{reset}   {dim}➜{reset}  {cyan}Data:{reset}    {data_dir:<29}{cyan}│{reset}"
+    );
     println!("{cyan}  └─────────────────────────────────────────────────┘{reset}");
     println!();
     tracing::info!("Ring v{version} starting on http://localhost:{port}, data_dir: {data_dir}");

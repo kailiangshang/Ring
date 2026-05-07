@@ -54,15 +54,13 @@ pub async fn add_tokens(
     tokens: i64,
 ) -> Result<ConversationTokenRow> {
     let row = get_or_create(pool, user_id, ring_id).await?;
-    let new_total = row.total_tokens + tokens;
-
     sqlx::query_as::<_, ConversationTokenRow>(
         "UPDATE conversation_tokens
-         SET total_tokens = ?1, updated_at = datetime('now')
+         SET total_tokens = total_tokens + ?1, updated_at = datetime('now')
          WHERE id = ?2
          RETURNING *",
     )
-    .bind(new_total)
+    .bind(tokens)
     .bind(&row.id)
     .fetch_one(pool)
     .await

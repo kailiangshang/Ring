@@ -6,7 +6,7 @@ import {
   stripBlueprintTags,
   type BlueprintGraph,
 } from '../../stores/blueprint-store'
-import { api } from '../../services/api'
+import { api, parseFile } from '../../services/api'
 import * as d3 from 'd3'
 
 interface BlueprintPreview {
@@ -15,11 +15,11 @@ interface BlueprintPreview {
 }
 
 const TEMPLATES = [
-  { id: 'product-research', name: '竞品分析', desc: '产品分析和竞品调研' },
-  { id: 'project-management', name: '项目管理', desc: '项目规划和进度跟踪' },
-  { id: 'learning-notes', name: '学习笔记', desc: '知识学习和笔记整理' },
-  { id: 'technical-docs', name: '技术文档', desc: '技术方案设计和文档' },
-  { id: 'blank', name: '空白', desc: '从零开始构建图谱' },
+  { id: 'product-research', name: '竞品分析', desc: '产品分析和竞品调研', icon: '📊' },
+  { id: 'project-management', name: '项目管理', desc: '项目规划和进度跟踪', icon: '📋' },
+  { id: 'learning-notes', name: '学习笔记', desc: '知识学习和笔记整理', icon: '📚' },
+  { id: 'technical-docs', name: '技术文档', desc: '技术方案设计和文档', icon: '🔧' },
+  { id: 'blank', name: '空白', desc: '从零开始构建图谱', icon: '✦' },
 ]
 
 function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
@@ -27,6 +27,12 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
 
   useEffect(() => {
     if (!ref.current || graphs.length === 0) return
+    let graph: BlueprintGraph | undefined
+    try {
+      graph = graphs[0]
+      if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) return
+    } catch { return }
+
     const container = ref.current
     const width = container.clientWidth || 280
     const height = 160
@@ -39,7 +45,6 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
       .attr('width', width)
       .attr('height', height)
 
-    const graph = graphs[0]
     const labels = graph.nodes.map((n) => n.label)
     const nodeMap = new Map(labels.map((l, i) => [l, i]))
 
@@ -63,17 +68,23 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
       leaf: '#34d399',
     }
 
-    const simulation = d3
-      .forceSimulation(nodes as d3.SimulationNodeDatum[])
-      .force(
-        'link',
-        d3
-          .forceLink(edges as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
-          .id((d: any) => d.id)
-          .distance(50),
-      )
-      .force('charge', d3.forceManyBody().strength(-120))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+    let simulation: d3.Simulation<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>
+    try {
+      simulation = d3
+        .forceSimulation(nodes as d3.SimulationNodeDatum[])
+        .force(
+          'link',
+          d3
+            .forceLink(edges as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
+            .id((d: any) => d.id)
+            .distance(50),
+        )
+        .force('charge', d3.forceManyBody().strength(-120))
+        .force('center', d3.forceCenter(width / 2, height / 2))
+    } catch (err) {
+      console.error('MiniGraphPreview: simulation creation failed', err)
+      return
+    }
 
     const link = svg
       .append('g')
@@ -119,8 +130,6 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
 
 export function BlueprintPanel() {
   const active_ring_id = useRingStore((s) => s.active_ring_id)
-  const mode = useBlueprintStore((s) => s.mode)
-  const setMode = useBlueprintStore((s) => s.setMode)
   const messages = useBlueprintStore((s) => s.messages)
   const streaming = useBlueprintStore((s) => s.streaming)
   const current_blueprint = useBlueprintStore((s) => s.current_blueprint)
@@ -131,23 +140,33 @@ export function BlueprintPanel() {
   const checkStatus = useBlueprintStore((s) => s.checkStatus)
   const stopStreaming = useBlueprintStore((s) => s.stopStreaming)
   const fetchGraph = useGraphStore((s) => s.fetchGraph)
+  const step = useBlueprintStore((s) => s.step)
+  const setStep = useBlueprintStore((s) => s.setStep)
 
   const [input, setInput] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [preview, setPreview] = useState<BlueprintPreview | null>(null)
   const [loading, setLoading] = useState(false)
+  const [uploadedContext, setUploadedContext] = useState<string>('')
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (active_ring_id) {
       checkStatus(active_ring_id)
-      if (mode === 'deep') loadHistory(active_ring_id)
+      loadHistory(active_ring_id)
     }
-  }, [active_ring_id, mode])
+  }, [active_ring_id])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (current_blueprint && current_blueprint.graphs.length > 0 && step === 'template') {
+      setStep('confirm')
+    }
+  }, [current_blueprint, step])
 
   if (!active_ring_id) return null
 
@@ -166,37 +185,59 @@ export function BlueprintPanel() {
     )
   }
 
-  const handleQuickConfirm = async () => {
-    if (!active_ring_id || !preview) return
+  const handleTemplateSelect = async (templateId: string) => {
+    setSelectedTemplate(templateId)
+    if (templateId === 'blank') {
+      setStep('refine')
+      return
+    }
+    try {
+      const res = await api.post<{ preview: BlueprintPreview }>(
+        `/rings/${active_ring_id}/blueprint/from-template`,
+        { template: templateId },
+      )
+      setPreview(res.preview)
+    } catch {
+      // silently ignore
+    }
+  }
+
+  const handleTemplateConfirm = () => {
+    if (preview && preview.nodes.length > 0) {
+      setStep('refine')
+      if (uploadedContext) {
+        const contextMsg = `I have these reference materials:\n\n${uploadedContext.slice(0, 3000)}\n\nBased on the selected template and these materials, please refine the knowledge graph blueprint.`
+        setTimeout(() => {
+          sendMessage(active_ring_id, contextMsg)
+        }, 100)
+      }
+    } else {
+      setStep('refine')
+    }
+  }
+
+  const handleFinalConfirm = async () => {
     setLoading(true)
     try {
-      const blueprintData = preview.nodes.length > 0
-        ? {
-            graphs: [
-              {
-                name: 'Main',
-                nodes: preview.nodes,
-                edges: preview.edges,
-              },
-            ],
-          }
-        : null
-      await api.post(`/rings/${active_ring_id}/blueprint/confirm`, {
-        blueprint: blueprintData,
-      })
+      if (preview && !current_blueprint) {
+        const blueprintData = {
+          graphs: [{
+            name: 'Main',
+            nodes: preview.nodes,
+            edges: preview.edges,
+          }],
+        }
+        await api.post(`/rings/${active_ring_id}/blueprint/confirm`, {
+          blueprint: blueprintData,
+        })
+      } else {
+        await confirm(active_ring_id)
+      }
       fetchGraph(active_ring_id)
       useBlueprintStore.setState({ confirmed: true })
     } catch (e: any) {
       alert(`Failed to confirm blueprint: ${e.message || 'unknown error'}`)
     }
-    setLoading(false)
-  }
-
-  const handleDeepConfirm = async () => {
-    if (!active_ring_id) return
-    setLoading(true)
-    await confirm(active_ring_id)
-    fetchGraph(active_ring_id)
     setLoading(false)
   }
 
@@ -207,145 +248,164 @@ export function BlueprintPanel() {
     setInput('')
   }
 
-  const btnBase: React.CSSProperties = {
-    background: 'none',
-    border: 'none',
-    fontSize: 11,
-    fontWeight: 700,
-    cursor: 'pointer',
-    padding: '2px 6px',
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    for (let i = 0; i < files.length; i++) {
+      try {
+        const parsed = await parseFile(files[i])
+        setUploadedContext(prev =>
+          prev ? `${prev}\n\n--- ${parsed.filename} ---\n${parsed.content.slice(0, 5000)}` : `--- ${parsed.filename} ---\n${parsed.content.slice(0, 5000)}`
+        )
+      } catch {
+        // skip failed files
+      }
+    }
   }
 
-  return (
-    <div
-      style={{
-        padding: '12px 16px',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button
-          onClick={() => setMode('quick')}
+  const stepIndicator = (
+    <div style={{ display: 'flex', gap: 2, marginBottom: 12 }}>
+      {(['template', 'refine', 'confirm'] as const).map((s, i) => (
+        <div
+          key={s}
           style={{
             flex: 1,
-            padding: '6px 8px',
-            fontSize: 10,
-            fontWeight: 700,
-            background: mode === 'quick' ? 'var(--bg-hover)' : 'var(--bg-input)',
-            border: `1px solid ${mode === 'quick' ? 'var(--accent-cyan)' : 'var(--border)'}`,
-            borderRadius: 4,
-            color: mode === 'quick' ? 'var(--accent-cyan)' : 'var(--text-dim)',
-            cursor: 'pointer',
+            height: 3,
+            borderRadius: 2,
+            background: step === s ? 'var(--accent-cyan)' :
+              (['template', 'refine', 'confirm'].indexOf(step) > i) ? 'var(--accent-cyan)' : 'var(--border)',
+            opacity: step === s ? 1 : (['template', 'refine', 'confirm'].indexOf(step) > i) ? 0.5 : 0.3,
           }}
-        >
-          从模板选择
-        </button>
-        <button
-          onClick={() => setMode('deep')}
-          style={{
-            flex: 1,
-            padding: '6px 8px',
-            fontSize: 10,
-            fontWeight: 700,
-            background: mode === 'deep' ? 'var(--bg-hover)' : 'var(--bg-input)',
-            border: `1px solid ${mode === 'deep' ? 'var(--accent-cyan)' : 'var(--border)'}`,
-            borderRadius: 4,
-            color: mode === 'deep' ? 'var(--accent-cyan)' : 'var(--text-dim)',
-            cursor: 'pointer',
-          }}
-        >
-          AI 协作设计
-        </button>
-      </div>
+        />
+      ))}
+    </div>
+  )
 
-      {mode === 'quick' && (
+  return (
+    <div style={{ padding: '12px 16px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {stepIndicator}
+
+      {step === 'template' && (
         <div style={{ flex: 1, overflow: 'auto' }}>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 6,
-              marginBottom: 12,
-            }}
-          >
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+            1. Choose a template
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
             {TEMPLATES.map((t) => (
               <button
                 key={t.id}
-                onClick={async () => {
-                  setSelectedTemplate(t.id)
-                  try {
-                    const res = await api.post<{ preview: BlueprintPreview }>(
-                      `/rings/${active_ring_id}/blueprint/from-template`,
-                      { template: t.id },
-                    )
-                    setPreview(res.preview)
-                  } catch {
-      // silently ignore
-    }
-                }}
+                onClick={() => handleTemplateSelect(t.id)}
                 style={{
                   padding: '8px 10px',
-                  background:
-                    selectedTemplate === t.id
-                      ? 'var(--bg-hover)'
-                      : 'var(--bg-input)',
+                  background: selectedTemplate === t.id ? 'var(--bg-hover)' : 'var(--bg-input)',
                   border: `1px solid ${selectedTemplate === t.id ? 'var(--accent-cyan)' : 'var(--border)'}`,
                   borderRadius: 4,
                   cursor: 'pointer',
                   textAlign: 'left',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
                 }}
               >
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    color: 'var(--text-primary)',
-                  }}
-                >
-                  {t.name}
-                </div>
-                <div
-                  style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2 }}
-                >
-                  {t.desc}
+                <span style={{ fontSize: 16 }}>{t.icon}</span>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>{t.name}</div>
+                  <div style={{ fontSize: 9, color: 'var(--text-dim)' }}>{t.desc}</div>
                 </div>
               </button>
             ))}
           </div>
 
           {preview && (
-            <div
+            <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, padding: 10, marginBottom: 10 }}>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 6 }}>
+                Preview: {preview.nodes.length} nodes · {preview.edges.length} edges
+              </div>
+              <MiniGraphPreview graphs={[{ name: 'Main', nodes: preview.nodes, edges: preview.edges }]} />
+            </div>
+          )}
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>
+            Upload reference docs (optional)
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".txt,.md,.csv,.json,.pdf"
+              style={{ display: 'none' }}
+              onChange={(e) => handleFileUpload(e.target.files)}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
               style={{
-                background: 'var(--bg-input)',
+                background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)',
                 border: '1px solid var(--border)',
                 borderRadius: 4,
-                padding: 10,
-                marginBottom: 10,
+                padding: '5px 10px',
+                fontSize: 10,
+                cursor: 'pointer',
               }}
             >
-              <div
+              📎 Upload
+            </button>
+            {uploadedContext && (
+              <span style={{ fontSize: 9, color: 'var(--accent-cyan)' }}>
+                ✓ {uploadedContext.split('---').length - 1} file(s) loaded
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handleTemplateConfirm}
+            disabled={!selectedTemplate}
+            style={{
+              width: '100%',
+              padding: '8px',
+              background: selectedTemplate ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+              color: selectedTemplate ? 'var(--bg-base)' : 'var(--text-dim)',
+              border: 'none',
+              borderRadius: 4,
+              fontSize: 11,
+              fontWeight: 700,
+              cursor: selectedTemplate ? 'pointer' : 'default',
+            }}
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {step === 'refine' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)' }}>
+              2. Refine with AI
+            </div>
+            {preview && !current_blueprint && (
+              <button
+                onClick={() => setStep('confirm')}
                 style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-cyan)',
                   fontSize: 10,
-                  color: 'var(--text-dim)',
-                  marginBottom: 4,
+                  cursor: 'pointer',
+                  fontWeight: 700,
                 }}
               >
-                预览: {preview.nodes.length} 节点 · {preview.edges.length} 边
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                Skip →
+              </button>
+            )}
+          </div>
+
+          {preview && !current_blueprint && (
+            <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 4, padding: 8, marginBottom: 8, maxHeight: 80, overflowY: 'auto' }}>
+              <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 4 }}>Starting blueprint:</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
                 {preview.nodes.map((n, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      fontSize: 9,
-                      background: 'var(--bg-hover)',
-                      padding: '2px 5px',
-                      borderRadius: 2,
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
+                  <span key={i} style={{ fontSize: 9, background: 'var(--bg-hover)', padding: '1px 5px', borderRadius: 2, color: 'var(--text-secondary)' }}>
                     {n.label}
                   </span>
                 ))}
@@ -353,55 +413,10 @@ export function BlueprintPanel() {
             </div>
           )}
 
-          {selectedTemplate && (
-            <button
-              onClick={handleQuickConfirm}
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '8px',
-                background: 'var(--accent-cyan)',
-                color: 'var(--bg-base)',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: loading ? 'default' : 'pointer',
-              }}
-            >
-              {loading ? '创建中...' : '确认并应用蓝图'}
-            </button>
-          )}
-        </div>
-      )}
-
-      {mode === 'deep' && (
-        <div
-          style={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0,
-          }}
-        >
-          <div
-            style={{
-              flex: 1,
-              overflowY: 'auto',
-              marginBottom: 8,
-              minHeight: 0,
-            }}
-          >
+          <div style={{ flex: 1, overflowY: 'auto', marginBottom: 8, minHeight: 0 }}>
             {messages.length === 0 && (
-              <div
-                style={{
-                  fontSize: 10,
-                  color: 'var(--text-dim)',
-                  padding: '20px 0',
-                  textAlign: 'center',
-                }}
-              >
-                描述你的知识领域，AI 会帮你设计图谱结构
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', padding: '16px 0', textAlign: 'center' }}>
+                Describe your knowledge domain to refine the blueprint
               </div>
             )}
             {messages.map((msg, i) => (
@@ -410,75 +425,27 @@ export function BlueprintPanel() {
                 style={{
                   marginBottom: 6,
                   display: 'flex',
-                  justifyContent:
-                    msg.role === 'user' ? 'flex-end' : 'flex-start',
+                  justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
                 }}
               >
-                <div
-                  style={{
-                    maxWidth: '85%',
-                    padding: '6px 8px',
-                    borderRadius: 4,
-                    fontSize: 10,
-                    lineHeight: 1.5,
-                    background:
-                      msg.role === 'user'
-                        ? 'var(--bg-hover)'
-                        : 'var(--bg-input)',
-                    color: 'var(--text-secondary)',
-                    border: `1px solid ${msg.role === 'user' ? 'var(--accent-cyan)' : 'var(--border)'}`,
-                  }}
-                >
+                <div style={{
+                  maxWidth: '85%',
+                  padding: '6px 8px',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  lineHeight: 1.5,
+                  background: msg.role === 'user' ? 'var(--bg-hover)' : 'var(--bg-input)',
+                  color: 'var(--text-secondary)',
+                  border: `1px solid ${msg.role === 'user' ? 'var(--accent-cyan)' : 'var(--border)'}`,
+                }}>
                   {msg.role === 'blueprint'
-                    ? stripBlueprintTags(msg.content) || '(图谱已更新)'
+                    ? stripBlueprintTags(msg.content) || '(Blueprint updated)'
                     : msg.content}
                 </div>
               </div>
             ))}
             <div ref={chatEndRef} />
           </div>
-
-          {current_blueprint && current_blueprint.graphs.length > 0 && (
-            <div
-              style={{
-                borderTop: '1px solid var(--border)',
-                paddingTop: 6,
-                marginBottom: 6,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 9,
-                  color: 'var(--text-dim)',
-                  marginBottom: 4,
-                }}
-              >
-                当前蓝图: {current_blueprint.graphs.length} 个图谱
-              </div>
-              <MiniGraphPreview graphs={current_blueprint.graphs} />
-            </div>
-          )}
-
-          {current_blueprint && current_blueprint.graphs.length > 0 && (
-            <button
-              onClick={handleDeepConfirm}
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '6px',
-                marginBottom: 6,
-                background: 'var(--accent-green)',
-                color: 'var(--bg-base)',
-                border: 'none',
-                borderRadius: 4,
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: loading ? 'default' : 'pointer',
-              }}
-            >
-              {loading ? '创建中...' : '确认蓝图'}
-            </button>
-          )}
 
           <div style={{ display: 'flex', gap: 6 }}>
             <textarea
@@ -490,7 +457,7 @@ export function BlueprintPanel() {
                   handleSend()
                 }
               }}
-              placeholder="描述你的知识领域..."
+              placeholder="Describe your knowledge domain..."
               style={{
                 flex: 1,
                 background: 'var(--bg-input)',
@@ -510,12 +477,14 @@ export function BlueprintPanel() {
               <button
                 onClick={stopStreaming}
                 style={{
-                  ...btnBase,
                   background: 'var(--accent-amber)',
                   borderRadius: 4,
                   color: 'var(--bg-base)',
+                  border: 'none',
                   padding: '4px 8px',
                   fontSize: 9,
+                  fontWeight: 700,
+                  cursor: 'pointer',
                 }}
               >
                 STOP
@@ -525,18 +494,83 @@ export function BlueprintPanel() {
                 onClick={handleSend}
                 disabled={!input.trim()}
                 style={{
-                  ...btnBase,
-                  background: 'var(--accent-cyan)',
+                  background: input.trim() ? 'var(--accent-cyan)' : 'var(--bg-hover)',
                   borderRadius: 4,
-                  color: 'var(--bg-base)',
-                  opacity: input.trim() ? 1 : 0.5,
+                  color: input.trim() ? 'var(--bg-base)' : 'var(--text-dim)',
+                  border: 'none',
                   padding: '4px 8px',
                   fontSize: 9,
+                  fontWeight: 700,
+                  cursor: input.trim() ? 'pointer' : 'default',
                 }}
               >
                 SEND
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {step === 'confirm' && (
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>
+            3. Preview & Confirm
+          </div>
+
+          {(current_blueprint && current_blueprint.graphs.length > 0) ? (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>
+                AI-generated blueprint: {current_blueprint.graphs.reduce((a, g) => a + g.nodes.length, 0)} nodes · {current_blueprint.graphs.reduce((a, g) => a + g.edges.length, 0)} edges
+              </div>
+              <MiniGraphPreview graphs={current_blueprint.graphs} />
+            </div>
+          ) : preview ? (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4 }}>
+                Template blueprint: {preview.nodes.length} nodes · {preview.edges.length} edges
+              </div>
+              <MiniGraphPreview graphs={[{ name: 'Main', nodes: preview.nodes, edges: preview.edges }]} />
+            </div>
+          ) : (
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'center', padding: 20 }}>
+              No blueprint to preview. Go back and create one.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
+            <button
+              onClick={() => setStep('refine')}
+              style={{
+                flex: 1,
+                padding: '8px',
+                background: 'var(--bg-hover)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+                borderRadius: 4,
+                fontSize: 10,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              ← Back
+            </button>
+            <button
+              onClick={handleFinalConfirm}
+              disabled={loading || (!preview && !current_blueprint)}
+              style={{
+                flex: 2,
+                padding: '8px',
+                background: (preview || current_blueprint) ? 'var(--accent-cyan)' : 'var(--bg-hover)',
+                color: (preview || current_blueprint) ? 'var(--bg-base)' : 'var(--text-dim)',
+                border: 'none',
+                borderRadius: 4,
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: (preview || current_blueprint) && !loading ? 'pointer' : 'default',
+              }}
+            >
+              {loading ? 'Creating...' : 'Confirm Blueprint'}
+            </button>
           </div>
         </div>
       )}

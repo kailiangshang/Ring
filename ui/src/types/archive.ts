@@ -31,6 +31,7 @@ export interface NodeSuggestion {
   parent_id?: string
   node_id?: string
   node_title?: string
+  node_type?: string
 }
 
 export interface CreateArchiveInput {

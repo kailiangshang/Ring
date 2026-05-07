@@ -286,7 +286,7 @@ export async function deleteRing(ringId: string): Promise<void> {
   }
 }
 
-export async function parseFile(file: File): Promise<{ filename: string; content: string; length: number }> {
+export async function parseFile(file: File): Promise<{ filename: string; content: string; length: number; estimated_tokens: number; chunk_count: number; token_warning: boolean }> {
   const token = await getToken()
   const formData = new FormData()
   formData.append('file', file)
@@ -357,6 +357,18 @@ export async function crossRingAnalysis(
   return api.post('/super/cross-ring-analysis', { ring_names: ringNames, analysis_type: analysisType, question })
 }
 
+export async function deleteRingMessage(ringId: string, messageId: string): Promise<void> {
+  return api.delete(`/rings/${ringId}/messages/${encodeURIComponent(messageId)}`)
+}
+
+export async function deleteSelfMessage(messageId: string): Promise<void> {
+  return api.delete(`/self/messages/${encodeURIComponent(messageId)}`)
+}
+
+export async function deleteSuperMessage(messageId: string): Promise<void> {
+  return api.delete(`/super/messages/${encodeURIComponent(messageId)}`)
+}
+
 export async function getArchiveDiff(ringId: string, archiveId: string): Promise<{ diffs: Array<{ old_path: string; new_path: string; diff: string }> }> {
   return api.get(`/rings/${ringId}/archives/${archiveId}/diff`)
 }
@@ -396,6 +408,18 @@ export async function getTokenCount(ring_id?: string): Promise<{ total_tokens: n
 
 export async function resetSelfData(): Promise<{ ok: boolean }> {
   return api.post('/self/reset', {})
+}
+
+export async function compactChat(ringId: string): Promise<{ summary: string; removed_count: number }> {
+  return api.post(`/rings/${ringId}/compact`, {})
+}
+
+export async function compactSelfChat(): Promise<{ summary: string; removed_count: number }> {
+  return api.post('/self/compact', {})
+}
+
+export async function compactSuperChat(): Promise<{ summary: string; removed_count: number }> {
+  return api.post('/super/compact', {})
 }
 
 export async function getSyncBundle(

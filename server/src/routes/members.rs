@@ -37,29 +37,6 @@ pub async fn remove_member(
     user: AuthUser,
     Path((ring_id, target_id)): Path<(String, String)>,
 ) -> Result<axum::http::StatusCode> {
-    let owned_sessions: Vec<(String, String)> = sqlx::query_as(
-        "SELECT s.id, s.title FROM sessions s
-         JOIN session_participants sp ON sp.session_id = s.id
-         WHERE s.ring_id = ?1 AND sp.token_id = ?2 AND sp.role = 'owner' AND s.phase != 'closed'",
-    )
-    .bind(&ring_id)
-    .bind(&target_id)
-    .fetch_all(&state.db)
-    .await
-    .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
-
-    if !owned_sessions.is_empty() {
-        return Err(crate::error::RingError::BadRequest(format!(
-            "User owns {} active session(s). Transfer ownership first: {}",
-            owned_sessions.len(),
-            owned_sessions
-                .iter()
-                .map(|(id, t)| format!("{} ({})", id, t))
-                .collect::<Vec<_>>()
-                .join(", ")
-        )));
-    }
-
     member::remove_member(&state, &ring_id, &user.token_id, &target_id).await?;
     {
         let cache = state.cross_ring_cache.clone();
@@ -110,8 +87,7 @@ pub async fn grant_session(
         .bind(&ring_id)
         .bind(&target_id)
         .execute(&state.db)
-        .await
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }
 
@@ -130,7 +106,6 @@ pub async fn revoke_session(
         .bind(&ring_id)
         .bind(&target_id)
         .execute(&state.db)
-        .await
-        .map_err(|e| crate::error::RingError::Internal(e.to_string()))?;
+        .await?;
     Ok(axum::http::StatusCode::NO_CONTENT)
 }

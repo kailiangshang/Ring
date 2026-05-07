@@ -13,7 +13,7 @@ pub fn get_local_ip() -> Result<String> {
         return Err(RingError::Internal("no address resolved".into()));
     }
 
-    let stream = TcpStream::connect(&addrs[0])
+    let stream = TcpStream::connect(addrs[0])
         .map_err(|e| RingError::Internal(format!("failed to connect: {e}")))?;
 
     let local_addr = stream

@@ -23,7 +23,7 @@ interface RingState {
 export const useRingStore = create<RingState>((set, get) => ({
   rings: [],
   loading: false,
-  active_ring_id: null,
+  active_ring_id: (() => { try { return localStorage.getItem('ring_active_ring_id') || null } catch { return null } })(),
 
   fetchRings: async () => {
     set({ loading: true })
@@ -56,10 +56,14 @@ export const useRingStore = create<RingState>((set, get) => ({
   deleteRing: async (ringId) => {
     try {
       await deleteRingApi(ringId)
-      set((s) => ({
-        rings: s.rings.filter((r) => r.id !== ringId),
-        active_ring_id: s.active_ring_id === ringId ? null : s.active_ring_id,
-      }))
+      set((s) => {
+        const isActive = s.active_ring_id === ringId
+        if (isActive) localStorage.removeItem('ring_active_ring_id')
+        return {
+          rings: s.rings.filter((r) => r.id !== ringId),
+          active_ring_id: isActive ? null : s.active_ring_id,
+        }
+      })
       return true
     } catch {
       return false
@@ -67,5 +71,12 @@ export const useRingStore = create<RingState>((set, get) => ({
   },
 
   setRings: (rings) => set({ rings }),
-  selectRing: (id) => set({ active_ring_id: id }),
+  selectRing: (id) => {
+    if (id) {
+      localStorage.setItem('ring_active_ring_id', id)
+    } else {
+      localStorage.removeItem('ring_active_ring_id')
+    }
+    set({ active_ring_id: id })
+  },
 }))

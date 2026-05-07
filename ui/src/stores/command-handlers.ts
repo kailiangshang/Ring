@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../types/chat'
-import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill } from '../services/api'
+import { getPreferences, updatePreferences, listSkills, installSkill, removeSkill, compactChat, compactSelfChat, compactSuperChat } from '../services/api'
 import { useAppStore } from './app-store'
+import { useRingStore } from './ring-store'
 
 export function buildHelpContent(): string {
   type CmdGroup = { title: string; cmds: { usage: string; desc: string; scopes: string[] }[] }
@@ -65,6 +66,7 @@ export function buildHelpContent(): string {
     {
       title: '其他',
       cmds: [
+        { usage: '/compact', desc: '压缩聊天历史', scopes: ['super', 'ring'] },
         { usage: '/new <name>', desc: '创建 Ring', scopes: ['ring'] },
         { usage: '/help [command]', desc: '帮助', scopes: ['super', 'ring', 'session'] },
       ],
@@ -104,6 +106,7 @@ export function getCommandHelp(command: string): string {
     members: '### /members\n\nShow member list.\n\n**Usage:** `/members`',
     invite: '### /invite\n\nCreate invitation tokens.\n\n**Usage:**\n- `/invite open` - Open invitation\n- `/invite audit` - Audit invitation',
     help: '### /help\n\nShow help information.\n\n**Usage:**\n- `/help` - Show all commands\n- `/help <command>` - Show specific command help',
+    compact: '### /compact\n\nCompress chat history using AI summarization.\n\n**Usage:** `/compact`',
     cross_ring_query: '### /cross-ring-query\n\nQuery across all your Rings.\n\n**Usage:** `/cross-ring-query <your question>`',
     cross_ring_analysis: '### /cross-ring-analysis\n\nAnalyze multiple Rings.\n\n**Usage:** `/cross-ring-analysis <compare|merge|summary> <ring1,ring2,...> [question]`',
   }
@@ -118,17 +121,25 @@ const PREFS_KEY_MAP: Record<string, { section: string; key: string }> = {
   mode: { section: '默认模式', key: 'mode' },
 }
 
-export async function handlePrefsShow(addMessage: (msg: ChatMessage) => void) {
+export async function handlePrefsShow(
+  addMessage: (msg: ChatMessage) => void,
+  showResult?: (title: string, content: string) => void,
+) {
   try {
     const { content, is_custom } = await getPreferences()
     const label = is_custom ? '当前偏好设置（自定义）：' : '当前偏好设置（默认）：'
-    addMessage({
-      id: `sys-prefs-${crypto.randomUUID()}`,
-      role: 'system',
-      sender_name: 'SYSTEM',
-      content: `${label}\n\`\`\`\n${content}\n\`\`\``,
-      created_at: new Date().toISOString(),
-    })
+    const md = `${label}\n\`\`\`\n${content}\n\`\`\``
+    if (showResult) {
+      showResult('/prefs', md)
+    } else {
+      addMessage({
+        id: `sys-prefs-${crypto.randomUUID()}`,
+        role: 'system',
+        sender_name: 'SYSTEM',
+        content: md,
+        created_at: new Date().toISOString(),
+      })
+    }
   } catch {
     addMessage({
       id: `sys-prefs-err-${crypto.randomUUID()}`,
@@ -203,18 +214,30 @@ export async function handlePrefsSet(key: string, value: string, addMessage: (ms
   }
 }
 
-export async function handleSkillList(addMessage: (msg: ChatMessage) => void) {
+export async function handleSkillList(
+  addMessage: (msg: ChatMessage) => void,
+  showResult?: (title: string, content: string) => void,
+) {
   try {
     const { skills } = await listSkills()
     if (skills.length === 0) {
-      addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'No skills installed.', created_at: new Date().toISOString() })
+      if (showResult) {
+        showResult('/skill list', 'No skills installed.')
+      } else {
+        addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'No skills installed.', created_at: new Date().toISOString() })
+      }
       return
     }
     const lines = skills.map(s => {
       const tag = s.source === 'builtin' ? '[built-in]' : '[user]'
       return `- **${s.name}** ${tag}: ${s.description}`
     })
-    addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `## Skills\n\n${lines.join('\n')}`, created_at: new Date().toISOString() })
+    const md = `## Skills\n\n${lines.join('\n')}`
+    if (showResult) {
+      showResult('/skill list', md)
+    } else {
+      addMessage({ id: `sys-skill-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: md, created_at: new Date().toISOString() })
+    }
   } catch {
     addMessage({ id: `sys-skill-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'Failed to load skills.', created_at: new Date().toISOString() })
   }
@@ -237,5 +260,32 @@ export async function handleSkillRemove(name: string, addMessage: (msg: ChatMess
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Unknown error'
     addMessage({ id: `sys-skill-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `Failed to remove skill: ${msg}`, created_at: new Date().toISOString() })
+  }
+}
+
+export async function handleCompact(addMessage: (msg: ChatMessage) => void) {
+  addMessage({ id: `sys-compact-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: 'Compressing history...', created_at: new Date().toISOString() })
+
+  try {
+    const context = useAppStore.getState().current_context
+    const ringId = useRingStore.getState().active_ring_id
+
+    let result: { summary: string; removed_count: number }
+    if (context === 'ring' && ringId) {
+      result = await compactChat(ringId)
+    } else if (context === 'super') {
+      result = await compactSuperChat()
+    } else {
+      result = await compactSelfChat()
+    }
+
+    if (result.removed_count > 0) {
+      addMessage({ id: `sys-compact-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `History compressed. ${result.removed_count} messages summarized.`, created_at: new Date().toISOString() })
+    } else {
+      addMessage({ id: `sys-compact-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: result.summary, created_at: new Date().toISOString() })
+    }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error'
+    addMessage({ id: `sys-compact-err-${crypto.randomUUID()}`, role: 'system', sender_name: 'SYSTEM', content: `Compact failed: ${msg}`, created_at: new Date().toISOString() })
   }
 }

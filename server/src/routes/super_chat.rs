@@ -9,7 +9,11 @@ use std::pin::Pin;
 use crate::error::Result;
 use crate::extractors::auth::AuthUser;
 use crate::models::message;
-use crate::services::{llm::SseEvent, super_chat};
+use crate::services::{
+    chat::{self, CompactResult},
+    llm,
+    super_chat,
+};
 use crate::state::AppState;
 
 type BoxedSseStream =
@@ -74,28 +78,7 @@ pub async fn super_chat_handler(
 
     let s: BoxedSseStream = Box::pin(stream! {
         while let Some(event) = rx.recv().await {
-            match event {
-                SseEvent::Start { message_id, role } => {
-                    let data = serde_json::json!({"message_id": message_id, "role": role});
-                    yield Ok(Event::default().event("message_start").data(data.to_string()));
-                }
-                SseEvent::Delta { content } => {
-                    let data = serde_json::json!({ "content": content });
-                    yield Ok(Event::default().event("delta").data(data.to_string()));
-                }
-                SseEvent::End { message_id, full_content: _, token_usage } => {
-                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
-                    let data = serde_json::json!({
-                        "message_id": message_id,
-                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
-                    });
-                    yield Ok(Event::default().event("message_end").data(data.to_string()));
-                }
-                SseEvent::Error(msg) => {
-                    let data = serde_json::json!({ "error": msg });
-                    yield Ok(Event::default().event("error").data(data.to_string()));
-                }
-            }
+            yield Ok(llm::sse_event_to_axum(event));
         }
     });
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
@@ -191,28 +174,7 @@ pub async fn cross_ring_query_handler(
 
     let s: BoxedSseStream = Box::pin(stream! {
         while let Some(event) = rx.recv().await {
-            match event {
-                SseEvent::Start { message_id, role } => {
-                    let data = serde_json::json!({"message_id": message_id, "role": role});
-                    yield Ok(Event::default().event("message_start").data(data.to_string()));
-                }
-                SseEvent::Delta { content } => {
-                    let data = serde_json::json!({ "content": content });
-                    yield Ok(Event::default().event("delta").data(data.to_string()));
-                }
-                SseEvent::End { message_id, full_content: _, token_usage } => {
-                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
-                    let data = serde_json::json!({
-                        "message_id": message_id,
-                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
-                    });
-                    yield Ok(Event::default().event("message_end").data(data.to_string()));
-                }
-                SseEvent::Error(msg) => {
-                    let data = serde_json::json!({ "error": msg });
-                    yield Ok(Event::default().event("error").data(data.to_string()));
-                }
-            }
+            yield Ok(llm::sse_event_to_axum(event));
         }
     });
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
@@ -233,29 +195,32 @@ pub async fn cross_ring_analysis_handler(
 
     let s: BoxedSseStream = Box::pin(stream! {
         while let Some(event) = rx.recv().await {
-            match event {
-                SseEvent::Start { message_id, role } => {
-                    let data = serde_json::json!({"message_id": message_id, "role": role});
-                    yield Ok(Event::default().event("message_start").data(data.to_string()));
-                }
-                SseEvent::Delta { content } => {
-                    let data = serde_json::json!({ "content": content });
-                    yield Ok(Event::default().event("delta").data(data.to_string()));
-                }
-                SseEvent::End { message_id, full_content: _, token_usage } => {
-                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
-                    let data = serde_json::json!({
-                        "message_id": message_id,
-                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
-                    });
-                    yield Ok(Event::default().event("message_end").data(data.to_string()));
-                }
-                SseEvent::Error(msg) => {
-                    let data = serde_json::json!({ "error": msg });
-                    yield Ok(Event::default().event("error").data(data.to_string()));
-                }
-            }
+            yield Ok(llm::sse_event_to_axum(event));
         }
     });
     Ok(Sse::new(s).keep_alive(KeepAlive::default()))
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct CompactResponse {
+    pub summary: String,
+    pub removed_count: usize,
+}
+
+pub async fn super_compact(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<CompactResponse>> {
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+
+    let super_user_id = format!("super:{}", user.token_id);
+    let CompactResult {
+        summary,
+        removed_count,
+    } = chat::compact_history(&state, &user_row, None, &super_user_id).await?;
+
+    Ok(Json(CompactResponse {
+        summary,
+        removed_count,
+    }))
 }

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 
-use crate::error::{Result, RingError};
+use crate::error::Result;
 
 #[derive(Debug, FromRow, Serialize, Clone)]
 pub struct MessageRow {
@@ -55,7 +55,7 @@ pub async fn insert_message(pool: &sqlx::SqlitePool, msg: &NewMessage<'_>) -> Re
     .bind(msg.token_usage)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::into)
 }
 
 pub async fn list_messages(
@@ -92,5 +92,35 @@ pub async fn list_messages(
         .fetch_all(pool)
         .await
     };
-    rows.map_err(|e| RingError::Internal(e.to_string()))
+    rows.map_err(Into::into)
+}
+
+pub async fn delete_message(pool: &sqlx::SqlitePool, message_id: &str) -> Result<()> {
+    sqlx::query("DELETE FROM messages WHERE id = ?1")
+        .bind(message_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn get_message(pool: &sqlx::SqlitePool, message_id: &str) -> Result<Option<MessageRow>> {
+    sqlx::query_as::<_, MessageRow>("SELECT * FROM messages WHERE id = ?1")
+        .bind(message_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(Into::into)
+}
+
+pub async fn delete_messages(pool: &sqlx::SqlitePool, ids: &[String]) -> Result<()> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let placeholders = ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+    let query = format!("DELETE FROM messages WHERE id IN ({})", placeholders);
+    let mut q = sqlx::query(&query);
+    for id in ids {
+        q = q.bind(id);
+    }
+    q.execute(pool).await?;
+    Ok(())
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useRingStore } from '../../stores/ring-store'
 import { useSessionStore } from '../../stores/session-store'
 import { useAppStore } from '../../stores/app-store'
@@ -12,7 +12,7 @@ const phase_color: Record<SessionPhase, string> = {
   closed: 'var(--text-dim)',
 }
 
-function SessionRow({ session, is_active }: { session: Session; is_active: boolean }) {
+const SessionRow = memo(function SessionRow({ session, is_active }: { session: Session; is_active: boolean }) {
   const openPanel = usePanelStore((s) => s.open)
 
   return (
@@ -53,7 +53,7 @@ function SessionRow({ session, is_active }: { session: Session; is_active: boole
       </span>
     </div>
   )
-}
+})
 
 export function RingList() {
   const rings = useRingStore((s) => s.rings)

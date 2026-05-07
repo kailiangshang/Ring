@@ -17,6 +17,7 @@ const HINTS: HintItem[] = [
   { label: '/skills', action: 'super_skills', context: ['super'] },
   { label: '/prefs', action: 'super_settings', context: ['super'] },
   { label: '/save', action: null, context: ['session'] },
+  { label: '/compact', action: null, context: ['super', 'ring'] },
   { label: '@self', action: null, selfAction: true, context: ['super', 'ring', 'session'] },
 ]
 

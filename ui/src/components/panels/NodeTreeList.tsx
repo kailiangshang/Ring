@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import type { GraphNode } from '../../types/graph'
 
 const NODE_COLORS: Record<string, string> = {
@@ -42,7 +42,7 @@ function buildTree(nodes: GraphNode[]): TreeNode[] {
   return roots
 }
 
-function TreeNodeRow({
+const TreeNodeRow = memo(function TreeNodeRow({
   treeNode,
   depth,
   selectedNodeId,
@@ -120,7 +120,7 @@ function TreeNodeRow({
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
           {node.label}
         </span>
-        {node.tags.length > 0 && (
+        {Array.isArray(node.tags) && node.tags.length > 0 && (
           <span style={{ fontSize: 9, color: 'var(--text-dim)', flexShrink: 0 }}>
             {node.tags.length}
           </span>
@@ -139,7 +139,7 @@ function TreeNodeRow({
       ))}
     </>
   )
-}
+})
 
 export function NodeTreeList({
   nodes,

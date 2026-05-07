@@ -23,27 +23,6 @@ pub fn detect_archive_intent(content: &str) -> bool {
     explicit_keywords.iter().any(|kw| lower.contains(kw))
 }
 
-pub fn should_recommend_archive(content: &str) -> bool {
-    let lower = content.to_lowercase();
-    let indicators = [
-        "结论",
-        "总结",
-        "决策",
-        "方案",
-        "决定",
-        "agreed",
-        "decided",
-        "conclusion",
-        "resolved",
-        "solution",
-        "finalized",
-        "确定",
-        "共识",
-        "一致同意",
-    ];
-    indicators.iter().any(|ind| lower.contains(ind))
-}
-
 pub async fn get_history(
     state: &AppState,
     ring_id: Option<&str>,
@@ -67,6 +46,63 @@ pub async fn auto_compact_history(
     }
 
     let old_messages: Vec<_> = messages.iter().rev().take(messages.len() - 10).collect();
+
+    compact_messages(state, user, ring_id, user_id, &old_messages).await
+}
+
+pub struct CompactResult {
+    pub summary: String,
+    pub removed_count: usize,
+}
+
+pub async fn compact_history(
+    state: &AppState,
+    user: &crate::models::user::UserRow,
+    ring_id: Option<&str>,
+    user_id: &str,
+) -> Result<CompactResult> {
+    let messages = message::list_messages(&state.db, ring_id, user_id, None, 1000).await?;
+    if messages.is_empty() {
+        return Ok(CompactResult {
+            summary: "No messages to compact.".into(),
+            removed_count: 0,
+        });
+    }
+
+    let old_messages: Vec<_> = if messages.len() <= 2 {
+        return Ok(CompactResult {
+            summary: "Too few messages to compact.".into(),
+            removed_count: 0,
+        });
+    } else {
+        messages.iter().rev().take(messages.len() - 2).collect()
+    };
+
+    let count = old_messages.len();
+    let result = compact_messages(state, user, ring_id, user_id, &old_messages).await?;
+
+    match result {
+        Some(summary) => Ok(CompactResult {
+            summary,
+            removed_count: count,
+        }),
+        None => Ok(CompactResult {
+            summary: "No messages to compact.".into(),
+            removed_count: 0,
+        }),
+    }
+}
+
+async fn compact_messages(
+    state: &AppState,
+    user: &crate::models::user::UserRow,
+    ring_id: Option<&str>,
+    user_id: &str,
+    old_messages: &[&MessageRow],
+) -> Result<Option<String>> {
+    if old_messages.is_empty() {
+        return Ok(None);
+    }
 
     let history_text: String = old_messages
         .iter()
@@ -248,7 +284,8 @@ async fn build_recent_activity(
         .map(|m| {
             let sender = if m.role == "user" { "用户" } else { "AI" };
             let content = if m.content.len() > 100 {
-                format!("{}...", &m.content[..100])
+                let s: String = m.content.chars().take(100).collect();
+                format!("{s}...")
             } else {
                 m.content.clone()
             };
@@ -633,20 +670,5 @@ mod tests {
         assert!(!detect_archive_intent("请保存这个文件"));
         assert!(!detect_archive_intent("记录一下会议纪要"));
         assert!(!detect_archive_intent("mark this as important"));
-    }
-
-    #[test]
-    fn test_should_recommend_archive_with_indicators() {
-        assert!(should_recommend_archive("我们达成了共识，结论是采用方案A"));
-        assert!(should_recommend_archive(
-            "The team decided to go with option B"
-        ));
-        assert!(should_recommend_archive("Final conclusion: use Rust"));
-    }
-
-    #[test]
-    fn test_should_recommend_archive_negative() {
-        assert!(!should_recommend_archive("hello"));
-        assert!(!should_recommend_archive("what do you think"));
     }
 }

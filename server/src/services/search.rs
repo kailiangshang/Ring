@@ -22,8 +22,9 @@ pub fn normalize_cjk(text: &str) -> String {
     let chars: Vec<char> = text.chars().collect();
     let mut result = String::with_capacity(text.len() * 2);
     let mut cjk_run: Vec<char> = Vec::new();
+    let mut non_cjk_run = String::new();
 
-    let flush_run = |run: &mut Vec<char>, out: &mut String| {
+    let flush_cjk = |run: &mut Vec<char>, out: &mut String| {
         if run.is_empty() {
             return;
         }
@@ -41,15 +42,28 @@ pub fn normalize_cjk(text: &str) -> String {
         run.clear();
     };
 
+    let flush_non_cjk = |run: &mut String, out: &mut String| {
+        if !run.is_empty() {
+            if !out.is_empty() && !out.ends_with(' ') {
+                out.push(' ');
+            }
+            out.push_str(run);
+            out.push(' ');
+            run.clear();
+        }
+    };
+
     for ch in chars {
         if is_cjk(ch) {
+            flush_non_cjk(&mut non_cjk_run, &mut result);
             cjk_run.push(ch);
         } else {
-            flush_run(&mut cjk_run, &mut result);
-            result.push(ch);
+            flush_cjk(&mut cjk_run, &mut result);
+            non_cjk_run.push(ch);
         }
     }
-    flush_run(&mut cjk_run, &mut result);
+    flush_cjk(&mut cjk_run, &mut result);
+    flush_non_cjk(&mut non_cjk_run, &mut result);
 
     let cleaned: String = result.split_whitespace().collect::<Vec<&str>>().join(" ");
     cleaned
@@ -168,6 +182,7 @@ pub async fn upsert_search_index(
 
     let normalized_title = normalize_cjk(title);
     let normalized_content = normalize_cjk(content);
+    let searchable_content = format!("{normalized_title} {normalized_content}");
 
     sqlx::query(
         "INSERT INTO search_index (source_type, source_id, ring_id, ring_name, title, content, metadata)
@@ -177,8 +192,8 @@ pub async fn upsert_search_index(
     .bind(source_id)
     .bind(ring_id)
     .bind(ring_name)
-    .bind(&normalized_title)
-    .bind(&normalized_content)
+    .bind(title)
+    .bind(&searchable_content)
     .bind(metadata)
     .execute(db)
     .await

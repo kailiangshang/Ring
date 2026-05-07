@@ -215,14 +215,16 @@ pub async fn get_greeting(
     let profile_summary = if ctx.user_profile.is_empty() {
         "暂无".to_string()
     } else if ctx.user_profile.len() > 100 {
-        format!("{}...", &ctx.user_profile[..100])
+        let s: String = ctx.user_profile.chars().take(100).collect();
+        format!("{s}...")
     } else {
         ctx.user_profile.clone()
     };
     let goals_summary = if ctx.active_goals.is_empty() {
         "暂无".to_string()
     } else if ctx.active_goals.len() > 100 {
-        format!("{}...", &ctx.active_goals[..100])
+        let s: String = ctx.active_goals.chars().take(100).collect();
+        format!("{s}...")
     } else {
         ctx.active_goals.clone()
     };

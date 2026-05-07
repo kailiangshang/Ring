@@ -56,26 +56,3 @@ where
         })
     }
 }
-
-pub struct OptionalUser {
-    pub token_id: Option<String>,
-}
-
-impl<S: Send + Sync> FromRequestParts<S> for OptionalUser
-where
-    AppState: axum::extract::FromRef<S>,
-{
-    type Rejection = std::convert::Infallible;
-
-    async fn from_request_parts(
-        parts: &mut Parts,
-        _state: &S,
-    ) -> std::result::Result<Self, Self::Rejection> {
-        let token = parts
-            .headers
-            .get("X-Ring-Token")
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.to_string());
-        Ok(OptionalUser { token_id: token })
-    }
-}

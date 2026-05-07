@@ -120,7 +120,10 @@ pub fn build_router(state: AppState) -> Router {
         .route("/network/info", get(network::get_network_info))
         .route("/auth/rotate", post(auth::rotate_token))
         .route("/prompts", get(prompts::list_prompts))
-        .route("/ws", get(ws::ws_handler))
+        .route("/ws", get(ws::ws_handler).layer(axum::middleware::from_fn_with_state(
+            RateLimiter::new(10, 60),
+            rate_limit,
+        )))
         .route("/setup/status", get(setup::get_status))
         .route("/setup/recover", get(setup::recover_token))
         .route(
@@ -180,6 +183,11 @@ pub fn build_router(state: AppState) -> Router {
             )),
         )
         .route("/rings/{ring_id}/chat/history", get(chat::ring_history))
+        .route("/rings/{ring_id}/compact", post(chat::ring_compact))
+        .route(
+            "/rings/{ring_id}/messages/{message_id}",
+            delete(chat::delete_ring_message),
+        )
         .route(
             "/self/chat",
             post(chat::self_chat).layer(axum::middleware::from_fn_with_state(
@@ -188,6 +196,11 @@ pub fn build_router(state: AppState) -> Router {
             )),
         )
         .route("/self/chat/history", get(chat::self_history))
+        .route("/self/compact", post(chat::self_compact))
+        .route(
+            "/self/messages/{message_id}",
+            delete(chat::delete_self_message),
+        )
         .route(
             "/self/identity",
             get(self_data::get_identity).put(self_data::update_identity),
@@ -364,6 +377,11 @@ pub fn build_router(state: AppState) -> Router {
             )),
         )
         .route("/super/chat/history", get(super_chat::super_history))
+        .route("/super/compact", post(super_chat::super_compact))
+        .route(
+            "/super/messages/{message_id}",
+            delete(chat::delete_super_message),
+        )
         .route(
             "/super/system-prompt",
             get(super_chat::get_system_prompt).put(super_chat::update_system_prompt),

@@ -2032,7 +2032,7 @@ async fn test_recover_token_before_setup() {
         .oneshot(make_request("GET", "/api/setup/recover", None, None))
         .await
         .unwrap();
-    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -2219,7 +2219,7 @@ async fn test_file_upload_to_chat() {
 
     ring_server::services::upload::validate_file(filename, content.len()).unwrap();
 
-    let msg = ring_server::services::upload::upload_to_chat(
+    let msgs = ring_server::services::upload::upload_to_chat(
         &state.db,
         Some(&ring_id),
         &token,
@@ -2230,9 +2230,11 @@ async fn test_file_upload_to_chat() {
     .await
     .unwrap();
 
-    assert_eq!(msg.role, "system");
-    assert!(msg.content.contains("test.txt"));
-    assert!(msg.content.contains("Hello, this is a test file content."));
+    assert_eq!(msgs[0].role, "system");
+    assert!(msgs[0].content.contains("test.txt"));
+    assert!(msgs[0]
+        .content
+        .contains("Hello, this is a test file content."));
 
     let results = ring_server::services::search::search_cross_ring(
         &state.db,

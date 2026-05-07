@@ -286,21 +286,19 @@ async fn handle_text_message(
                         }
                     };
 
-                    let materials = match session::get_materials(&state_c.db, &session_id_c).await {
-                        Ok(m) => m,
-                        Err(_) => vec![],
-                    };
+                    let materials: Vec<_> = session::get_materials(&state_c.db, &session_id_c)
+                        .await
+                        .unwrap_or_default();
                     let materials_text = materials
                         .iter()
                         .map(|m| format!("- {}: {}", m.title, m.content))
                         .collect::<Vec<_>>()
                         .join("\n");
 
-                    let recent_messages =
-                        match session::get_messages(&state_c.db, &session_id_c, 0, 20).await {
-                            Ok(msgs) => msgs,
-                            Err(_) => vec![],
-                        };
+                    let recent_messages: Vec<_> =
+                        session::get_messages(&state_c.db, &session_id_c, 0, 20)
+                            .await
+                            .unwrap_or_default();
                     let messages_text = recent_messages
                         .iter()
                         .map(|m| format!("[{}] {}: {}", m.created_at, m.sender_name, m.content))

@@ -15,7 +15,7 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   is_setup: false,
   loading: true,
-  current_context: 'super',
+  current_context: (localStorage.getItem('ring_context') as AppState['current_context']) || 'super',
   active_session_id: null,
 
   init: async () => {
@@ -28,6 +28,13 @@ export const useAppStore = create<AppState>((set) => ({
   },
 
   setSetup: (done) => set({ is_setup: done }),
-  setContext: (ctx) => set({ current_context: ctx }),
-  setActiveSession: (session_id) => set({ active_session_id: session_id, current_context: session_id ? 'session' : 'ring' }),
+  setContext: (ctx) => {
+    localStorage.setItem('ring_context', ctx)
+    set({ current_context: ctx })
+  },
+  setActiveSession: (session_id) => {
+    if (session_id) localStorage.setItem('ring_context', 'session')
+    else localStorage.setItem('ring_context', 'ring')
+    set({ active_session_id: session_id, current_context: session_id ? 'session' : 'ring' })
+  },
 }))

@@ -9,6 +9,14 @@ import { CommandHints } from './CommandHints'
 import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
 import { uploadFile, parseFile } from '../../services/api'
 
+interface ParsedFileEntry {
+  filename: string
+  content: string
+  estimated_tokens: number
+  chunk_count: number
+  token_warning: boolean
+}
+
 export function InputArea() {
   const { input, setInput, send, sending, stopStreaming, addMessage } = useChatStore()
   const ac = useAutocompleteStore()
@@ -122,7 +130,8 @@ export function InputArea() {
     }
   }
 
-  const [parsedFiles, setParsedFiles] = useState<Array<{filename: string, content: string}>>([])
+  const [parsedFiles, setParsedFiles] = useState<ParsedFileEntry[]>([])
+  const [showTokenWarning, setShowTokenWarning] = useState(false)
 
   const handleFileUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -155,14 +164,25 @@ export function InputArea() {
           })
         } else {
           const parsed = await parseFile(file)
-          setParsedFiles(prev => [...prev, { filename: parsed.filename, content: parsed.content }])
+          const entry: ParsedFileEntry = {
+            filename: parsed.filename,
+            content: parsed.content,
+            estimated_tokens: parsed.estimated_tokens,
+            chunk_count: parsed.chunk_count,
+            token_warning: parsed.token_warning,
+          }
+          const kb = (parsed.content.length / 1024).toFixed(1)
+          const tokens = parsed.estimated_tokens
+          const chunks = parsed.chunk_count > 1 ? ` (${parsed.chunk_count} chunks)` : ''
+          const warning = parsed.token_warning ? ' ⚠️ High token usage' : ''
           addMessage({
             id: `sys-${crypto.randomUUID()}`,
             role: 'system',
             sender_name: 'SYSTEM',
-            content: `✅ Parsed ${file.name} (${(parsed.content.length / 1024).toFixed(1)} KB). Add your message and Ctrl+Enter to send.`,
+            content: `✅ Parsed ${file.name} (${kb} KB, ~${tokens.toLocaleString()} tokens${chunks})${warning}. Ctrl+Enter to send.`,
             created_at: new Date().toISOString(),
           })
+          setParsedFiles(prev => [...prev, entry])
         }
       } catch (e: any) {
         const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
@@ -181,16 +201,32 @@ export function InputArea() {
 
   const handleSend = () => {
     if (!input.trim() && parsedFiles.length === 0) return
-    
-    // Build full content (files + user input) for AI, but UI shows clean version
+
     if (parsedFiles.length > 0) {
-      const filesContent = parsedFiles.map(f => 
-        `📎 File: ${f.filename}\n---\n${f.content}`
-      ).join('\n\n')
-      const fullContent = input.trim() 
+      const hasWarning = parsedFiles.some(f => f.token_warning)
+      if (hasWarning && !showTokenWarning) {
+        setShowTokenWarning(true)
+        return
+      }
+      setShowTokenWarning(false)
+
+      const allContent = parsedFiles.flatMap(f => {
+        if (f.chunk_count <= 1) {
+          return [`📎 File: ${f.filename}\n---\n${f.content}`]
+        }
+        const chunkSize = Math.ceil(f.content.length / f.chunk_count)
+        const chunks: string[] = []
+        for (let i = 0; i < f.chunk_count; i++) {
+          const start = i * chunkSize
+          const end = Math.min(start + chunkSize, f.content.length)
+          chunks.push(`📎 File: ${f.filename} [${i + 1}/${f.chunk_count}]\n---\n${f.content.slice(start, end)}`)
+        }
+        return chunks
+      })
+      const filesContent = allContent.join('\n\n')
+      const fullContent = input.trim()
         ? `${input}\n\n${filesContent}`
         : filesContent
-      // Send full content to AI, UI will show clean version
       send(fullContent)
       setParsedFiles([])
     } else {
@@ -217,7 +253,7 @@ export function InputArea() {
   }
 
   return (
-    <div style={{ position: 'relative' }} onDrop={handleDrop} onDragOver={handleDragOver}>
+    <div style={{ position: 'relative', flexShrink: 0 }} onDrop={handleDrop} onDragOver={handleDragOver}>
       {parsedFiles.length > 0 && (
         <div style={{ padding: '4px 12px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {parsedFiles.map((f, i) => (
@@ -225,7 +261,7 @@ export function InputArea() {
               key={i}
               style={{
                 fontSize: 11,
-                color: 'var(--accent-cyan)',
+                color: f.token_warning ? 'var(--accent-amber)' : 'var(--accent-cyan)',
                 background: 'var(--bg-hover)',
                 padding: '2px 8px',
                 borderRadius: 4,
@@ -234,7 +270,7 @@ export function InputArea() {
                 gap: 4,
               }}
             >
-              📎 {f.filename}
+              📎 {f.filename} (~{f.estimated_tokens.toLocaleString()} tokens{f.chunk_count > 1 ? `, ${f.chunk_count} chunks` : ''})
               <button
                 onClick={() => setParsedFiles(prev => prev.filter((_, idx) => idx !== i))}
                 style={{
@@ -250,6 +286,30 @@ export function InputArea() {
               </button>
             </span>
           ))}
+        </div>
+      )}
+      {showTokenWarning && (
+        <div style={{
+          padding: '8px 12px',
+          background: 'rgba(245, 158, 11, 0.1)',
+          borderTop: '1px solid var(--accent-amber)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontSize: 12,
+          color: 'var(--accent-amber)',
+        }}>
+          <span>⚠️ This will consume significant tokens (~{parsedFiles.reduce((s, f) => s + f.estimated_tokens, 0).toLocaleString()}). Continue?</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              onClick={() => setShowTokenWarning(false)}
+              style={{ background: 'var(--bg-hover)', border: 'none', color: 'var(--text-secondary)', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}
+            >Cancel</button>
+            <button
+              onClick={() => { setShowTokenWarning(false); handleSend() }}
+              style={{ background: 'var(--accent-amber)', border: 'none', color: 'var(--bg-base)', padding: '4px 12px', borderRadius: 4, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}
+            >Confirm</button>
+          </div>
         </div>
       )}
       <CommandAutocomplete onSelect={handleSelect} />

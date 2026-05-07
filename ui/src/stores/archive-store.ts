@@ -19,6 +19,7 @@ interface ArchiveState {
     content: string,
     title: string,
     sessionId?: string,
+    nodeType?: string,
   ) => Promise<void>
   cancelArchive: () => void
   reviewArchive: (
@@ -63,7 +64,7 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
     set({ repoStatus: status })
   },
 
-  triggerArchive: async (ringId, content, title, sessionId) => {
+  triggerArchive: async (ringId, content, title, sessionId, nodeType) => {
     get().abortArchive?.()
     const controller = new AbortController()
     set({ archiving: true, progress: '', abortArchive: () => controller.abort() })
@@ -74,7 +75,7 @@ export const useArchiveStore = create<ArchiveState>((set, get) => ({
           session_id: sessionId,
           content,
           suggested_title: title,
-          node_suggestion: { action: 'create_new', node_title: title },
+          node_suggestion: { action: 'create_new', node_title: title, node_type: nodeType || 'topic' },
         },
         (event) => set({ progress: event.message }),
         () => {},

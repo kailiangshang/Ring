@@ -8,6 +8,7 @@ import {
   exportSelfData,
   resetSelfData,
 } from '../../services/api'
+import { ConfirmModal } from '../../components/common/ConfirmModal'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -63,6 +64,7 @@ export function SelfSettings() {
   const [shareMetrics, setShareMetrics] = useState(false)
   const [allowProactive, setAllowProactive] = useState(true)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
 
   useEffect(() => {
     api.get<{ content: string; exists: boolean }>('/self/identity')
@@ -135,23 +137,28 @@ export function SelfSettings() {
     }
   }
 
-  const handleReset = async () => {
-    if (window.confirm('Reset all Self data? This cannot be undone.')) {
-      try {
-        await resetSelfData()
-        setIdentity('')
-        setStyle('')
-        setTone('friendly')
-        setProactivity(true)
-        setSuggestions(true)
-        setPrivacyLevel('standard')
-        setShareMetrics(false)
-        setAllowProactive(true)
-        setMsg({ ok: true, text: 'Data reset' })
-      } catch {
-        setMsg({ ok: false, text: 'Reset failed' })
-      }
-    }
+  const handleReset = () => {
+    setConfirmDialog({
+      title: 'Reset Self Data',
+      message: 'Reset all Self data? This cannot be undone.',
+      variant: 'danger',
+      action: async () => {
+        try {
+          await resetSelfData()
+          setIdentity('')
+          setStyle('')
+          setTone('friendly')
+          setProactivity(true)
+          setSuggestions(true)
+          setPrivacyLevel('standard')
+          setShareMetrics(false)
+          setAllowProactive(true)
+          setMsg({ ok: true, text: 'Data reset' })
+        } catch {
+          setMsg({ ok: false, text: 'Reset failed' })
+        }
+      },
+    })
   }
 
   return (
@@ -365,9 +372,17 @@ export function SelfSettings() {
           color: msg.ok ? 'var(--accent-green)' : '#ef4444',
           border: `1px solid ${msg.ok ? 'var(--accent-green)' : '#ef4444'}`,
         }}>
-          {msg.text}
-        </div>
-      )}
+            {msg.text}
+          </div>
+        )}
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

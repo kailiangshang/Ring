@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react'
 import { useNotificationStore, type Notification } from '../stores/notification-store'
 import { useRingStore } from '../stores/ring-store'
 import { useAppStore } from '../stores/app-store'
+import { ConfirmModal } from './common/ConfirmModal'
 
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{ message: string; action: () => void } | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
   const { notifications, unreadCount, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotificationStore()
   const active_ring_id = useRingStore((s) => s.active_ring_id)
@@ -198,9 +200,10 @@ export function NotificationBell() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (window.confirm('Delete this notification?')) {
-                        deleteNotification(notification.id)
-                      }
+                      setConfirmDialog({
+                        message: 'Delete this notification?',
+                        action: () => deleteNotification(notification.id),
+                      })
                     }}
                     style={{
                       background: 'none',
@@ -219,6 +222,13 @@ export function NotificationBell() {
           )}
         </div>
       )}
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title="Confirm"
+        message={confirmDialog?.message ?? ''}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

@@ -3,7 +3,6 @@ use axum::Json;
 
 use crate::error::{Result, RingError};
 use crate::extractors::AuthUser;
-use crate::models::message::MessageRow;
 use crate::models::ring;
 use crate::models::session::SessionMaterialRow;
 use crate::state::AppState;
@@ -13,14 +12,14 @@ pub async fn upload_ring_file(
     user: AuthUser,
     Path(ring_id): Path<String>,
     mut multipart: Multipart,
-) -> Result<Json<MessageRow>> {
+) -> Result<Json<serde_json::Value>> {
     let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
     ring::reject_readonly(&role)?;
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
     let (filename, data) = extract_file(&mut multipart).await?;
 
-    let msg = crate::services::upload::upload_to_chat(
+    let msgs = crate::services::upload::upload_to_chat(
         &state.db,
         Some(&ring_id),
         &user.token_id,
@@ -35,19 +34,23 @@ pub async fn upload_ring_file(
         tracing::warn!("failed to record tool usage: {e}");
     }
 
-    Ok(Json(msg))
+    Ok(Json(serde_json::json!({
+        "messages": msgs,
+        "chunk_count": msgs.len(),
+        "estimated_tokens": crate::services::upload::estimate_tokens(&crate::services::upload::extract_text(&filename, &data).unwrap_or_default()),
+    })))
 }
 
 pub async fn upload_super_file(
     State(state): State<AppState>,
     user: AuthUser,
     mut multipart: Multipart,
-) -> Result<Json<MessageRow>> {
+) -> Result<Json<serde_json::Value>> {
     let user_row = state.get_user_decrypted(&user.token_id).await?;
 
     let (filename, data) = extract_file(&mut multipart).await?;
 
-    let msg = crate::services::upload::upload_to_chat(
+    let msgs = crate::services::upload::upload_to_chat(
         &state.db,
         Some("super"),
         &user.token_id,
@@ -62,7 +65,11 @@ pub async fn upload_super_file(
         tracing::warn!("failed to record tool usage: {e}");
     }
 
-    Ok(Json(msg))
+    Ok(Json(serde_json::json!({
+        "messages": msgs,
+        "chunk_count": msgs.len(),
+        "estimated_tokens": crate::services::upload::estimate_tokens(&crate::services::upload::extract_text(&filename, &data).unwrap_or_default()),
+    })))
 }
 
 pub async fn upload_session_file(
@@ -145,11 +152,15 @@ pub async fn parse_file(
 ) -> Result<Json<serde_json::Value>> {
     let (filename, data) = extract_file(&mut multipart).await?;
     let content = crate::services::upload::extract_text(&filename, &data)?;
+    let (estimated_tokens, chunk_count) = crate::services::upload::chunk_info(&content);
 
     Ok(Json(serde_json::json!({
         "filename": filename,
         "content": content,
         "length": content.len(),
+        "estimated_tokens": estimated_tokens,
+        "chunk_count": chunk_count,
+        "token_warning": estimated_tokens > 10000,
     })))
 }
 

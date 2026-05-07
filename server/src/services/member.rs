@@ -68,8 +68,7 @@ pub async fn remove_member(
     .bind(ring_id)
     .bind(target_id)
     .fetch_optional(&state.db)
-    .await
-    .map_err(|e| RingError::Internal(e.to_string()))?;
+    .await?;
 
     if let Some((sid, title)) = active_session_owner {
         return Err(RingError::BadRequest(format!(

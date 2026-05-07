@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { memo, type ReactNode } from 'react'
 
 interface TabItemProps {
   label: string
@@ -8,7 +8,7 @@ interface TabItemProps {
   icon?: ReactNode
 }
 
-export function TabItem({ label, count, active, onClick, icon }: TabItemProps) {
+export const TabItem = memo(function TabItem({ label, count, active, onClick, icon }: TabItemProps) {
   return (
     <button
       onClick={onClick}
@@ -36,4 +36,4 @@ export function TabItem({ label, count, active, onClick, icon }: TabItemProps) {
       )}
     </button>
   )
-}
+})

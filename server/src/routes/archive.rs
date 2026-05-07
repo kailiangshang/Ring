@@ -188,7 +188,33 @@ pub async fn trigger_archive(
     let is_creator = role == "creator" || role == "admin";
 
     let node_id = match &body.node_suggestion {
-        archive::NodeSuggestionInput::CreateNew { .. } => None,
+        archive::NodeSuggestionInput::CreateNew {
+            node_title,
+            node_type,
+            parent_id,
+        } => {
+            let default_graph =
+                crate::models::graph::ensure_default_graph(&state.db, &ring_id).await?;
+            let node_id = ulid::Ulid::new().to_string();
+            let nt = node_type.as_deref().unwrap_or("topic");
+            let node = crate::models::graph::create_node(
+                &state.db,
+                &node_id,
+                &default_graph.id,
+                &ring_id,
+                &crate::models::graph::CreateNodeInput {
+                    label: node_title.clone(),
+                    parent_id: parent_id.clone(),
+                    node_type: nt.to_string(),
+                    tags: vec![],
+                    content: String::new(),
+                    markdown_path: None,
+                    metadata: serde_json::json!({}),
+                },
+            )
+            .await?;
+            Some(node.id)
+        }
         archive::NodeSuggestionInput::AttachExisting { node_id } => Some(node_id.clone()),
         archive::NodeSuggestionInput::UpdateExisting { node_id } => Some(node_id.clone()),
     };
@@ -331,7 +357,8 @@ pub async fn get_archive_content(
     let record = archive::get_record(&state.db, &archive_id).await?;
     let repo_path = archive_service::ring_repo_path(&state.rings_dir, &ring_id);
     let file_path = repo_path.join("archives").join(&record.file_name);
-    let content = std::fs::read_to_string(&file_path)
+    let content = tokio::fs::read_to_string(&file_path)
+        .await
         .map_err(|e| RingError::NotFound(format!("archive file not found: {e}")))?;
     Ok(Json(serde_json::json!({
         "file_name": record.file_name,
@@ -471,6 +498,13 @@ pub async fn sync_import(
     Json(body): Json<SyncImportRequest>,
 ) -> Result<Json<serde_json::Value>> {
     let _role = ring::get_user_role(&state.db, &body.ring_id, &user.token_id).await?;
+
+    let test_url = format!("http://{}:7420", body.creator_ip);
+    if !crate::services::workflow::is_url_allowed(&test_url) {
+        return Err(RingError::BadRequest(
+            "Access to internal addresses is not allowed".into(),
+        ));
+    }
 
     let url = format!(
         "http://{}:7420/api/rings/{}/sync/bundle",

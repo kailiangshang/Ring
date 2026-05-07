@@ -7,12 +7,14 @@ use futures_util::StreamExt;
 use serde::Deserialize;
 use std::convert::Infallible;
 
+use axum::http::StatusCode;
+
 use crate::error::{Result, RingError};
 use crate::extractors::auth::AuthUser;
 use crate::models::message;
 use crate::models::ring;
 use crate::services::{
-    chat::{self, ChatParams},
+    chat::{self, ChatParams, CompactResult},
     llm::SseEvent,
 };
 use crate::state::AppState;
@@ -66,8 +68,7 @@ pub async fn ring_chat(
     )
     .bind(&ring_id)
     .fetch_optional(&state.db)
-    .await
-    .map_err(|e| RingError::Internal(e.to_string()))?
+    .await?
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
     if chat::detect_archive_intent(&body.content) {
@@ -463,4 +464,88 @@ pub async fn self_history(
     };
 
     Ok(Json(HistoryResponse { messages, has_more }))
+}
+
+pub async fn delete_ring_message(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((_ring_id, message_id)): Path<(String, String)>,
+) -> Result<StatusCode> {
+    delete_message_for_user(&state, &user.token_id, &message_id).await
+}
+
+pub async fn delete_self_message(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(message_id): Path<String>,
+) -> Result<StatusCode> {
+    delete_message_for_user(&state, &user.token_id, &message_id).await
+}
+
+pub async fn delete_super_message(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(message_id): Path<String>,
+) -> Result<StatusCode> {
+    delete_message_for_user(&state, &user.token_id, &message_id).await
+}
+
+async fn delete_message_for_user(
+    state: &AppState,
+    user_id: &str,
+    message_id: &str,
+) -> Result<StatusCode> {
+    let msg = message::get_message(&state.db, message_id)
+        .await?
+        .ok_or_else(|| RingError::NotFound("message not found".into()))?;
+    if msg.role != "system" && msg.user_id != user_id {
+        return Err(RingError::Forbidden(
+            "can only delete your own messages".into(),
+        ));
+    }
+    message::delete_message(&state.db, message_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct CompactResponse {
+    pub summary: String,
+    pub removed_count: usize,
+}
+
+pub async fn ring_compact(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path(ring_id): Path<String>,
+) -> Result<Json<CompactResponse>> {
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
+
+    let CompactResult {
+        summary,
+        removed_count,
+    } = chat::compact_history(&state, &user_row, Some(&ring_id), &user.token_id).await?;
+
+    Ok(Json(CompactResponse {
+        summary,
+        removed_count,
+    }))
+}
+
+pub async fn self_compact(
+    State(state): State<AppState>,
+    user: AuthUser,
+) -> Result<Json<CompactResponse>> {
+    let user_row = state.get_user_decrypted(&user.token_id).await?;
+
+    let CompactResult {
+        summary,
+        removed_count,
+    } = chat::compact_history(&state, &user_row, None, &user.token_id).await?;
+
+    Ok(Json(CompactResponse {
+        summary,
+        removed_count,
+    }))
 }

@@ -42,6 +42,23 @@ export class ErrorBoundary extends Component<Props, State> {
           <p style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
             {this.state.error?.message || 'Unknown error'}
           </p>
+          {import.meta.env.DEV && this.state.error?.stack && (
+            <pre style={{
+              textAlign: 'left',
+              fontSize: 10,
+              color: 'var(--text-dim)',
+              background: 'var(--bg-input)',
+              padding: 8,
+              borderRadius: 4,
+              maxHeight: 200,
+              overflow: 'auto',
+              marginTop: 8,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}>
+              {this.state.error.stack.split('\n').slice(0, 15).join('\n')}
+            </pre>
+          )}
           <button
             onClick={() => window.location.reload()}
             style={{

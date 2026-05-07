@@ -14,7 +14,13 @@ import { useRingStore } from './ring-store'
 import { useAppStore } from './app-store'
 import { useGraphStore } from './graph-store'
 import { useInviteStore } from './invite-store'
-import { buildHelpContent, getCommandHelp, handlePrefsShow, handlePrefsSet, handleSkillList, handleSkillInstall, handleSkillRemove } from './command-handlers'
+import { buildHelpContent, getCommandHelp, handlePrefsShow, handlePrefsSet, handleSkillList, handleSkillInstall, handleSkillRemove, handleCompact } from './command-handlers'
+import { useCommandResultStore } from './command-result-store'
+import * as api from '../services/api'
+
+function showResult(title: string, content: string) {
+  useCommandResultStore.getState().showCommandResult(title, content)
+}
 
 type SetFn = (partial: Partial<ChatState> | ((s: ChatState) => void)) => void
 type GetFn = () => ChatState
@@ -94,6 +100,8 @@ interface ChatState {
   streaming_message_id: string | null
   abort_controller: AbortController | null
   history_loaded: boolean
+  selection_mode: boolean
+  selected_messages: string[]
   setInput: (val: string) => void
   addMessage: (msg: ChatMessage) => void
   updateMessageContent: (id: string, content: string) => void
@@ -101,6 +109,11 @@ interface ChatState {
   loadHistory: () => Promise<void>
   setSessionMode: (mode: 'storage' | 'ephemeral') => void
   stopStreaming: () => void
+  toggleMessageSelection: (id: string) => void
+  clearSelection: () => void
+  enterSelectionMode: (id: string) => void
+  deleteSelected: () => Promise<void>
+  deleteMessage: (messageId: string) => Promise<void>
 }
 
 export const useChatStore = create<ChatState>()(immer((set, get) => ({
@@ -111,6 +124,8 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
   streaming_message_id: null,
   abort_controller: null,
   history_loaded: false,
+  selection_mode: false,
+  selected_messages: [],
 
   setInput: (val) => set({ input: val }),
 
@@ -214,7 +229,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
                   handlePrefsSet(key, value, addMessage)
                 }
               } else {
-                handlePrefsShow(addMessage)
+                handlePrefsShow(addMessage, showResult)
               }
             }
             else if (cmd.action === 'skill') {
@@ -231,7 +246,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
                   handleSkillRemove(name, addMessage)
                 }
               } else {
-                handleSkillList(addMessage)
+                handleSkillList(addMessage, showResult)
               }
             }
             else if (cmd.action === 'cross-ring-query') {
@@ -270,6 +285,9 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
                 }
               }
             }
+            else if (cmd.action === 'compact') {
+              handleCompact(addMessage)
+            }
             break
           }
           case 'address': {
@@ -291,7 +309,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
           }
           case 'help': {
             const targetCmd = cmd.command
-            addMessage(sysMsg(targetCmd ? getCommandHelp(targetCmd) : buildHelpContent()))
+            showResult(targetCmd ? `/help ${targetCmd}` : '/help', targetCmd ? getCommandHelp(targetCmd) : buildHelpContent())
             break
           }
         }
@@ -344,7 +362,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
     abort_controller?.abort()
 
     // 立即清空旧消息，避免上下文切换时显示残留内容
-    set({ messages: [], history_loaded: false, streaming_message_id: null, sending: false, abort_controller: null })
+    set({ messages: [], history_loaded: false, streaming_message_id: null, sending: false, abort_controller: null, selection_mode: false, selected_messages: [] })
 
     let url = ''
     if (context === 'ring' && ring_id) {
@@ -385,5 +403,67 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
     const { abort_controller } = get()
     abort_controller?.abort()
     set({ sending: false, streaming_message_id: null, abort_controller: null })
+  },
+
+  toggleMessageSelection: (id) => {
+    set((s) => {
+      const idx = s.selected_messages.indexOf(id)
+      if (idx === -1) {
+        s.selected_messages.push(id)
+      } else {
+        s.selected_messages.splice(idx, 1)
+        if (s.selected_messages.length === 0) {
+          s.selection_mode = false
+        }
+      }
+    })
+  },
+
+  clearSelection: () => set({ selection_mode: false, selected_messages: [] }),
+
+  enterSelectionMode: (id) => set({ selection_mode: true, selected_messages: [id] }),
+
+  deleteSelected: async () => {
+    const { selected_messages } = get()
+    if (selected_messages.length === 0) return
+    const ids = [...selected_messages]
+    set({ selection_mode: false, selected_messages: [], messages: get().messages.filter((m) => !ids.includes(m.id)) })
+    const context = useAppStore.getState().current_context
+    const ring_id = useRingStore.getState().active_ring_id
+    for (const id of ids) {
+      try {
+        if (context === 'ring' && ring_id) {
+          await api.deleteRingMessage(ring_id, id)
+        } else if (context === 'super') {
+          await api.deleteSuperMessage(id)
+        } else {
+          await api.deleteSelfMessage(id)
+        }
+      } catch {
+        // already removed from local state
+      }
+    }
+  },
+
+  deleteMessage: async (messageId) => {
+    set((s) => {
+      s.messages = s.messages.filter((m) => m.id !== messageId)
+      const idx = s.selected_messages.indexOf(messageId)
+      if (idx !== -1) s.selected_messages.splice(idx, 1)
+      if (s.selected_messages.length === 0) s.selection_mode = false
+    })
+    const context = useAppStore.getState().current_context
+    const ring_id = useRingStore.getState().active_ring_id
+    try {
+      if (context === 'ring' && ring_id) {
+        await api.deleteRingMessage(ring_id, messageId)
+      } else if (context === 'super') {
+        await api.deleteSuperMessage(messageId)
+      } else {
+        await api.deleteSelfMessage(messageId)
+      }
+    } catch {
+      // already removed from local state
+    }
   },
 })))

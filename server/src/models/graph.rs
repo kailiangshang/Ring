@@ -105,7 +105,7 @@ pub async fn ensure_default_graph(pool: &sqlx::SqlitePool, ring_id: &str) -> Res
     .bind(ring_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn list_graphs(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<Vec<GraphRow>> {
@@ -113,7 +113,7 @@ pub async fn list_graphs(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<Vec<G
         .bind(ring_id)
         .fetch_all(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))
+        .map_err(Into::<RingError>::into)
 }
 
 const MAX_GRAPHS_PER_RING: i64 = 3;
@@ -123,7 +123,7 @@ pub async fn create_graph(pool: &sqlx::SqlitePool, ring_id: &str, name: &str) ->
         .bind(ring_id)
         .fetch_one(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     if count >= MAX_GRAPHS_PER_RING {
         return Err(RingError::BadRequest(format!(
@@ -141,7 +141,7 @@ pub async fn create_graph(pool: &sqlx::SqlitePool, ring_id: &str, name: &str) ->
     .bind(name)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn delete_graph(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<()> {
@@ -149,7 +149,7 @@ pub async fn delete_graph(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<()>
         .bind(graph_id)
         .fetch_optional(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     let ring_id = ring_id.ok_or_else(|| RingError::NotFound("graph not found".into()))?;
 
@@ -157,7 +157,7 @@ pub async fn delete_graph(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<()>
         .bind(&ring_id)
         .fetch_one(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     if count <= 1 {
         return Err(RingError::BadRequest("Cannot delete the last graph".into()));
@@ -167,19 +167,19 @@ pub async fn delete_graph(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<()>
         .bind(graph_id)
         .execute(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     sqlx::query("DELETE FROM graph_nodes WHERE graph_id = ?1")
         .bind(graph_id)
         .execute(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     let result = sqlx::query("DELETE FROM graphs WHERE id = ?1")
         .bind(graph_id)
         .execute(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
 
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("graph not found".into()));
@@ -194,7 +194,7 @@ pub async fn list_nodes(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<Vec<G
     .bind(graph_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn list_edges(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<Vec<GraphEdgeRow>> {
@@ -204,7 +204,7 @@ pub async fn list_edges(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<Vec<G
     .bind(graph_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn create_node(
@@ -231,7 +231,7 @@ pub async fn create_node(
     .bind(serde_json::to_string(&input.metadata).unwrap_or_else(|_| "{}".into()))
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn update_node(
@@ -275,30 +275,30 @@ pub async fn update_node(
     .bind(node_id)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn delete_node(pool: &sqlx::SqlitePool, node_id: &str) -> Result<()> {
     let mut tx = pool
         .begin()
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
     sqlx::query("DELETE FROM graph_edges WHERE source_id = ?1 OR target_id = ?1")
         .bind(node_id)
         .execute(&mut *tx)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
     let result = sqlx::query("DELETE FROM graph_nodes WHERE id = ?1")
         .bind(node_id)
         .execute(&mut *tx)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("node not found".into()));
     }
     tx.commit()
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
     Ok(())
 }
 
@@ -323,7 +323,7 @@ pub async fn create_edge(
     .bind(&input.label)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn delete_edge(pool: &sqlx::SqlitePool, edge_id: &str) -> Result<()> {
@@ -331,7 +331,7 @@ pub async fn delete_edge(pool: &sqlx::SqlitePool, edge_id: &str) -> Result<()> {
         .bind(edge_id)
         .execute(pool)
         .await
-        .map_err(|e| RingError::Internal(e.to_string()))?;
+        .map_err(Into::<RingError>::into)?;
     if result.rows_affected() == 0 {
         return Err(RingError::NotFound("edge not found".into()));
     }

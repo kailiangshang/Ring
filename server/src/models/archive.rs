@@ -34,6 +34,7 @@ pub enum NodeSuggestionInput {
     CreateNew {
         parent_id: Option<String>,
         node_title: String,
+        node_type: Option<String>,
     },
     #[serde(rename = "attach_existing")]
     AttachExisting { node_id: String },
@@ -75,7 +76,7 @@ pub async fn insert_record(
     .bind(archived_by)
     .fetch_one(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn update_status(
@@ -119,7 +120,7 @@ pub async fn list_by_ring(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<Vec<
     .bind(ring_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn list_pending_reviews(
@@ -132,5 +133,5 @@ pub async fn list_pending_reviews(
     .bind(ring_id)
     .fetch_all(pool)
     .await
-    .map_err(|e| RingError::Internal(e.to_string()))
+    .map_err(Into::<RingError>::into)
 }

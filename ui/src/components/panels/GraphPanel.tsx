@@ -6,6 +6,7 @@ import { api } from '../../services/api'
 import { GraphCanvas } from './GraphCanvas'
 import { NodeTreeList } from './NodeTreeList'
 import type { EdgeRelation } from '../../types/graph'
+import { ConfirmModal } from '../common/ConfirmModal'
 
 interface DocRef {
   path: string
@@ -42,6 +43,7 @@ export function GraphPanel() {
   const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
   const expandAll = useGraphStore((s) => s.expandAll)
   const collapseAll = useGraphStore((s) => s.collapseAll)
+  const toggleFloat = useGraphStore((s) => s.toggleFloat)
 
   const graphs = useGraphStore((s) => s.graphs)
   const createGraph = useGraphStore((s) => s.createGraph)
@@ -59,6 +61,7 @@ export function GraphPanel() {
   const [edgeLabel, setEdgeLabel] = useState('')
   const [showDocRefForm, setShowDocRefForm] = useState(false)
   const [newDocRef, setNewDocRef] = useState<DocRef>({ path: '', title: '', type: 'archive' })
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -68,13 +71,15 @@ export function GraphPanel() {
 
   const allTags = useMemo(() => {
     const tags = new Set<string>()
-    nodes.forEach((n) => n.tags.forEach((t) => tags.add(t)))
+    nodes.forEach((n) => {
+      if (Array.isArray(n.tags)) n.tags.forEach((t) => tags.add(t))
+    })
     return Array.from(tags).sort()
   }, [nodes])
 
   const filteredNodes = useMemo(() => {
     if (selectedTags.size === 0) return nodes
-    return nodes.filter((n) => n.tags.some((t) => selectedTags.has(t)))
+    return nodes.filter((n) => Array.isArray(n.tags) && n.tags.some((t) => selectedTags.has(t)))
   }, [nodes, selectedTags])
 
   const selectedNode = nodes.find((n) => n.id === selected_node_id)
@@ -259,6 +264,21 @@ export function GraphPanel() {
             }}
           >
             +Node
+          </button>
+          <button
+            onClick={() => toggleFloat()}
+            style={{
+              background: 'var(--bg-hover)',
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              padding: '4px 10px',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+            title="Fullscreen graph"
+          >
+            ⛶
           </button>
           <button
             onClick={async () => {
@@ -456,8 +476,13 @@ export function GraphPanel() {
               </span>
               <button
                 onClick={() => {
-                  if (active_ring_id && window.confirm(`Delete node "${selectedNode.label}"? This cannot be undone.`)) {
-                    deleteNode(active_ring_id, selectedNode.id)
+                  if (active_ring_id) {
+                    setConfirmDialog({
+                      title: 'Delete Node',
+                      message: `Delete node "${selectedNode.label}"? This cannot be undone.`,
+                      variant: 'danger' as const,
+                      action: () => { deleteNode(active_ring_id, selectedNode.id) },
+                    })
                   }
                 }}
                 style={{
@@ -473,7 +498,7 @@ export function GraphPanel() {
               </button>
             </div>
           </div>
-          {selectedNode.tags.length > 0 && (
+          {Array.isArray(selectedNode.tags) && selectedNode.tags.length > 0 && (
             <div style={{ marginTop: 4, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               {selectedNode.tags.map((tag) => (
                 <span
@@ -749,6 +774,14 @@ export function GraphPanel() {
           </div>
         )
       })()}
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

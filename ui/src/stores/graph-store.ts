@@ -18,6 +18,13 @@ interface GraphState {
   loading: boolean
   selected_node_id: string | null
   collapsed_nodes: Set<string>
+  float_open: boolean
+  float_position: { x: number; y: number }
+  float_size: { w: number; h: number }
+  setFloatOpen: (v: boolean) => void
+  toggleFloat: () => void
+  setFloatPosition: (pos: { x: number; y: number }) => void
+  setFloatSize: (size: { w: number; h: number }) => void
   fetchGraph: (ringId: string, graphId?: string) => Promise<void>
   fetchGraphs: (ringId: string) => Promise<void>
   createGraph: (ringId: string, name: string) => Promise<void>
@@ -73,17 +80,37 @@ interface EdgeResponse {
   created_at: string
 }
 
+function safeParseJSON(val: unknown): unknown {
+  if (typeof val === 'string') {
+    if (val.trim() === '') return undefined
+    try { return JSON.parse(val) } catch { return undefined }
+  }
+  return val
+}
+
+function ensureArray(val: unknown): string[] {
+  const parsed = safeParseJSON(val)
+  if (Array.isArray(parsed)) return parsed
+  return []
+}
+
+function ensureObject(val: unknown): Record<string, unknown> {
+  const parsed = safeParseJSON(val)
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>
+  return {}
+}
+
 function toGraphNode(r: NodeResponse): GraphNode {
   return {
     id: r.id,
-    label: r.label,
-    parent_id: r.parent_id,
+    label: r.label ?? '',
+    parent_id: r.parent_id ?? null,
     markdown_path: r.markdown_path ?? '',
     node_type: r.node_type as GraphNode['node_type'],
-    tags: typeof r.tags === 'string' ? JSON.parse(r.tags) : r.tags,
-    metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : r.metadata,
-    created_at: r.created_at,
-    updated_at: r.updated_at,
+    tags: ensureArray(r.tags),
+    metadata: ensureObject(r.metadata),
+    created_at: r.created_at ?? '',
+    updated_at: r.updated_at ?? '',
   }
 }
 
@@ -106,6 +133,17 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   loading: false,
   selected_node_id: null,
   collapsed_nodes: new Set<string>(),
+  float_open: false,
+  float_position: typeof window !== 'undefined'
+    ? { x: Math.round(window.innerWidth * 0.05), y: Math.round(window.innerHeight * 0.05) }
+    : { x: 100, y: 50 },
+  float_size: typeof window !== 'undefined'
+    ? { w: Math.round(window.innerWidth * 0.6), h: Math.round(window.innerHeight * 0.75) }
+    : { w: 800, h: 600 },
+  setFloatOpen: (v) => set({ float_open: v }),
+  toggleFloat: () => set((s) => ({ float_open: !s.float_open })),
+  setFloatPosition: (pos) => set({ float_position: pos }),
+  setFloatSize: (size) => set({ float_size: size }),
 
   fetchGraphs: async (ringId: string) => {
     try {
@@ -135,15 +173,18 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ loading: true })
     try {
       const res = await api.get<GraphResponse>(`/rings/${ringId}/graph?graph_id=${graphId}`)
+      const rawNodes = (res.nodes ?? []) as unknown as NodeResponse[]
+      const rawEdges = (res.edges ?? []) as unknown as EdgeResponse[]
       set({
         graph_id: res.id,
-        nodes: (res.nodes as unknown as NodeResponse[]).map(toGraphNode),
-        edges: (res.edges as unknown as EdgeResponse[]).map(toGraphEdge),
+        nodes: rawNodes.map(toGraphNode),
+        edges: rawEdges.map(toGraphEdge),
         loading: false,
         collapsed_nodes: new Set(),
         selected_node_id: null,
       })
-    } catch {
+    } catch (e) {
+      console.error('switchGraph error:', e)
       set({ loading: false })
     }
   },
@@ -153,13 +194,16 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     try {
       await get().fetchGraphs(ringId)
       const res = await api.get<GraphResponse>(`/rings/${ringId}/graph`)
+      const rawNodes = (res.nodes ?? []) as unknown as NodeResponse[]
+      const rawEdges = (res.edges ?? []) as unknown as EdgeResponse[]
       set({
         graph_id: res.id,
-        nodes: (res.nodes as unknown as NodeResponse[]).map(toGraphNode),
-        edges: (res.edges as unknown as EdgeResponse[]).map(toGraphEdge),
+        nodes: rawNodes.map(toGraphNode),
+        edges: rawEdges.map(toGraphEdge),
         loading: false,
       })
-    } catch {
+    } catch (e) {
+      console.error('fetchGraph error:', e)
       set({ loading: false })
     }
   },

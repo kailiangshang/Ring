@@ -72,27 +72,12 @@ pub async fn create_ring(
         ));
     }
 
-    let exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM rings WHERE creator_id = ?1 AND name = ?2)",
-    )
-    .bind(creator_id)
-    .bind(&input.name)
-    .fetch_one(pool)
-    .await
-    .unwrap_or(false);
-
-    if exists {
-        return Err(crate::error::RingError::BadRequest(format!(
-            "Ring「{}」already exists",
-            input.name
-        )));
-    }
-
     let mut tx = pool.begin().await?;
 
     let ring = sqlx::query_as::<_, RingRow>(
         "INSERT INTO rings (id, name, creator_id, role_description, storage_mode, gitlab_repo_url, gitlab_namespace)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+         SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7
+         WHERE NOT EXISTS (SELECT 1 FROM rings WHERE creator_id = ?3 AND name = ?2)
          RETURNING *"
     )
         .bind(ring_id)
@@ -102,8 +87,12 @@ pub async fn create_ring(
         .bind(&input.storage_mode)
         .bind(&input.gitlab_repo_url)
         .bind(&input.gitlab_namespace)
-        .fetch_one(&mut *tx)
-        .await?;
+        .fetch_optional(&mut *tx)
+        .await?
+        .ok_or_else(|| crate::error::RingError::Conflict(format!(
+            "Ring「{}」already exists",
+            input.name
+        )))?;
 
     sqlx::query("INSERT INTO members (ring_id, user_id, role) VALUES (?1, ?2, 'creator')")
         .bind(ring_id)
@@ -119,10 +108,12 @@ pub async fn list_rings_for_user(
     pool: &sqlx::SqlitePool,
     user_id: &str,
 ) -> Result<Vec<RingListItem>> {
-    let rings = sqlx::query_as::<_, (String, String, String, i64, String)>(
+    let rows = sqlx::query_as::<_, (String, String, String, i64, i64, String, Option<String>)>(
         "SELECT r.id, r.name, m.role,
                 (SELECT COUNT(*) FROM members m2 WHERE m2.ring_id = r.id) as member_count,
-                r.created_at as last_activity_at
+                (SELECT COUNT(*) FROM graph_nodes gn WHERE gn.ring_id = r.id) as node_count,
+                r.created_at as last_activity_at,
+                (SELECT sm.value FROM sync_meta sm WHERE sm.ring_id = r.id AND sm.key = 'creator_ip') as creator_ip
          FROM rings r
          JOIN members m ON m.ring_id = r.id AND m.user_id = ?1
          ORDER BY r.created_at DESC",
@@ -131,61 +122,27 @@ pub async fn list_rings_for_user(
     .fetch_all(pool)
     .await?;
 
-    let ring_ids: Vec<String> = rings.iter().map(|r| r.0.clone()).collect();
+    let result = rows
+        .into_iter()
+        .map(|(id, name, role, member_count, node_count, last_activity_at, creator_ip_raw)| {
+            let creator_ip = if role == "creator" {
+                creator_ip_raw
+            } else {
+                None
+            };
+            RingListItem {
+                id,
+                name,
+                role,
+                member_count,
+                node_count,
+                last_activity_at,
+                has_active_session: false,
+                creator_ip,
+            }
+        })
+        .collect();
 
-    let node_counts: Vec<(String, i64)> = if ring_ids.is_empty() {
-        Vec::new()
-    } else {
-        let placeholders = ring_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let query = format!(
-            "SELECT ring_id, COUNT(*) FROM graph_nodes WHERE ring_id IN ({}) GROUP BY ring_id",
-            placeholders
-        );
-        let mut q = sqlx::query_as::<_, (String, i64)>(&query);
-        for id in &ring_ids {
-            q = q.bind(id);
-        }
-        q.fetch_all(pool).await.unwrap_or_default()
-    };
-    let node_count_map: std::collections::HashMap<String, i64> = node_counts.into_iter().collect();
-
-    let creator_ips: Vec<(String, String)> = if ring_ids.is_empty() {
-        Vec::new()
-    } else {
-        let placeholders = ring_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
-        let query = format!(
-            "SELECT ring_id, value FROM sync_meta WHERE ring_id IN ({}) AND key = 'creator_ip'",
-            placeholders
-        );
-        let mut q = sqlx::query_as::<_, (String, String)>(&query);
-        for id in &ring_ids {
-            q = q.bind(id);
-        }
-        q.fetch_all(pool).await.unwrap_or_default()
-    };
-    let creator_ip_map: std::collections::HashMap<String, String> =
-        creator_ips.into_iter().collect();
-
-    let mut result = Vec::with_capacity(rings.len());
-    for (id, name, role, member_count, last_activity_at) in rings {
-        let node_count = node_count_map.get(&id).copied().unwrap_or(0);
-        let creator_ip = if role == "creator" {
-            creator_ip_map.get(&id).cloned()
-        } else {
-            None
-        };
-
-        result.push(RingListItem {
-            id,
-            name,
-            role,
-            member_count,
-            node_count,
-            last_activity_at,
-            has_active_session: false,
-            creator_ip,
-        });
-    }
     Ok(result)
 }
 

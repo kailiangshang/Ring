@@ -3,6 +3,7 @@ import { useArchiveStore } from '../../stores/archive-store'
 import { useRingStore } from '../../stores/ring-store'
 import { getArchiveDiff, getGitLog, postGitRevert } from '../../services/api'
 import type { ArchiveRecord } from '../../types/archive'
+import { ConfirmModal } from '../common/ConfirmModal'
 
 const STATUS_LABELS: Record<string, string> = {
   pending: 'pending',
@@ -41,6 +42,7 @@ export function ArchivePanel() {
   const [contentLoading, setContentLoading] = useState(false)
   const [commits, setCommits] = useState<Array<{ sha: string; subject: string; author: string; date: string }>>([])
   const [commitsLoading, setCommitsLoading] = useState(false)
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
 
   const ringId = active_ring_id ?? ''
 
@@ -62,7 +64,7 @@ export function ArchivePanel() {
           disabled={initLoading}
           style={{
             background: 'var(--accent-ice)',
-            color: '#000',
+            color: 'var(--bg-base)',
             border: 'none',
             borderRadius: 4,
             padding: '6px 14px',
@@ -137,7 +139,7 @@ export function ArchivePanel() {
                           : 'var(--bg-input)',
                     color:
                       a.status === 'merged' || a.status === 'rejected'
-                        ? '#fff'
+                        ? 'var(--bg-base)'
                         : 'var(--text-secondary)',
                     flexShrink: 0,
                   }}
@@ -343,13 +345,15 @@ export function ArchivePanel() {
               <div style={{ ...row, gap: 6 }}>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Merge "${mr.file_name}"? This cannot be undone.`)) {
-                      reviewArchive(ringId, mr.id, 'merge')
-                    }
+                    setConfirmDialog({
+                      title: 'Merge Archive',
+                      message: `Merge "${mr.file_name}"? This cannot be undone.`,
+                      action: () => { reviewArchive(ringId, mr.id, 'merge') },
+                    })
                   }}
                   style={{
                     background: 'var(--accent-green, #2ea043)',
-                    color: '#fff',
+                    color: 'var(--bg-base)',
                     border: 'none',
                     borderRadius: 4,
                     padding: '3px 10px',
@@ -362,13 +366,16 @@ export function ArchivePanel() {
                 </button>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Reject "${mr.file_name}"?`)) {
-                      reviewArchive(ringId, mr.id, 'reject')
-                    }
+                    setConfirmDialog({
+                      title: 'Reject Archive',
+                      message: `Reject "${mr.file_name}"?`,
+                      variant: 'danger',
+                      action: () => { reviewArchive(ringId, mr.id, 'reject') },
+                    })
                   }}
                   style={{
                     background: 'var(--accent-red, #da3633)',
-                    color: '#fff',
+                    color: 'var(--bg-base)',
                     border: 'none',
                     borderRadius: 4,
                     padding: '3px 10px',
@@ -446,19 +453,26 @@ export function ArchivePanel() {
               {c.subject}
             </span>
             <button
-              onClick={async () => {
-                if (!ringId || !window.confirm(`Revert "${c.subject}"?`)) return
-                try {
-                  await postGitRevert(ringId, c.sha)
-                  const res = await getGitLog(ringId)
-                  setCommits(res.commits)
-                } catch (e: any) {
-                  alert(e?.message || 'Revert failed')
-                }
+              onClick={() => {
+                if (!ringId) return
+                setConfirmDialog({
+                  title: 'Revert Commit',
+                  message: `Revert "${c.subject}"?`,
+                  variant: 'danger',
+                  action: async () => {
+                    try {
+                      await postGitRevert(ringId, c.sha)
+                      const res = await getGitLog(ringId)
+                      setCommits(res.commits)
+                    } catch (e: any) {
+                      alert(e?.message || 'Revert failed')
+                    }
+                  },
+                })
               }}
               style={{
                 background: 'var(--accent-red, #da3633)',
-                color: '#fff',
+                color: 'var(--bg-base)',
                 border: 'none',
                 borderRadius: 3,
                 padding: '1px 6px',
@@ -472,6 +486,14 @@ export function ArchivePanel() {
           </div>
         ))}
       </div>
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }

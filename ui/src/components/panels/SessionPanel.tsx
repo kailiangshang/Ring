@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, memo } from 'react'
 import { useSessionStore } from '../../stores/session-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useWsStore } from '../../stores/ws-store'
 import { exportSessionMessages, getToken, uploadFile } from '../../services/api'
 import { ScrollContainer } from '../common/ScrollContainer'
 import type { SessionSkill, SessionMaterial } from '../../types/session'
+import { ConfirmModal } from '../common/ConfirmModal'
 const PHASE_LABELS: Record<string, string> = {
   material_prep: 'Preparing Materials',
   discussion: 'In Discussion',
@@ -149,7 +150,7 @@ function CreateSessionForm() {
   )
 }
 
-function MaterialCard({
+const MaterialCard = memo(function MaterialCard({
   mat,
   onHighlight,
   onSave,
@@ -290,7 +291,7 @@ function MaterialCard({
       )}
     </div>
   )
-}
+})
 
 function MaterialPrepView() {
   const session = useSessionStore((s) => s.active_session)
@@ -781,6 +782,7 @@ function SessionChat() {
   const connected = useWsStore((s) => s.connected)
 
   const [input, setInput] = useState('')
+  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
 
   if (!session) return null
 
@@ -794,10 +796,14 @@ function SessionChat() {
     setInput('')
   }
 
-  const handleClose = async () => {
+  const handleClose = () => {
     if (!active_ring_id) return
-    if (!window.confirm('Close this session? Participants will no longer be able to send messages.')) return
-    await closeSession(active_ring_id, session.id)
+    setConfirmDialog({
+      title: 'Close Session',
+      message: 'Close this session? Participants will no longer be able to send messages.',
+      variant: 'danger',
+      action: () => { closeSession(active_ring_id, session.id) },
+    })
   }
 
   const handleReopen = async () => {
@@ -805,10 +811,14 @@ function SessionChat() {
     await reopenSession(active_ring_id, session.id)
   }
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!active_ring_id) return
-    if (!window.confirm('Delete this session permanently? All messages and materials will be lost.')) return
-    await deleteSession(active_ring_id, session.id)
+    setConfirmDialog({
+      title: 'Delete Session',
+      message: 'Delete this session permanently? All messages and materials will be lost.',
+      variant: 'danger',
+      action: () => { deleteSession(active_ring_id, session.id) },
+    })
   }
 
   const handleArchive = async () => {
@@ -1113,6 +1123,14 @@ function SessionChat() {
           </button>
         </div>
       </div>
+      <ConfirmModal
+        open={confirmDialog !== null}
+        title={confirmDialog?.title ?? ''}
+        message={confirmDialog?.message ?? ''}
+        variant={confirmDialog?.variant}
+        on_confirm={() => { confirmDialog?.action(); setConfirmDialog(null) }}
+        on_cancel={() => setConfirmDialog(null)}
+      />
     </div>
   )
 }
@@ -1167,8 +1185,8 @@ export function SessionPanel() {
           fontSize: 10,
           borderRadius: 3,
           background: 'rgba(239,68,68,0.1)',
-          color: '#ef4444',
-          border: '1px solid #ef4444',
+          color: 'var(--accent-red, #ef4444)',
+          border: '1px solid var(--accent-red, #ef4444)',
         }}>
           {error}
         </div>

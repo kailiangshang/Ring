@@ -34,6 +34,45 @@ pub enum SseEvent {
     Error(String),
 }
 
+pub fn sse_event_to_axum(event: SseEvent) -> axum::response::sse::Event {
+    match event {
+        SseEvent::Start { message_id, role } => {
+            let data = serde_json::json!({"message_id": message_id, "role": role});
+            axum::response::sse::Event::default()
+                .event("message_start")
+                .data(data.to_string())
+        }
+        SseEvent::Delta { content } => {
+            let data = serde_json::json!({ "content": content });
+            axum::response::sse::Event::default()
+                .event("delta")
+                .data(data.to_string())
+        }
+        SseEvent::End {
+            message_id,
+            full_content: _,
+            token_usage,
+        } => {
+            let usage_json = token_usage
+                .as_deref()
+                .and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
+            let data = serde_json::json!({
+                "message_id": message_id,
+                "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
+            });
+            axum::response::sse::Event::default()
+                .event("message_end")
+                .data(data.to_string())
+        }
+        SseEvent::Error(msg) => {
+            let data = serde_json::json!({ "error": msg });
+            axum::response::sse::Event::default()
+                .event("error")
+                .data(data.to_string())
+        }
+    }
+}
+
 pub enum ChatCompleteWithToolsResult {
     Message {
         content: String,

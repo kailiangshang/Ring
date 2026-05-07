@@ -18,6 +18,7 @@ interface BlueprintGraph {
 
 interface BlueprintState {
   mode: 'quick' | 'deep'
+  step: 'template' | 'refine' | 'confirm'
   messages: BlueprintMessage[]
   streaming: boolean
   current_blueprint: { graphs: BlueprintGraph[] } | null
@@ -25,6 +26,7 @@ interface BlueprintState {
   streaming_content: string
   abort_controller: AbortController | null
   setMode: (mode: 'quick' | 'deep') => void
+  setStep: (step: 'template' | 'refine' | 'confirm') => void
   sendMessage: (ringId: string, content: string) => void
   loadHistory: (ringId: string) => Promise<void>
   confirm: (ringId: string) => Promise<void>
@@ -48,6 +50,7 @@ function stripBlueprintTags(text: string): string {
 
 export const useBlueprintStore = create<BlueprintState>((set, get) => ({
   mode: 'quick',
+  step: 'template',
   messages: [],
   streaming: false,
   current_blueprint: null,
@@ -56,6 +59,7 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
   abort_controller: null,
 
   setMode: (mode) => set({ mode }),
+  setStep: (step) => set({ step }),
 
   sendMessage: (ringId, content) => {
     const state = get()

@@ -5,6 +5,7 @@ import { PanelStack } from './PanelStack'
 import { ChatArea } from '../chat/ChatArea'
 import { SelfTrigger } from '../self/SelfTrigger'
 import { CreateInviteModal } from '../invite/CreateInviteModal'
+import { CommandResultModal } from '../chat/CommandResultModal'
 import { NotificationBell } from '../NotificationBell'
 import { ExportButton } from '../chat/ExportButton'
 import { useAppStore } from '../../stores/app-store'
@@ -12,6 +13,10 @@ import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
 import { usePanelStore } from '../../stores/panel-store'
 import { useThemeStore } from '../../stores/theme-store'
+import { useGraphStore } from '../../stores/graph-store'
+import { GraphCanvas } from '../panels/GraphCanvas'
+import { useDrag } from '../../hooks/use-drag'
+import { useResize } from '../../hooks/use-resize'
 import { TabItem } from '../header/TabItem'
 
 const SelfFloat = lazy(() => import('../self/SelfFloat').then(m => ({ default: m.SelfFloat })))
@@ -90,6 +95,108 @@ function SuperRingHeader() {
   )
 }
 
+function GraphFloat() {
+  const float_open = useGraphStore((s) => s.float_open)
+  const setFloatOpen = useGraphStore((s) => s.setFloatOpen)
+  const float_position = useGraphStore((s) => s.float_position)
+  const float_size = useGraphStore((s) => s.float_size)
+  const setFloatPosition = useGraphStore((s) => s.setFloatPosition)
+  const setFloatSize = useGraphStore((s) => s.setFloatSize)
+  const nodes = useGraphStore((s) => s.nodes)
+  const edges = useGraphStore((s) => s.edges)
+  const selected_node_id = useGraphStore((s) => s.selected_node_id)
+  const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
+  const selectNode = useGraphStore((s) => s.selectNode)
+  const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
+
+  const { onMouseDown: onDragDown } = useDrag(setFloatPosition, { width: float_size.w, height: float_size.h })
+  const { onMouseDown: onResizeDown } = useResize(setFloatSize, { w: 400, h: 300 })
+
+  if (!float_open) return null
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: float_position.x,
+        top: float_position.y,
+        width: float_size.w,
+        height: float_size.h,
+        background: 'var(--bg-panel)',
+        border: '1px solid var(--accent-cyan)',
+        borderRadius: 8,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 999,
+        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+        overflow: 'hidden',
+      }}
+    >
+      <div
+        onMouseDown={onDragDown}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 12px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--bg-panel)',
+          cursor: 'move',
+          userSelect: 'none',
+          flexShrink: 0,
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-ice)', letterSpacing: '0.05em' }}>
+          Graph — {nodes.length} nodes · {edges.length} edges
+        </span>
+        <button
+          onClick={() => setFloatOpen(false)}
+          style={{
+            background: 'var(--bg-hover)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            padding: '4px 12px',
+            fontSize: 12,
+            cursor: 'pointer',
+            fontWeight: 700,
+          }}
+        >
+          ×
+        </button>
+      </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <GraphCanvas
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selected_node_id}
+          collapsedNodes={collapsed_nodes}
+          onSelectNode={selectNode}
+          onToggleCollapse={toggleCollapse}
+          fullscreen
+        />
+      </div>
+      <div
+        onMouseDown={onResizeDown}
+        style={{
+          position: 'absolute',
+          right: 0,
+          bottom: 0,
+          width: 16,
+          height: 16,
+          cursor: 'nwse-resize',
+          zIndex: 2,
+        }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: 'block' }}>
+          <line x1="12" y1="4" x2="4" y2="12" stroke="var(--text-dim)" strokeWidth="1" />
+          <line x1="14" y1="8" x2="8" y2="14" stroke="var(--text-dim)" strokeWidth="1" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 export function AppLayout() {
   const current_context = useAppStore((s) => s.current_context)
   const fetchRings = useRingStore((s) => s.fetchRings)
@@ -129,6 +236,8 @@ export function AppLayout() {
       <Suspense fallback={null}><SelfFloat /></Suspense>
       <SelfTrigger />
       <CreateInviteModal />
+      <CommandResultModal />
+      <GraphFloat />
     </div>
   )
 }

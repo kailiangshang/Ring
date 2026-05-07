@@ -89,7 +89,7 @@ pub async fn execute_knowledge_extract(
     Ok(result)
 }
 
-fn is_url_allowed(url: &str) -> bool {
+pub fn is_url_allowed(url: &str) -> bool {
     let lower = url.to_lowercase();
     let blocked = [
         "localhost",
