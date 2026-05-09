@@ -242,10 +242,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       }
       case 'session_catchup': {
         if (!session_id || !active_session || session_id !== active_session.id) return
-        const msgs = (msg.messages as any[] ?? []).map((m: any) => ({
+        const msgs = (msg.messages as SessionMessage[] ?? []).map((m) => ({
           ...m,
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
-        }))
+        })) as SessionMessage[]
         set({ messages: msgs })
         break
       }

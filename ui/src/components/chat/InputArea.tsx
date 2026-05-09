@@ -6,7 +6,8 @@ import { useAppStore } from '../../stores/app-store'
 import { useSelfStore } from '../../stores/self-store'
 import { ModeIndicator } from './ModeIndicator'
 import { CommandHints } from './CommandHints'
-import { CommandAutocomplete, useAutocompleteStore } from './CommandAutocomplete'
+import { CommandAutocomplete } from './CommandAutocomplete'
+import { useAutocompleteStore } from './autocomplete-store'
 import { uploadFile, parseFile } from '../../services/api'
 
 interface ParsedFileEntry {
@@ -184,8 +185,8 @@ export function InputArea() {
           })
           setParsedFiles(prev => [...prev, entry])
         }
-      } catch (e: any) {
-        const errorMsg = typeof e?.message === 'string' ? e.message : String(e)
+      } catch (e: unknown) {
+        const errorMsg = e instanceof Error ? e.message : String(e)
         console.error('upload failed:', errorMsg)
         addMessage({
           id: `sys-${crypto.randomUUID()}`,

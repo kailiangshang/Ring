@@ -1,5 +1,6 @@
 import type { SetupData } from './SetupWizard'
-import { LLMConfigForm, useLLMTest, ResultMsg, defaultModel, type LLMFormState } from '../common/LLMConfigForm'
+import { LLMConfigForm, ResultMsg } from '../common/LLMConfigForm'
+import { useLLMTest, defaultModel, type LLMFormState } from '../common/llm-utils'
 
 interface StepProps {
   data: SetupData
@@ -33,9 +34,9 @@ export function StepLLM({ data, onChange, onNext, onBack }: StepProps) {
       onChange({ llm_provider: p.provider, llm_model: defaultModel(p.provider) })
     } else {
       const mapping: Record<string, string> = { model: 'llm_model', api_key: 'llm_api_key', base_url: 'llm_base_url' }
-      const updates: Partial<SetupData> = {}
+      const updates: Record<string, string> = {}
       for (const [k, v] of Object.entries(p)) {
-        if (mapping[k]) (updates as any)[mapping[k]] = v
+        if (mapping[k]) updates[mapping[k]] = v as string
       }
       onChange(updates)
     }

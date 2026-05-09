@@ -115,7 +115,7 @@ export const useSelfChatStore = create<SelfChatState>((set, get) => ({
       })
       if (!res.ok) return
       const data = await res.json()
-      const messages = (data.messages ?? []).map((m: any) => ({
+      const messages = (data.messages ?? []).map((m: Record<string, unknown>) => ({
         ...m,
         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
       }))

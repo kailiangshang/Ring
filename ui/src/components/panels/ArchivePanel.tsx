@@ -464,8 +464,9 @@ export function ArchivePanel() {
                       await postGitRevert(ringId, c.sha)
                       const res = await getGitLog(ringId)
                       setCommits(res.commits)
-                    } catch (e: any) {
-                      alert(e?.message || 'Revert failed')
+                    } catch (e: unknown) {
+                      const msg = e instanceof Error ? e.message : 'Revert failed'
+                      alert(msg)
                     }
                   },
                 })

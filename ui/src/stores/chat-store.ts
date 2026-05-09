@@ -385,7 +385,7 @@ export const useChatStore = create<ChatState>()(immer((set, get) => ({
       }
       const data = await res.json()
       set((s) => {
-        s.messages = (data.messages ?? []).map((m: any) => ({
+        s.messages = (data.messages ?? []).map((m: Record<string, unknown>) => ({
           ...m,
           content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
         }))

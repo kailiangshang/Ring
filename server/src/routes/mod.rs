@@ -120,10 +120,13 @@ pub fn build_router(state: AppState) -> Router {
         .route("/network/info", get(network::get_network_info))
         .route("/auth/rotate", post(auth::rotate_token))
         .route("/prompts", get(prompts::list_prompts))
-        .route("/ws", get(ws::ws_handler).layer(axum::middleware::from_fn_with_state(
-            RateLimiter::new(10, 60),
-            rate_limit,
-        )))
+        .route(
+            "/ws",
+            get(ws::ws_handler).layer(axum::middleware::from_fn_with_state(
+                RateLimiter::new(10, 60),
+                rate_limit,
+            )),
+        )
         .route("/setup/status", get(setup::get_status))
         .route("/setup/recover", get(setup::recover_token))
         .route(

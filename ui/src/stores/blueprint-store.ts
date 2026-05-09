@@ -167,8 +167,8 @@ export const useBlueprintStore = create<BlueprintState>((set, get) => ({
           : null,
       })
       set({ confirmed: true })
-    } catch (e: any) {
-      const msg = e.message || 'Failed to confirm blueprint'
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to confirm blueprint'
       alert(msg)
       throw e
     }

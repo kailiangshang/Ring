@@ -5,7 +5,8 @@ import { api, exportRingBackup, exportAIReport, postSyncImport } from '../../ser
 import { useRingStore } from '../../stores/ring-store'
 import { useChatStore } from '../../stores/chat-store'
 import { useInviteStore } from '../../stores/invite-store'
-import { LLMConfigForm, useLLMTest, ResultMsg, type LLMFormState } from '../common/LLMConfigForm'
+import { LLMConfigForm, ResultMsg } from '../common/LLMConfigForm'
+import { useLLMTest, type LLMFormState } from '../common/llm-utils'
 import { ConfirmModal } from '../common/ConfirmModal'
 import { PromptModal } from '../common/PromptModal'
 
@@ -370,8 +371,8 @@ export function ConfigPanel() {
                 setSyncResult(
                   `Synced: ${res.imported.nodes} nodes, ${res.imported.edges} edges, ${res.imported.archive_records} archives, ${res.imported.group_docs} docs`
                 )
-              } catch (e: any) {
-                const msg = typeof e?.message === 'string' ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
+              } catch (e: unknown) {
+                const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e)
                 setSyncResult(`Sync failed: ${msg}`)
               } finally {
                 setSyncing(false)

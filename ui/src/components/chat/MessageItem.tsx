@@ -154,18 +154,20 @@ function MessageItemInner({ message }: MessageItemProps) {
 
   const contentRef = useRef<HTMLDivElement>(null)
   const [collapsed, setCollapsed] = useState(false)
+  const effectiveCollapsed = isStreaming ? false : collapsed
   const [overflowing, setOverflowing] = useState(false)
 
   useEffect(() => {
     if (isStreaming) {
-      setCollapsed(false)
       return
     }
     const el = contentRef.current
     if (!el) return
-    if (el.scrollHeight > COLLAPSE_HEIGHT + 40) {
-      setOverflowing(true)
-    }
+    requestAnimationFrame(() => {
+      if (el.scrollHeight > COLLAPSE_HEIGHT + 40) {
+        setOverflowing(true)
+      }
+    })
   }, [message.content, isStreaming])
 
   const isAi = !isUser && message.role !== 'system'
@@ -369,15 +371,15 @@ function MessageItemInner({ message }: MessageItemProps) {
                 color: 'var(--text-secondary)',
                 fontSize: 12,
                 lineHeight: 1.5,
-                maxHeight: collapsed ? 200 : undefined,
-                overflow: collapsed ? 'hidden' : 'visible',
+                maxHeight: effectiveCollapsed ? 200 : undefined,
+                overflow: effectiveCollapsed ? 'hidden' : 'visible',
                 position: 'relative',
               }}
             >
               <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'inherit' }}>
                 {fileCardContent}
               </pre>
-              {collapsed && (
+              {effectiveCollapsed && (
                 <div
                   style={{
                     position: 'absolute',
@@ -399,7 +401,7 @@ function MessageItemInner({ message }: MessageItemProps) {
                 </div>
               )}
             </div>
-            {!collapsed && fileCardContent.length > 500 && (
+            {!effectiveCollapsed && fileCardContent.length > 500 && (
               <button
                 onClick={() => setCollapsed(true)}
                 style={{
@@ -424,8 +426,8 @@ function MessageItemInner({ message }: MessageItemProps) {
             color: 'var(--text-primary)',
             lineHeight: 1.6,
             fontSize: 13,
-            maxHeight: collapsed ? COLLAPSE_HEIGHT : undefined,
-            overflow: collapsed ? 'hidden' : 'visible',
+            maxHeight: effectiveCollapsed ? COLLAPSE_HEIGHT : undefined,
+            overflow: effectiveCollapsed ? 'hidden' : 'visible',
             position: 'relative',
             transition: 'max-height 0.2s ease',
           }}
@@ -442,7 +444,7 @@ function MessageItemInner({ message }: MessageItemProps) {
               animation: 'blink 1s step-end infinite',
             }} />
           )}
-          {collapsed && overflowing && (
+          {effectiveCollapsed && overflowing && (
             <div
               style={{
                 position: 'absolute',
@@ -507,7 +509,7 @@ function MessageItemInner({ message }: MessageItemProps) {
             )}
           </>
         )}
-        {!collapsed && overflowing && isAi && (
+        {!effectiveCollapsed && overflowing && isAi && (
           <button
             onClick={() => setCollapsed(true)}
             style={{

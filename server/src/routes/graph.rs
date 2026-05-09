@@ -21,7 +21,8 @@ pub async fn get_graph(
     Query(params): Query<GraphQueryParams>,
 ) -> Result<Json<services::graph::GraphResponse>> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
-    let graph = services::graph::get_full_graph(&state, &ring_id, params.graph_id.as_deref()).await?;
+    let graph =
+        services::graph::get_full_graph(&state, &ring_id, params.graph_id.as_deref()).await?;
     Ok(Json(graph))
 }
 

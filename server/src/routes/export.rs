@@ -274,8 +274,8 @@ pub async fn export_ring_graph(
         "updated_at": graph.updated_at,
     });
 
-    let json_str = serde_json::to_string_pretty(&json)
-        .map_err(Into::<crate::error::RingError>::into)?;
+    let json_str =
+        serde_json::to_string_pretty(&json).map_err(Into::<crate::error::RingError>::into)?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "export") {
@@ -354,11 +354,11 @@ pub async fn export_ring_backup(
         chat_md.push_str("\n\n---\n\n");
     }
 
-    let sessions_json = serde_json::to_string_pretty(&sessions)
-        .map_err(Into::<crate::error::RingError>::into)?;
+    let sessions_json =
+        serde_json::to_string_pretty(&sessions).map_err(Into::<crate::error::RingError>::into)?;
 
-    let archives_json = serde_json::to_string_pretty(&archives)
-        .map_err(Into::<crate::error::RingError>::into)?;
+    let archives_json =
+        serde_json::to_string_pretty(&archives).map_err(Into::<crate::error::RingError>::into)?;
 
     let mut buf = Vec::new();
     {

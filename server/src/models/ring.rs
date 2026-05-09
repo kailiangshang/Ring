@@ -124,23 +124,25 @@ pub async fn list_rings_for_user(
 
     let result = rows
         .into_iter()
-        .map(|(id, name, role, member_count, node_count, last_activity_at, creator_ip_raw)| {
-            let creator_ip = if role == "creator" {
-                creator_ip_raw
-            } else {
-                None
-            };
-            RingListItem {
-                id,
-                name,
-                role,
-                member_count,
-                node_count,
-                last_activity_at,
-                has_active_session: false,
-                creator_ip,
-            }
-        })
+        .map(
+            |(id, name, role, member_count, node_count, last_activity_at, creator_ip_raw)| {
+                let creator_ip = if role == "creator" {
+                    creator_ip_raw
+                } else {
+                    None
+                };
+                RingListItem {
+                    id,
+                    name,
+                    role,
+                    member_count,
+                    node_count,
+                    last_activity_at,
+                    has_active_session: false,
+                    creator_ip,
+                }
+            },
+        )
         .collect();
 
     Ok(result)

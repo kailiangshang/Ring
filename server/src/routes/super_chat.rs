@@ -11,8 +11,7 @@ use crate::extractors::auth::AuthUser;
 use crate::models::message;
 use crate::services::{
     chat::{self, CompactResult},
-    llm,
-    super_chat,
+    llm, super_chat,
 };
 use crate::state::AppState;
 

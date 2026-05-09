@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { useAuthStore } from '../../stores/auth-store'
-import { LLMConfigForm, useLLMTest, ResultMsg, inputStyle, type LLMFormState } from '../common/LLMConfigForm'
+import { LLMConfigForm, ResultMsg } from '../common/LLMConfigForm'
+import { useLLMTest, inputStyle, type LLMFormState } from '../common/llm-utils'
 
 const sectionTitle: React.CSSProperties = {
   fontSize: 11,
@@ -56,7 +57,8 @@ export function SuperSettingsPanel() {
       if (llmForm.api_key) body.api_key = llmForm.api_key
       if (llmForm.base_url) body.base_url = llmForm.base_url
       await api.put('/config/llm', body)
-    } catch (e: unknown) {
+    } catch {
+      // silently ignore save errors
     } finally {
       setLlmSaving(false)
     }

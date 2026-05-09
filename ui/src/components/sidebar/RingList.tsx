@@ -82,13 +82,10 @@ export function RingList() {
 
   useEffect(() => {
     if (!active_ring_id) return
-    fetchSessionsForSidebar(active_ring_id)
+    fetchSessionsForSidebar(active_ring_id).then(() => {
+      setExpanded((prev) => ({ ...prev, [active_ring_id!]: true }))
+    })
   }, [active_ring_id, fetchSessionsForSidebar])
-
-  useEffect(() => {
-    if (!active_ring_id) return
-    setExpanded((prev) => ({ ...prev, [active_ring_id]: true }))
-  }, [active_ring_id])
 
   const handleCreate = async () => {
     if (!newName.trim()) return

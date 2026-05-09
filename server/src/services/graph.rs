@@ -108,7 +108,11 @@ async fn persist_graph_snapshot(state: &AppState, ring_id: &str) {
     }
 }
 
-pub async fn get_full_graph(state: &AppState, ring_id: &str, graph_id: Option<&str>) -> Result<GraphResponse> {
+pub async fn get_full_graph(
+    state: &AppState,
+    ring_id: &str,
+    graph_id: Option<&str>,
+) -> Result<GraphResponse> {
     let g = if let Some(gid) = graph_id {
         graph::get_graph_by_id(&state.db, gid).await?
     } else {

@@ -19,7 +19,6 @@ export function ChatArea() {
 
   useEffect(() => {
     if (context !== 'ring' || !active_ring_id) {
-      setTokens(0)
       return
     }
     getTokenCount(active_ring_id)

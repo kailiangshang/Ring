@@ -86,23 +86,6 @@ async fn main() {
         std::process::exit(1);
     }
 
-    {
-        let has_col: (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM pragma_table_info('users') WHERE name = 'token_created_at'")
-                .fetch_one(&pool)
-                .await
-                .unwrap_or((0,));
-        if has_col.0 == 0 {
-            if let Err(e) = sqlx::query("ALTER TABLE users ADD COLUMN token_created_at TEXT NOT NULL DEFAULT ''")
-                .execute(&pool)
-                .await
-            {
-                eprintln!("ERROR: failed to add token_created_at column: {e}");
-                std::process::exit(1);
-            }
-        }
-    }
-
     let rings_dir = std::path::PathBuf::from(format!("{data_dir}/rings"));
     if let Err(e) = tokio::fs::create_dir_all(&rings_dir).await {
         eprintln!("ERROR: failed to create rings dir: {e}");
@@ -147,10 +130,10 @@ async fn main() {
     let addr = format!("0.0.0.0:{}", cli.port);
     let listener = match tokio::net::TcpListener::bind(&addr).await {
         Ok(l) => l,
-            Err(e) => {
-                eprintln!("ERROR: failed to bind to port {}: {}", cli.port, e);
-                std::process::exit(1);
-            }
+        Err(e) => {
+            eprintln!("ERROR: failed to bind to port {}: {}", cli.port, e);
+            std::process::exit(1);
+        }
     };
 
     let startup_msg = format!("Ring server listening on http://localhost:{}", cli.port);

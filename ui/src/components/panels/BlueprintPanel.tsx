@@ -68,15 +68,28 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
       leaf: '#34d399',
     }
 
-    let simulation: d3.Simulation<d3.SimulationNodeDatum, d3.SimulationLinkDatum<d3.SimulationNodeDatum>>
+    interface SimNode extends d3.SimulationNodeDatum {
+      id: number
+      label: string
+      node_type: string
+    }
+
+    interface SimLink extends d3.SimulationLinkDatum<SimNode> {
+      relation: string
+    }
+
+    const simNodes: SimNode[] = nodes as SimNode[]
+    const simEdges: SimLink[] = edges as SimLink[]
+
+    let simulation: d3.Simulation<SimNode, SimLink>
     try {
       simulation = d3
-        .forceSimulation(nodes as d3.SimulationNodeDatum[])
+        .forceSimulation(simNodes)
         .force(
           'link',
           d3
-            .forceLink(edges as d3.SimulationLinkDatum<d3.SimulationNodeDatum>[])
-            .id((d: any) => d.id)
+            .forceLink<SimNode, SimLink>(simEdges)
+            .id((d) => d.id)
             .distance(50),
         )
         .force('charge', d3.forceManyBody().strength(-120))
@@ -89,7 +102,7 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
     const link = svg
       .append('g')
       .selectAll('line')
-      .data(edges)
+      .data(simEdges)
       .join('line')
       .attr('stroke', '#475569')
       .attr('stroke-width', 1)
@@ -98,17 +111,17 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
     const node = svg
       .append('g')
       .selectAll('circle')
-      .data(nodes)
+      .data(simNodes)
       .join('circle')
       .attr('r', 6)
-      .attr('fill', (d: any) => colorMap[d.node_type] || '#94a3b8')
+      .attr('fill', (d) => colorMap[d.node_type] || '#94a3b8')
 
     const label = svg
       .append('g')
       .selectAll('text')
-      .data(nodes)
+      .data(simNodes)
       .join('text')
-      .text((d: any) => d.label)
+      .text((d) => d.label)
       .attr('font-size', 7)
       .attr('fill', '#94a3b8')
       .attr('text-anchor', 'middle')
@@ -116,12 +129,12 @@ function MiniGraphPreview({ graphs }: { graphs: BlueprintGraph[] }) {
 
     simulation.on('tick', () => {
       link
-        .attr('x1', (d: any) => d.source.x)
-        .attr('y1', (d: any) => d.source.y)
-        .attr('x2', (d: any) => d.target.x)
-        .attr('y2', (d: any) => d.target.y)
-      node.attr('cx', (d: any) => d.x).attr('cy', (d: any) => d.y)
-      label.attr('x', (d: any) => d.x).attr('y', (d: any) => d.y)
+        .attr('x1', (d) => (d.source as SimNode).x ?? 0)
+        .attr('y1', (d) => (d.source as SimNode).y ?? 0)
+        .attr('x2', (d) => (d.target as SimNode).x ?? 0)
+        .attr('y2', (d) => (d.target as SimNode).y ?? 0)
+      node.attr('cx', (d) => d.x ?? 0).attr('cy', (d) => d.y ?? 0)
+      label.attr('x', (d) => d.x ?? 0).attr('y', (d) => d.y ?? 0)
     })
   }, [graphs])
 
@@ -235,8 +248,9 @@ export function BlueprintPanel() {
       }
       fetchGraph(active_ring_id)
       useBlueprintStore.setState({ confirmed: true })
-    } catch (e: any) {
-      alert(`Failed to confirm blueprint: ${e.message || 'unknown error'}`)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'unknown error'
+      alert(`Failed to confirm blueprint: ${msg}`)
     }
     setLoading(false)
   }

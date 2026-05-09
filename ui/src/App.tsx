@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAppStore } from './stores/app-store'
 import { useAuthStore } from './stores/auth-store'
 import { useThemeStore } from './stores/theme-store'
@@ -23,6 +23,7 @@ export default function App() {
   const token_expired = useAuthStore((s) => s.token_expired)
   const setTokenExpired = useAuthStore((s) => s.setTokenExpired)
   const [recovering, setRecovering] = useState(false)
+  const recoveringRef = useRef(false)
 
   useEffect(() => {
     loadFromStorage()
@@ -47,20 +48,21 @@ export default function App() {
   }, [is_setup])
 
   useEffect(() => {
-    if (!loading && is_setup && !localStorage.getItem('ring_token') && !recovering) {
-      setRecovering(true)
+    if (!loading && is_setup && !localStorage.getItem('ring_token') && !recoveringRef.current) {
+      recoveringRef.current = true
       fetch('/api/setup/recover')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
           if (data?.token_id) {
             setAuth(data.token_id, '', null)
           }
+          setRecovering(true)
         })
-        .catch(() => {})
+        .catch(() => { setRecovering(true) })
     }
-  }, [loading, is_setup, setAuth, recovering])
+  }, [loading, is_setup, setAuth])
 
-  if (loading) {
+  if (loading || recovering) {
     return (
       <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-base)' }}>
         <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Loading...</span>

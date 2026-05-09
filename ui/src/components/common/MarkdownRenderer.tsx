@@ -2,7 +2,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { Components } from 'react-markdown'
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 const defaultComponents: Components = {
   p({ children }) { return <p style={{ margin: '0 0 8px' }}>{children}</p> },
   h1({ children }) { return <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-ice)', margin: '12px 0 6px' }}>{children}</h1> },
@@ -15,7 +14,7 @@ const defaultComponents: Components = {
   blockquote({ children }) { return <blockquote style={{ borderLeft: '3px solid var(--accent-cyan)', margin: '6px 0', paddingLeft: 10, color: 'var(--text-secondary)' }}>{children}</blockquote> },
   strong({ children }) { return <strong style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{children}</strong> },
   hr() { return <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} /> },
-  code({ className, children }: any) {
+  code({ className, children }) {
     if (className?.startsWith('language-')) {
       return (
         <pre style={{
@@ -48,7 +47,6 @@ const defaultComponents: Components = {
   th({ children }) { return <th style={{ border: '1px solid var(--border)', padding: '4px 8px', textAlign: 'left', fontWeight: 700, color: 'var(--accent-ice)' }}>{children}</th> },
   td({ children }) { return <td style={{ border: '1px solid var(--border)', padding: '4px 8px' }}>{children}</td> },
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 interface MarkdownRendererProps {
   content: string
@@ -63,5 +61,3 @@ export function MarkdownRenderer({ content, components }: MarkdownRendererProps)
     </ReactMarkdown>
   )
 }
-
-export { defaultComponents }

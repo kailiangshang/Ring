@@ -134,7 +134,9 @@ pub async fn increment_use_count(pool: &sqlx::SqlitePool, token: &str) -> Result
     .execute(pool)
     .await?;
     if result.rows_affected() == 0 {
-        return Err(RingError::BadRequest("invite token has reached max uses".into()));
+        return Err(RingError::BadRequest(
+            "invite token has reached max uses".into(),
+        ));
     }
     Ok(())
 }
