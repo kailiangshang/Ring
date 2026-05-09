@@ -233,7 +233,7 @@ export function GraphPanel() {
             value={newNodeLabel}
             onChange={(e) => setNewLabel(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreateNode()
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleCreateNode()
             }}
             placeholder="node label..."
             style={{
@@ -324,7 +324,7 @@ export function GraphPanel() {
               value={newGraphName}
               onChange={(e) => setNewGraphName(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && newGraphName.trim() && active_ring_id) {
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing && newGraphName.trim() && active_ring_id) {
                   createGraph(active_ring_id, newGraphName.trim())
                   setNewGraphName('')
                   setShowNewGraph(false)

@@ -108,8 +108,12 @@ async fn persist_graph_snapshot(state: &AppState, ring_id: &str) {
     }
 }
 
-pub async fn get_full_graph(state: &AppState, ring_id: &str) -> Result<GraphResponse> {
-    let g = graph::ensure_default_graph(&state.db, ring_id).await?;
+pub async fn get_full_graph(state: &AppState, ring_id: &str, graph_id: Option<&str>) -> Result<GraphResponse> {
+    let g = if let Some(gid) = graph_id {
+        graph::get_graph_by_id(&state.db, gid).await?
+    } else {
+        graph::ensure_default_graph(&state.db, ring_id).await?
+    };
     let nodes = graph::list_nodes(&state.db, &g.id).await?;
     let edges = graph::list_edges(&state.db, &g.id).await?;
     Ok(GraphResponse {

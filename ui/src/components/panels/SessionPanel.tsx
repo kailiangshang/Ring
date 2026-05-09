@@ -79,7 +79,7 @@ function CreateSessionForm() {
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && title.trim()) handleCreate()
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing && title.trim()) handleCreate()
         }}
         placeholder="Session title..."
         style={{ ...inputStyle, fontSize: 12 }}

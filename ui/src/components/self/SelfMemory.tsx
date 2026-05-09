@@ -161,7 +161,7 @@ export function SelfMemory() {
           <input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') createFile(); if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) createFile(); if (e.key === 'Escape') { setCreating(false); setNewName('') } }}
             placeholder="file_name (no .md)"
             autoFocus
             style={{ flex: 1, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 3, padding: '4px 8px', color: 'var(--text-primary)', fontSize: 11, outline: 'none', fontFamily: 'inherit' }}

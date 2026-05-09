@@ -268,7 +268,7 @@ export function RingList() {
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleCreate()
+              if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleCreate()
               if (e.key === 'Escape') setCreating(false)
             }}
             placeholder="Ring name..."
@@ -317,7 +317,7 @@ export function RingList() {
               value={gitlabRepoUrl}
               onChange={(e) => setGitlabRepoUrl(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreate()
+                if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleCreate()
                 if (e.key === 'Escape') setCreating(false)
               }}
               placeholder="https://gitlab.company.com/group/project"

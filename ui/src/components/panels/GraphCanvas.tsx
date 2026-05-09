@@ -6,6 +6,7 @@ interface SimNode extends d3.SimulationNodeDatum {
   id: string
   label: string
   node_type: string
+  __dragged?: boolean
 }
 
 interface SimEdge extends d3.SimulationLinkDatum<SimNode> {
@@ -213,24 +214,31 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
             .attr('stroke-width', 1.5)
             .attr('cursor', 'pointer')
             .on('click', (_event, d) => {
+              if (d.__dragged) { d.__dragged = false; return }
               onSelectNode(d.id === selectedNodeId ? null : d.id)
             })
             .call(
               d3
                 .drag<SVGRectElement, SimNode>()
-                .on('start', (event, d) => {
-                  if (!event.active) simulation.alphaTarget(0.15).restart()
-                  d.fx = d.x
-                  d.fy = d.y
+                .on('start', (_event, d) => {
+                  d.__dragged = false
                 })
                 .on('drag', (event, d) => {
+                  if (!d.__dragged) {
+                    d.fx = d.x
+                    d.fy = d.y
+                    simulation.alphaTarget(0.15).restart()
+                  }
+                  d.__dragged = true
                   d.fx = event.x
                   d.fy = event.y
                 })
-                .on('end', (event, d) => {
-                  if (!event.active) simulation.alphaTarget(0)
-                  d.fx = d.x
-                  d.fy = d.y
+                .on('end', (_event, d) => {
+                  if (d.__dragged) {
+                    simulation.alphaTarget(0)
+                    d.fx = d.x
+                    d.fy = d.y
+                  }
                 }),
             )
 

@@ -37,7 +37,7 @@ export function InputArea() {
         ac.moveUp()
         return
       }
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
         const selected = ac.getSelected()
         if (selected) {
           e.preventDefault()
@@ -81,7 +81,7 @@ export function InputArea() {
       return
     }
 
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       if (input.trim()) {
         useCommandHistoryStore.getState().add(input.trim())

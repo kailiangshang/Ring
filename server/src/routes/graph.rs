@@ -1,4 +1,4 @@
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::Json;
 use serde::Deserialize;
 
@@ -9,13 +9,19 @@ use crate::models::ring;
 use crate::services;
 use crate::state::AppState;
 
+#[derive(Deserialize)]
+pub struct GraphQueryParams {
+    graph_id: Option<String>,
+}
+
 pub async fn get_graph(
     State(state): State<AppState>,
     user: AuthUser,
     Path(ring_id): Path<String>,
+    Query(params): Query<GraphQueryParams>,
 ) -> Result<Json<services::graph::GraphResponse>> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
-    let graph = services::graph::get_full_graph(&state, &ring_id).await?;
+    let graph = services::graph::get_full_graph(&state, &ring_id, params.graph_id.as_deref()).await?;
     Ok(Json(graph))
 }
 

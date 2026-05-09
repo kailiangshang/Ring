@@ -87,6 +87,14 @@ fn default_relation() -> String {
     "related_to".into()
 }
 
+pub async fn get_graph_by_id(pool: &sqlx::SqlitePool, graph_id: &str) -> Result<GraphRow> {
+    sqlx::query_as::<_, GraphRow>("SELECT * FROM graphs WHERE id = ?1")
+        .bind(graph_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| RingError::NotFound("graph not found".into()))
+}
+
 pub async fn ensure_default_graph(pool: &sqlx::SqlitePool, ring_id: &str) -> Result<GraphRow> {
     if let Some(graph) =
         sqlx::query_as::<_, GraphRow>("SELECT * FROM graphs WHERE ring_id = ?1 LIMIT 1")
