@@ -347,7 +347,7 @@ pub fn build_greeting_context(self_dir: &Path, metrics: &serde_json::Value) -> G
         }
     }
     let most_active_ring = if !ring_entries.is_empty() {
-        ring_entries.sort_by(|a, b| b.1.cmp(&a.1));
+        ring_entries.sort_by_key(|b| std::cmp::Reverse(b.1));
         ring_entries[0].0.clone()
     } else {
         String::new()

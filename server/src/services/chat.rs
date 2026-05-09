@@ -260,7 +260,7 @@ async fn build_recent_activity(
     if ring_entries.is_empty() {
         return String::new();
     }
-    ring_entries.sort_by(|a, b| b.1.cmp(&a.1));
+    ring_entries.sort_by_key(|b| std::cmp::Reverse(b.1));
     let most_active_ring_id = &ring_entries[0].0;
     let ring_name = sqlx::query_scalar::<_, String>("SELECT name FROM rings WHERE id = ?1")
         .bind(most_active_ring_id)
