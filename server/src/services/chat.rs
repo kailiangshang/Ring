@@ -1,4 +1,4 @@
-use crate::error::Result;
+﻿use crate::error::Result;
 use crate::models::message::{self, MessageRow};
 use crate::services::llm::{LlmClient, SseEvent};
 use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
@@ -9,20 +9,67 @@ const COMPACT_SUMMARY_MAX_TOKENS: usize = 500;
 
 pub fn detect_archive_intent(content: &str) -> bool {
     let lower = content.to_lowercase();
-    // Only trigger on explicit archive commands, not casual mentions
-    let explicit_keywords = [
-        "/save",
-        "/archive",
-        "归档",
-        "archive this",
-        "archive to graph",
-        "save to graph",
-        "存到图谱",
-        "记录到图谱",
-    ];
+    let explicit_keywords = ["/save", "/archive", "\u{5f52}\u{6863}", "archive this"];
     explicit_keywords.iter().any(|kw| lower.contains(kw))
 }
 
+pub fn detect_graph_intent(content: &str) -> bool {
+    let lower = content.to_lowercase();
+    let explicit_keywords = [
+        "save to graph",
+        "archive to graph",
+        "generate graph",
+        "create graph",
+        "add to graph",
+        "attach to graph",
+        "mount to graph",
+        "\u{5b58}\u{5230}\u{56fe}\u{8c31}",
+        "\u{8bb0}\u{5f55}\u{5230}\u{56fe}\u{8c31}",
+        "\u{751f}\u{6210}\u{56fe}\u{8c31}",
+        "\u{521b}\u{5efa}\u{56fe}\u{8c31}",
+        "\u{6302}\u{8f7d}\u{5230}\u{56fe}\u{8c31}",
+        "\u{4fdd}\u{5b58}\u{56fe}\u{8c31}",
+        "\u{90a3}\u{4f60}\u{751f}\u{6210}\u{56fe}\u{8c31}\u{554a}",
+        "\u{5e2e}\u{6211}\u{751f}\u{6210}\u{56fe}\u{8c31}\u{5427}",
+        "\u{5e2e}\u{6211}\u{6302}\u{8f7d}\u{5230}\u{56fe}\u{8c31}\u{4e0a}\u{53bb}",
+    ];
+    if explicit_keywords.iter().any(|kw| lower.contains(kw)) {
+        return true;
+    }
+
+    let trimmed = lower.trim();
+    let shorthand_prompts = [
+        "\u{56fe}\u{8c31}\u{5462}",
+        "\u{77e5}\u{8bc6}\u{56fe}\u{8c31}\u{5462}",
+        "graph?",
+        "graph please",
+    ];
+    if shorthand_prompts.iter().any(|phrase| trimmed == *phrase) {
+        return true;
+    }
+
+    let action_markers = [
+        "\u{751f}\u{6210}",
+        "\u{521b}\u{5efa}",
+        "\u{6574}\u{7406}",
+        "\u{63d0}\u{53d6}",
+        "\u{6302}\u{8f7d}",
+        "\u{4fdd}\u{5b58}",
+        "\u{8f6c}\u{6210}",
+        "\u{53d8}\u{6210}",
+        "generate",
+        "create",
+        "build",
+        "attach",
+        "save",
+    ];
+    let graph_markers = ["\u{56fe}\u{8c31}", "\u{77e5}\u{8bc6}\u{56fe}\u{8c31}", "graph"];
+
+    graph_markers.iter().any(|graph_kw| trimmed.contains(graph_kw))
+        && action_markers
+            .iter()
+            .any(|action_kw| trimmed.contains(action_kw))
+}
 pub async fn get_history(
     state: &AppState,
     ring_id: Option<&str>,
@@ -126,7 +173,7 @@ async fn compact_messages(
             user_id,
             role: "system",
             sender_name: "SYSTEM",
-            content: &format!("[历史摘要] {}", summary),
+            content: &format!("[鍘嗗彶鎽樿] {}", summary),
             node_refs: &[],
             tag_refs: &[],
             token_usage: None,
@@ -145,7 +192,7 @@ async fn compact_messages(
             ring_id,
             &ring_name,
             "SYSTEM",
-            &format!("[历史摘要] {}", summary),
+            &format!("[鍘嗗彶鎽樿] {}", summary),
             &serde_json::json!({"role": "system"}).to_string(),
         )
         .await
@@ -282,7 +329,7 @@ async fn build_recent_activity(
         .filter(|m| m.role != "system")
         .take(3)
         .map(|m| {
-            let sender = if m.role == "user" { "用户" } else { "AI" };
+            let sender = if m.role == "user" { "鐢ㄦ埛" } else { "AI" };
             let content = if m.content.len() > 100 {
                 let s: String = m.content.chars().take(100).collect();
                 format!("{s}...")
@@ -294,12 +341,12 @@ async fn build_recent_activity(
         .collect();
     if summaries.is_empty() {
         return format!(
-            "<recent_activity>\n## 最近活动\n- 活跃 Ring: {ring_name}\n</recent_activity>"
+            "<recent_activity>\n## 鏈€杩戞椿鍔╘n- 娲昏穬 Ring: {ring_name}\n</recent_activity>"
         );
     }
     let summaries_text = summaries.join("\n");
     format!(
-        "<recent_activity>\n## 最近活动\n- 活跃 Ring: {ring_name}\n- 最近讨论:\n{summaries_text}\n</recent_activity>"
+        "<recent_activity>\n## 鏈€杩戞椿鍔╘n- 娲昏穬 Ring: {ring_name}\n- 鏈€杩戣璁?\n{summaries_text}\n</recent_activity>"
     )
 }
 
@@ -651,16 +698,28 @@ mod tests {
     #[test]
     fn test_detect_archive_intent_chinese() {
         assert!(detect_archive_intent("请把这段对话归档"));
-        assert!(detect_archive_intent("存到图谱"));
-        assert!(detect_archive_intent("记录到图谱"));
+        assert!(detect_archive_intent("归档这段内容"));
         assert!(detect_archive_intent("/save"));
+        assert!(!detect_archive_intent("存到图谱"));
     }
 
     #[test]
     fn test_detect_archive_intent_english() {
         assert!(detect_archive_intent("archive this conversation"));
-        assert!(detect_archive_intent("save to graph"));
         assert!(detect_archive_intent("/archive"));
+        assert!(!detect_archive_intent("save to graph"));
+    }
+
+    #[test]
+    fn test_detect_graph_intent_keywords() {
+        assert!(detect_graph_intent("save to graph"));
+        assert!(detect_graph_intent("帮我挂载到图谱上去"));
+        assert!(detect_graph_intent("那你生成图谱啊"));
+        assert!(detect_graph_intent("保存图谱"));
+        assert!(detect_graph_intent("图谱呢"));
+        assert!(detect_graph_intent("把刚才讨论整理成知识图谱"));
+        assert!(!detect_graph_intent("什么是图谱"));
+        assert!(!detect_graph_intent("hello world"));
     }
 
     #[test]

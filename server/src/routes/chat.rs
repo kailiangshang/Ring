@@ -19,6 +19,250 @@ use crate::services::{
 };
 use crate::state::AppState;
 
+fn trim_code_fence(text: &str) -> String {
+    let cleaned = text.trim();
+    if cleaned.starts_with("```") {
+        cleaned
+            .lines()
+            .skip(1)
+            .take_while(|line| !line.starts_with("```"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    } else {
+        cleaned.to_string()
+    }
+}
+
+fn extract_tag_payload(text: &str, tag: &str) -> Option<String> {
+    let start_tag = format!("<{tag}>");
+    let end_tag = format!("</{tag}>");
+    let start = text.find(&start_tag)?;
+    let content_start = start + start_tag.len();
+    let end = text[content_start..].find(&end_tag)? + content_start;
+    Some(text[content_start..end].trim().to_string())
+}
+
+fn extract_balanced_json_object(text: &str) -> Option<String> {
+    let mut start = None;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (idx, ch) in text.char_indices() {
+        if start.is_none() {
+            if ch == '{' {
+                start = Some(idx);
+                depth = 1;
+            }
+            continue;
+        }
+
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth = depth.saturating_sub(1);
+                if depth == 0 {
+                    let start_idx = start?;
+                    return Some(text[start_idx..=idx].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn extract_knowledge_extraction_json(text: &str) -> Option<String> {
+    let cleaned = trim_code_fence(text);
+    if let Some(tagged) = extract_tag_payload(&cleaned, "knowledge_extraction") {
+        return Some(trim_code_fence(&tagged));
+    }
+    if serde_json::from_str::<serde_json::Value>(&cleaned).is_ok() {
+        return Some(cleaned);
+    }
+    extract_balanced_json_object(&cleaned)
+}
+
+fn normalize_knowledge_extraction(
+    parsed: &serde_json::Value,
+) -> Option<serde_json::Value> {
+    let concepts = parsed.get("concepts")?.as_array()?;
+    let mut normalized_concepts = Vec::new();
+    let mut concept_labels = Vec::new();
+    for concept in concepts {
+        if let Some(label) = concept.as_str() {
+            let trimmed = label.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            concept_labels.push(trimmed.to_string());
+            normalized_concepts.push(serde_json::json!({
+                "label": trimmed,
+                "node_type": "topic",
+                "tags": [],
+            }));
+            continue;
+        }
+
+        if let Some(obj) = concept.as_object() {
+            let label = obj.get("label").and_then(|v| v.as_str())?.trim();
+            if label.is_empty() {
+                continue;
+            }
+            concept_labels.push(label.to_string());
+            let node_type = obj
+                .get("node_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("topic");
+            let tags = obj
+                .get("tags")
+                .and_then(|v| v.as_array())
+                .cloned()
+                .unwrap_or_default();
+            normalized_concepts.push(serde_json::json!({
+                "label": label,
+                "node_type": node_type,
+                "tags": tags,
+            }));
+        }
+    }
+
+    let relations = parsed
+        .get("relations")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut normalized_relations = Vec::new();
+    for relation in relations {
+        if let Some(obj) = relation.as_object() {
+            let from = obj
+                .get("from")
+                .and_then(|v| v.as_str())
+                .or_else(|| obj.get("subject").and_then(|v| v.as_str()));
+            let to = obj
+                .get("to")
+                .and_then(|v| v.as_str())
+                .or_else(|| obj.get("object").and_then(|v| v.as_str()));
+            let rel = obj
+                .get("relation")
+                .and_then(|v| v.as_str())
+                .or_else(|| obj.get("predicate").and_then(|v| v.as_str()))
+                .unwrap_or("related_to");
+
+            if let (Some(from), Some(to)) = (from, to) {
+                normalized_relations.push(serde_json::json!({
+                    "from": from,
+                    "to": to,
+                    "relation": rel,
+                }));
+            }
+        }
+    }
+
+    if !concept_labels.is_empty() {
+        use std::collections::HashSet;
+
+        let anchor = parsed
+            .get("suggested_graph")
+            .and_then(|value| value.as_str())
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .and_then(|suggested| {
+                concept_labels
+                    .iter()
+                    .find(|label| label.eq_ignore_ascii_case(suggested))
+                    .cloned()
+            })
+            .unwrap_or_else(|| concept_labels[0].clone());
+
+        let mut connected = HashSet::new();
+        let mut existing_pairs = HashSet::new();
+        for relation in &normalized_relations {
+            if let Some(obj) = relation.as_object() {
+                let from = obj.get("from").and_then(|v| v.as_str()).unwrap_or_default();
+                let to = obj.get("to").and_then(|v| v.as_str()).unwrap_or_default();
+                if !from.is_empty() {
+                    connected.insert(from.to_string());
+                }
+                if !to.is_empty() {
+                    connected.insert(to.to_string());
+                }
+                if !from.is_empty() && !to.is_empty() {
+                    existing_pairs.insert((from.to_string(), to.to_string()));
+                }
+            }
+        }
+
+        let should_seed_backbone = normalized_relations.is_empty() && concept_labels.len() > 1;
+        for label in &concept_labels {
+            if label == &anchor {
+                continue;
+            }
+            let needs_fallback = should_seed_backbone || !connected.contains(label);
+            if !needs_fallback {
+                continue;
+            }
+            let pair = (anchor.clone(), label.clone());
+            if existing_pairs.contains(&pair) {
+                continue;
+            }
+            normalized_relations.push(serde_json::json!({
+                "from": anchor,
+                "to": label,
+                "relation": "related_to",
+            }));
+            existing_pairs.insert(pair);
+        }
+
+        if !connected.contains(&anchor) && concept_labels.len() > 1 {
+            if let Some(first_neighbor) = concept_labels.iter().find(|label| *label != &anchor) {
+                let pair = (anchor.clone(), first_neighbor.clone());
+                if !existing_pairs.contains(&pair) {
+                    normalized_relations.push(serde_json::json!({
+                        "from": anchor,
+                        "to": first_neighbor,
+                        "relation": "related_to",
+                    }));
+                }
+            }
+        }
+    }
+
+    let mut normalized = serde_json::Map::new();
+    normalized.insert("concepts".into(), serde_json::Value::Array(normalized_concepts));
+    normalized.insert(
+        "relations".into(),
+        serde_json::Value::Array(normalized_relations),
+    );
+    if let Some(summary) = parsed.get("summary") {
+        normalized.insert("summary".into(), summary.clone());
+    }
+    if let Some(suggested_graph) = parsed.get("suggested_graph") {
+        normalized.insert("suggested_graph".into(), suggested_graph.clone());
+    }
+    Some(serde_json::Value::Object(normalized))
+}
+
+fn build_graph_preview_message(extraction_json: &str) -> String {
+    format!(
+        "Graph intent detected. Review the extracted concepts below and confirm before creating graph nodes.\n\n<graph_action>{{\"intent\":\"confirm_create_graph\"}}</graph_action>\n<knowledge_extraction>{}</knowledge_extraction>",
+        extraction_json
+    )
+}
+
 #[derive(Debug, Deserialize)]
 pub struct ChatRequest {
     pub content: String,
@@ -71,7 +315,119 @@ pub async fn ring_chat(
     .await?
     .ok_or_else(|| RingError::NotFound("ring not found".into()))?;
 
-    if chat::detect_archive_intent(&body.content) {
+    let graph_intent = chat::detect_graph_intent(&body.content);
+    let archive_intent = chat::detect_archive_intent(&body.content);
+    tracing::info!(
+        ring_id = %ring_id,
+        user_id = %user.token_id,
+        content = %body.content,
+        graph_intent,
+        archive_intent,
+        "ring_chat intent detection"
+    );
+
+    if graph_intent {
+        let _user_msg_id = chat::save_user_message(
+            &state.db,
+            Some(&ring_id),
+            &user.token_id,
+            &user_row.display_name,
+            &body.content,
+            &body.node_refs,
+            &body.tag_refs,
+            body.ephemeral,
+        )
+        .await?;
+
+        let history =
+            chat::load_history_context(&state.db, Some(&ring_id), &user.token_id, 100).await?;
+        let transcript = history
+            .into_iter()
+            .filter(|(role, content)| {
+                role == "user"
+                    && !chat::detect_graph_intent(content)
+                    && !chat::detect_archive_intent(content)
+                    && content.trim().chars().count() >= 12
+            })
+            .map(|(_, content)| content)
+            .collect::<Vec<_>>()
+            .join("\n\n");
+
+        let preview_content = if transcript.trim().is_empty() {
+            "I could not find prior discussion content to extract into a graph.".to_string()
+        } else {
+            match crate::services::workflow::execute_knowledge_extract(
+                &user_row,
+                &crate::services::workflow::KnowledgeExtractArgs {
+                    content: transcript,
+                    target_graph: None,
+                },
+            )
+            .await
+            {
+                Ok(extraction) => {
+                    match extract_knowledge_extraction_json(&extraction)
+                        .and_then(|payload| serde_json::from_str::<serde_json::Value>(&payload).ok())
+                    {
+                        Some(parsed) => {
+                            let normalized = normalize_knowledge_extraction(&parsed);
+                            let has_concepts = normalized
+                                .as_ref()
+                                .and_then(|value| value.get("concepts"))
+                                .and_then(|v| v.as_array())
+                                .map(|v| !v.is_empty())
+                                .unwrap_or(false);
+                            if has_concepts {
+                                build_graph_preview_message(
+                                    &normalized.unwrap().to_string(),
+                                )
+                            } else {
+                                "I did not find enough structured concepts to create a useful graph from the recent discussion.".to_string()
+                            }
+                        }
+                        None => {
+                            "I could not parse a graph extraction preview from the recent discussion.".to_string()
+                        }
+                    }
+                }
+                Err(e) => {
+                    tracing::warn!("failed to extract graph preview: {e}");
+                    "I could not build a graph preview from the recent discussion.".to_string()
+                }
+            }
+        };
+
+        let pool = state.db.clone();
+        let ring_id_c = ring_id.clone();
+        let user_id_c = user.token_id.clone();
+        let s = stream! {
+            let message_id = ulid::Ulid::new().to_string();
+            yield Ok(Event::default().event("message_start").data(serde_json::json!({"message_id": message_id, "role": "group_ring"}).to_string()));
+            yield Ok(Event::default().event("delta").data(serde_json::json!({"content": preview_content.clone()}).to_string()));
+            yield Ok(Event::default().event("message_end").data(serde_json::json!({"message_id": message_id, "usage": {"prompt_tokens": 0, "completion_tokens": 0}}).to_string()));
+
+            if let Err(e) = message::insert_message(
+                &pool,
+                &message::NewMessage {
+                    id: &message_id,
+                    ring_id: Some(&ring_id_c),
+                    user_id: &user_id_c,
+                    role: "group_ring",
+                    sender_name: "GROUP RING",
+                    content: &preview_content,
+                    node_refs: &[],
+                    tag_refs: &[],
+                    token_usage: None,
+                },
+            ).await {
+                tracing::warn!("failed to insert graph preview message: {e}");
+            }
+        }.boxed();
+
+        return Ok(Sse::new(s).keep_alive(KeepAlive::default()));
+    }
+
+    if archive_intent {
         let ring_id_c = ring_id.clone();
         let user_id_c = user.token_id.clone();
         let state_c = state.clone();
@@ -548,4 +904,50 @@ pub async fn self_compact(
         summary,
         removed_count,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_knowledge_extraction;
+
+    #[test]
+    fn normalize_extraction_adds_backbone_relations_when_missing() {
+        let parsed = serde_json::json!({
+            "concepts": [
+                {"label": "微服务架构"},
+                {"label": "API网关"},
+                {"label": "订单服务"}
+            ],
+            "relations": [],
+            "suggested_graph": "微服务架构"
+        });
+
+        let normalized = normalize_knowledge_extraction(&parsed).expect("normalized");
+        let relations = normalized["relations"].as_array().expect("relations");
+        assert_eq!(relations.len(), 2);
+        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"));
+        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
+    }
+
+    #[test]
+    fn normalize_extraction_connects_orphan_concepts() {
+        let parsed = serde_json::json!({
+            "concepts": [
+                {"label": "微服务架构"},
+                {"label": "API网关"},
+                {"label": "订单服务"}
+            ],
+            "relations": [
+                {"from": "API网关", "to": "订单服务", "relation": "路由到"}
+            ],
+            "suggested_graph": "微服务架构"
+        });
+
+        let normalized = normalize_knowledge_extraction(&parsed).expect("normalized");
+        let relations = normalized["relations"].as_array().expect("relations");
+        assert_eq!(relations.len(), 2);
+        assert!(relations.iter().any(|rel| rel["from"] == "API网关" && rel["to"] == "订单服务"));
+        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"
+            || rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
+    }
 }

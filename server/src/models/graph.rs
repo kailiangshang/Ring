@@ -43,6 +43,8 @@ pub struct GraphEdgeRow {
 #[derive(Debug, Deserialize)]
 pub struct CreateNodeInput {
     pub label: String,
+    #[serde(default)]
+    pub graph_id: Option<String>,
     pub parent_id: Option<String>,
     #[serde(default = "default_node_type")]
     pub node_type: String,
@@ -75,12 +77,20 @@ pub struct UpdateNodeInput {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateEdgeInput {
+    #[serde(default)]
+    pub graph_id: Option<String>,
     pub source_id: String,
     pub target_id: String,
     #[serde(default = "default_relation")]
     pub relation: String,
     #[serde(default)]
     pub label: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateEdgeInput {
+    pub relation: Option<String>,
+    pub label: Option<String>,
 }
 
 fn default_relation() -> String {
@@ -339,6 +349,31 @@ pub async fn delete_edge(pool: &sqlx::SqlitePool, edge_id: &str) -> Result<()> {
         return Err(RingError::NotFound("edge not found".into()));
     }
     Ok(())
+}
+
+pub async fn update_edge(
+    pool: &sqlx::SqlitePool,
+    edge_id: &str,
+    input: &UpdateEdgeInput,
+) -> Result<GraphEdgeRow> {
+    let current = sqlx::query_as::<_, GraphEdgeRow>("SELECT * FROM graph_edges WHERE id = ?1")
+        .bind(edge_id)
+        .fetch_optional(pool)
+        .await?
+        .ok_or_else(|| RingError::NotFound("edge not found".into()))?;
+
+    let relation = input.relation.as_deref().unwrap_or(&current.relation);
+    let label = input.label.as_deref().unwrap_or(&current.label);
+
+    sqlx::query_as::<_, GraphEdgeRow>(
+        "UPDATE graph_edges SET relation = ?1, label = ?2 WHERE id = ?3 RETURNING *",
+    )
+    .bind(relation)
+    .bind(label)
+    .bind(edge_id)
+    .fetch_one(pool)
+    .await
+    .map_err(Into::<RingError>::into)
 }
 
 pub async fn update_node_markdown_path(
