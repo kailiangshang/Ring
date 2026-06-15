@@ -400,7 +400,7 @@ export function GraphCanvas({
     return () => {
       simulation.stop()
     }
-  }, [nodes, edges, selectedEdgeId, collapsedNodes, onSelectNode, onSelectEdge, onToggleCollapse, getVisibleNodes, getVisibleEdges, fullscreen, getNodeShadowFill, getNodeShadowOpacity, getNodeStroke, getNodeStrokeWidth])
+  }, [edges, selectedNodeId, selectedEdgeId, collapsedNodes, onSelectNode, onSelectEdge, onToggleCollapse, getVisibleNodes, getVisibleEdges, fullscreen, getNodeShadowFill, getNodeShadowOpacity, getNodeStroke, getNodeStrokeWidth])
 
   useEffect(() => {
     const g = gRef.current

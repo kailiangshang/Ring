@@ -209,17 +209,18 @@ function MessageItemInner({ message }: MessageItemProps) {
   const graphId = useGraphStore((s) => s.graph_id)
   const graphs = useGraphStore((s) => s.graphs)
   const addMessage = useChatStore((s) => s.addMessage)
-  const [graphConfirmOpen, setGraphConfirmOpen] = useState(false)
   const graphAction = isAi ? parseExtraction(message.content, 'graph_action') as GraphActionData | null : null
   const activeGraphName = graphs.find((g) => g.id === graphId)?.name ?? 'main'
+  const [graphConfirmClosed, setGraphConfirmClosed] = useState(() => handledGraphActionMessages.has(message.id))
+  const graphConfirmOpen =
+    Boolean(knowledgeExtraction && graphAction?.intent === 'confirm_create_graph') &&
+    !graphConfirmClosed &&
+    !handledGraphActionMessages.has(message.id)
 
-  useEffect(() => {
-    if (!knowledgeExtraction || !graphAction) return
-    if (graphAction.intent !== 'confirm_create_graph') return
-    if (handledGraphActionMessages.has(message.id)) return
+  const closeGraphConfirm = () => {
     handledGraphActionMessages.add(message.id)
-    setGraphConfirmOpen(true)
-  }, [graphAction, knowledgeExtraction, message.id])
+    setGraphConfirmClosed(true)
+  }
 
   const handleCitationClick = (ringName: string) => {
     const ring = rings.find((r) => r.name === ringName)
@@ -574,9 +575,9 @@ function MessageItemInner({ message }: MessageItemProps) {
         }
         confirm_label="Create"
         cancel_label="Cancel"
-        on_cancel={() => setGraphConfirmOpen(false)}
+        on_cancel={closeGraphConfirm}
         on_confirm={() => {
-          setGraphConfirmOpen(false)
+          closeGraphConfirm()
           if (!activeRingId || !knowledgeExtraction) return
           useGraphStore
             .getState()

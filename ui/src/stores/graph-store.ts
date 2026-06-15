@@ -301,7 +301,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
 
   createNodesFromExtraction: async (ringId, concepts, relations, targetGraphId) => {
     await get().fetchGraphs(ringId)
-    let { graph_id, graphs } = get()
+    let { graph_id } = get()
+    const { graphs } = get()
     let activeGraphId =
       targetGraphId && graphs.some((graph) => graph.id === targetGraphId)
         ? targetGraphId

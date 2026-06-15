@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { useAppStore } from '../../stores/app-store'
 import { useAuthStore } from '../../stores/auth-store'
 import { verifyJoinToken, localJoin, applyJoin, checkApplyStatus } from '../../services/api'
@@ -23,14 +23,7 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
   const setSetup = useAppStore((s) => s.setSetup)
   const setAuth = useAuthStore((s) => s.setAuth)
 
-  useEffect(() => {
-    if (initial_token) {
-      handle_verify(initial_token)
-    }
-    return () => { pollCleanup.current?.() }
-  }, [])
-
-  const parse_token = (input: string): { token: string; ip?: string } => {
+  const parse_token = useCallback((input: string): { token: string; ip?: string } => {
     const trimmed = input.trim()
     try {
       const url = new URL(trimmed)
@@ -44,9 +37,9 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
       }
       return { token: trimmed }
     }
-  }
+  }, [])
 
-  const handle_verify = async (token_input?: string) => {
+  const handle_verify = useCallback(async (token_input?: string) => {
     const input = token_input || invite_link
     const { token, ip } = parse_token(input)
     if (!token) { set_error('No token found'); return }
@@ -66,7 +59,20 @@ export function StepJoin({ initial_token, initial_creator_ip }: StepJoinProps) {
     } finally {
       set_loading(false)
     }
-  }
+  }, [invite_link, parse_token])
+
+  useEffect(() => {
+    let timeout: number | undefined
+    if (initial_token) {
+      timeout = window.setTimeout(() => {
+        void handle_verify(initial_token)
+      }, 0)
+    }
+    return () => {
+      if (timeout !== undefined) window.clearTimeout(timeout)
+      pollCleanup.current?.()
+    }
+  }, [handle_verify, initial_token])
 
   const handle_join = async () => {
     if (!display_name.trim()) { set_error('Display name is required'); return }

@@ -5,7 +5,7 @@ import { exportRingGraph } from '../../services/api'
 import { api } from '../../services/api'
 import { GraphCanvas } from './GraphCanvas'
 import { NodeTreeList } from './NodeTreeList'
-import type { EdgeRelation } from '../../types/graph'
+import type { EdgeRelation, GraphEdge } from '../../types/graph'
 import { ConfirmModal } from '../common/ConfirmModal'
 
 interface DocRef {
@@ -16,11 +16,22 @@ interface DocRef {
 
 type ViewMode = 'canvas' | 'tree'
 type DraftEndpoint = 'source' | 'target'
+type ConfirmDialogState = { title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null
 
 interface RelationDraft {
   sourceId: string | null
   targetId: string | null
   picking: DraftEndpoint | null
+}
+
+interface EdgeEditorProps {
+  edge: GraphEdge
+  sourceLabel: string
+  targetLabel: string
+  activeRingId: string | null
+  updateEdge: (ringId: string, edgeId: string, input: { relation?: string; label?: string }) => Promise<void>
+  deleteEdge: (ringId: string, edgeId: string) => Promise<void>
+  setConfirmDialog: (value: ConfirmDialogState) => void
 }
 
 const EDGE_RELATIONS: { value: EdgeRelation; label: string }[] = [
@@ -34,6 +45,121 @@ function getNodeDocRefs(metadata: Record<string, unknown>): DocRef[] {
   const refs = metadata?.doc_refs
   if (!Array.isArray(refs)) return []
   return refs as DocRef[]
+}
+
+function EdgeEditor({
+  edge,
+  sourceLabel,
+  targetLabel,
+  activeRingId,
+  updateEdge,
+  deleteEdge,
+  setConfirmDialog,
+}: EdgeEditorProps) {
+  const [relation, setRelation] = useState<EdgeRelation>(edge.relation)
+  const [label, setLabel] = useState(edge.label ?? '')
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--bg-panel)',
+        fontSize: 11,
+      }}
+    >
+      <div style={{ marginBottom: 6, fontWeight: 700, color: 'var(--accent-cyan)', fontSize: 11 }}>
+        Edit Relation
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
+          {sourceLabel}
+        </span>
+        <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{'->'}</span>
+        <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
+          {targetLabel}
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+        <select
+          value={relation}
+          onChange={(e) => setRelation(e.target.value as EdgeRelation)}
+          style={{
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border)',
+            borderRadius: 3,
+            padding: '3px 6px',
+            color: 'var(--text-primary)',
+            fontSize: 10,
+            fontFamily: 'inherit',
+          }}
+        >
+          {EDGE_RELATIONS.map((r) => (
+            <option key={r.value} value={r.value}>{r.label}</option>
+          ))}
+        </select>
+        <input
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder="label (optional)"
+          style={{
+            flex: 1,
+            background: 'var(--bg-input)',
+            border: '1px solid var(--border)',
+            borderRadius: 3,
+            padding: '3px 6px',
+            color: 'var(--text-primary)',
+            fontSize: 10,
+            fontFamily: 'inherit',
+            outline: 'none',
+          }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          onClick={() => {
+            if (!activeRingId) return
+            updateEdge(activeRingId, edge.id, { relation, label })
+          }}
+          style={{
+            flex: 1,
+            background: 'var(--accent-cyan)',
+            color: 'var(--bg-base)',
+            border: 'none',
+            borderRadius: 3,
+            padding: '4px 12px',
+            fontSize: 10,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          Save Relation
+        </button>
+        <button
+          onClick={() => {
+            if (!activeRingId) return
+            setConfirmDialog({
+              title: 'Delete Relation',
+              message: 'Delete this relation? This cannot be undone.',
+              variant: 'danger',
+              action: () => deleteEdge(activeRingId, edge.id),
+            })
+          }}
+          style={{
+            background: 'var(--bg-hover)',
+            color: 'var(--accent-amber)',
+            border: '1px solid var(--border)',
+            borderRadius: 3,
+            padding: '4px 10px',
+            fontSize: 10,
+            cursor: 'pointer',
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  )
 }
 
 export function GraphPanel() {
@@ -72,7 +198,7 @@ export function GraphPanel() {
   const [edgeLabel, setEdgeLabel] = useState('')
   const [showDocRefForm, setShowDocRefForm] = useState(false)
   const [newDocRef, setNewDocRef] = useState<DocRef>({ path: '', title: '', type: 'archive' })
-  const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState>(null)
 
   useEffect(() => {
     if (active_ring_id) {
@@ -118,13 +244,6 @@ export function GraphPanel() {
     return nodes.filter((n) => nodes.some((c) => c.parent_id === n.id)).map((n) => n.id)
   }, [nodes])
 
-
-  useEffect(() => {
-    if (!selectedEdge) return
-    setEdgeRelation(selectedEdge.relation)
-    setEdgeLabel(selectedEdge.label ?? '')
-  }, [selectedEdge])
-
   const clearRelationDraft = useCallback(() => {
     setRelationDraft({ sourceId: null, targetId: null, picking: null })
     setEdgeLabel('')
@@ -137,7 +256,7 @@ export function GraphPanel() {
     selectEdge(null)
   }, [selectEdge])
 
-  const handleSelectNode = (nodeId: string | null, _shiftKey: boolean = false) => {
+  const handleSelectNode = (nodeId: string | null) => {
     if (nodeId === null) {
       selectNode(null)
       return
@@ -747,105 +866,16 @@ export function GraphPanel() {
       )}
 
       {selectedEdge && (
-        <div
-          style={{
-            padding: '8px 12px',
-            borderTop: '1px solid var(--border)',
-            background: 'var(--bg-panel)',
-            fontSize: 11,
-          }}
-        >
-          <div style={{ marginBottom: 6, fontWeight: 700, color: 'var(--accent-cyan)', fontSize: 11 }}>
-            Edit Relation
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
-              {nodes.find((n) => n.id === selectedEdge.source_id)?.label ?? selectedEdge.source_id}
-            </span>
-            <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>{'->'}</span>
-            <span style={{ fontSize: 10, background: 'var(--bg-hover)', padding: '2px 6px', borderRadius: 2, color: 'var(--accent-ice)' }}>
-              {nodes.find((n) => n.id === selectedEdge.target_id)?.label ?? selectedEdge.target_id}
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-            <select
-              value={edgeRelation}
-              onChange={(e) => setEdgeRelation(e.target.value as EdgeRelation)}
-              style={{
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                padding: '3px 6px',
-                color: 'var(--text-primary)',
-                fontSize: 10,
-                fontFamily: 'inherit',
-              }}
-            >
-              {EDGE_RELATIONS.map((r) => (
-                <option key={r.value} value={r.value}>{r.label}</option>
-              ))}
-            </select>
-            <input
-              value={edgeLabel}
-              onChange={(e) => setEdgeLabel(e.target.value)}
-              placeholder="label (optional)"
-              style={{
-                flex: 1,
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                padding: '3px 6px',
-                color: 'var(--text-primary)',
-                fontSize: 10,
-                fontFamily: 'inherit',
-                outline: 'none',
-              }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => {
-                if (!active_ring_id) return
-                updateEdge(active_ring_id, selectedEdge.id, { relation: edgeRelation, label: edgeLabel })
-              }}
-              style={{
-                flex: 1,
-                background: 'var(--accent-cyan)',
-                color: 'var(--bg-base)',
-                border: 'none',
-                borderRadius: 3,
-                padding: '4px 12px',
-                fontSize: 10,
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              Save Relation
-            </button>
-            <button
-              onClick={() => {
-                if (!active_ring_id) return
-                setConfirmDialog({
-                  title: 'Delete Relation',
-                  message: 'Delete this relation? This cannot be undone.',
-                  variant: 'danger',
-                  action: () => deleteEdge(active_ring_id, selectedEdge.id),
-                })
-              }}
-              style={{
-                background: 'var(--bg-hover)',
-                color: 'var(--accent-amber)',
-                border: '1px solid var(--border)',
-                borderRadius: 3,
-                padding: '4px 10px',
-                fontSize: 10,
-                cursor: 'pointer',
-              }}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
+        <EdgeEditor
+          key={selectedEdge.id}
+          edge={selectedEdge}
+          sourceLabel={nodes.find((n) => n.id === selectedEdge.source_id)?.label ?? selectedEdge.source_id}
+          targetLabel={nodes.find((n) => n.id === selectedEdge.target_id)?.label ?? selectedEdge.target_id}
+          activeRingId={active_ring_id}
+          updateEdge={updateEdge}
+          deleteEdge={deleteEdge}
+          setConfirmDialog={setConfirmDialog}
+        />
       )}
 
       {(relationDraft.sourceId || relationDraft.targetId || relationDraft.picking) && (

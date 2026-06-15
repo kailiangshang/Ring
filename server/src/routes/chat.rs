@@ -96,9 +96,7 @@ fn extract_knowledge_extraction_json(text: &str) -> Option<String> {
     extract_balanced_json_object(&cleaned)
 }
 
-fn normalize_knowledge_extraction(
-    parsed: &serde_json::Value,
-) -> Option<serde_json::Value> {
+fn normalize_knowledge_extraction(parsed: &serde_json::Value) -> Option<serde_json::Value> {
     let concepts = parsed.get("concepts")?.as_array()?;
     let mut normalized_concepts = Vec::new();
     let mut concept_labels = Vec::new();
@@ -242,7 +240,10 @@ fn normalize_knowledge_extraction(
     }
 
     let mut normalized = serde_json::Map::new();
-    normalized.insert("concepts".into(), serde_json::Value::Array(normalized_concepts));
+    normalized.insert(
+        "concepts".into(),
+        serde_json::Value::Array(normalized_concepts),
+    );
     normalized.insert(
         "relations".into(),
         serde_json::Value::Array(normalized_relations),
@@ -925,8 +926,12 @@ mod tests {
         let normalized = normalize_knowledge_extraction(&parsed).expect("normalized");
         let relations = normalized["relations"].as_array().expect("relations");
         assert_eq!(relations.len(), 2);
-        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"));
-        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
+        assert!(relations
+            .iter()
+            .any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"));
+        assert!(relations
+            .iter()
+            .any(|rel| rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
     }
 
     #[test]
@@ -946,8 +951,12 @@ mod tests {
         let normalized = normalize_knowledge_extraction(&parsed).expect("normalized");
         let relations = normalized["relations"].as_array().expect("relations");
         assert_eq!(relations.len(), 2);
-        assert!(relations.iter().any(|rel| rel["from"] == "API网关" && rel["to"] == "订单服务"));
-        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"
-            || rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
+        assert!(relations
+            .iter()
+            .any(|rel| rel["from"] == "API网关" && rel["to"] == "订单服务"));
+        assert!(relations
+            .iter()
+            .any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"
+                || rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
     }
 }

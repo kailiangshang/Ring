@@ -1,4 +1,4 @@
-﻿use crate::error::Result;
+use crate::error::Result;
 use crate::models::message::{self, MessageRow};
 use crate::services::llm::{LlmClient, SseEvent};
 use crate::services::privacy_filter::{apply_filters, PrivacyFilters};
@@ -63,9 +63,15 @@ pub fn detect_graph_intent(content: &str) -> bool {
         "attach",
         "save",
     ];
-    let graph_markers = ["\u{56fe}\u{8c31}", "\u{77e5}\u{8bc6}\u{56fe}\u{8c31}", "graph"];
+    let graph_markers = [
+        "\u{56fe}\u{8c31}",
+        "\u{77e5}\u{8bc6}\u{56fe}\u{8c31}",
+        "graph",
+    ];
 
-    graph_markers.iter().any(|graph_kw| trimmed.contains(graph_kw))
+    graph_markers
+        .iter()
+        .any(|graph_kw| trimmed.contains(graph_kw))
         && action_markers
             .iter()
             .any(|action_kw| trimmed.contains(action_kw))
