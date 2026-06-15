@@ -2,7 +2,7 @@
 
 ## Current Status
 
-Fixes implemented and locally verified.
+Complete locally; pushed to PR branch.
 
 ## Completed
 
@@ -22,10 +22,12 @@ Fixes implemented and locally verified.
   - `npm run build`
   - `npm test -- --run src/test/stores/graph-store.test.ts --pool=threads`
   - `cargo test --test integration test_graph_edge_update_route`
+- Committed and pushed fixes to `origin/feature/optimize-graph`.
+- Confirmed PR #1 head updated to `5e608ba391d1f4918ed82fae4b15c61ba6738187`.
 
 ## In Progress
 
-- Commit and push the fix commit.
+- None.
 
 ## Blockers
 
@@ -33,5 +35,9 @@ Fixes implemented and locally verified.
 
 ## Next Steps
 
-- Commit and push fixes.
-- Re-check PR CI after GitHub reruns.
+- Re-check PR CI after GitHub reruns or after the maintainer re-runs their checks.
+
+## Final Result and Residual Risk
+
+- Result: The reported `cargo fmt --check` and `npm run lint` failures have been addressed locally and pushed to the PR branch.
+- Residual risk: GitHub currently shows no check-runs for the latest commit via API, so remote CI completion still depends on GitHub/maintainer workflow execution.
