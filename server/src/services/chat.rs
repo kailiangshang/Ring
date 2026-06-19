@@ -44,7 +44,7 @@ pub fn detect_graph_intent(content: &str) -> bool {
         "graph?",
         "graph please",
     ];
-    if shorthand_prompts.iter().any(|phrase| trimmed == *phrase) {
+    if shorthand_prompts.contains(&trimmed) {
         return true;
     }
 

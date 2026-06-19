@@ -954,9 +954,7 @@ mod tests {
         assert!(relations
             .iter()
             .any(|rel| rel["from"] == "API网关" && rel["to"] == "订单服务"));
-        assert!(relations
-            .iter()
-            .any(|rel| rel["from"] == "微服务架构" && rel["to"] == "API网关"
-                || rel["from"] == "微服务架构" && rel["to"] == "订单服务"));
+        assert!(relations.iter().any(|rel| rel["from"] == "微服务架构"
+            && (rel["to"] == "API网关" || rel["to"] == "订单服务")));
     }
 }
