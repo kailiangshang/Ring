@@ -2564,6 +2564,7 @@ async fn test_graph_node_delete_cascades_edges() {
         ring_id,
         &ring_server::models::graph::CreateNodeInput {
             label: "Node A".into(),
+            graph_id: None,
             parent_id: None,
             node_type: "topic".into(),
             tags: vec![],
@@ -2582,6 +2583,7 @@ async fn test_graph_node_delete_cascades_edges() {
         ring_id,
         &ring_server::models::graph::CreateNodeInput {
             label: "Node B".into(),
+            graph_id: None,
             parent_id: None,
             node_type: "topic".into(),
             tags: vec![],
@@ -2600,6 +2602,7 @@ async fn test_graph_node_delete_cascades_edges() {
         ring_id,
         &ring_server::models::graph::CreateNodeInput {
             label: "Node C".into(),
+            graph_id: None,
             parent_id: None,
             node_type: "topic".into(),
             tags: vec![],
@@ -2617,6 +2620,7 @@ async fn test_graph_node_delete_cascades_edges() {
         &graph.id,
         ring_id,
         &ring_server::models::graph::CreateEdgeInput {
+            graph_id: None,
             source_id: node_a.id.clone(),
             target_id: node_b.id.clone(),
             relation: "related_to".into(),
@@ -2632,6 +2636,7 @@ async fn test_graph_node_delete_cascades_edges() {
         &graph.id,
         ring_id,
         &ring_server::models::graph::CreateEdgeInput {
+            graph_id: None,
             source_id: node_a.id.clone(),
             target_id: node_c.id.clone(),
             relation: "related_to".into(),
@@ -2693,6 +2698,7 @@ async fn test_graph_node_delete_without_edges() {
         ring_id,
         &ring_server::models::graph::CreateNodeInput {
             label: "Solo Node".into(),
+            graph_id: None,
             parent_id: None,
             node_type: "topic".into(),
             tags: vec![],
@@ -2717,4 +2723,189 @@ async fn test_graph_node_delete_without_edges() {
         .await
         .unwrap();
     assert_eq!(nodes_after.len(), 0);
+}
+
+#[tokio::test]
+async fn test_graph_service_respects_explicit_graph_id() {
+    let state = setup_unique_app().await;
+    let ring_id = "graph-target-ring";
+
+    sqlx::query("INSERT INTO users (token_id, display_name) VALUES ('graph-user', 'Graph User')")
+        .execute(&state.db)
+        .await
+        .unwrap();
+    sqlx::query(
+        "INSERT INTO rings (id, name, storage_mode, creator_id) VALUES (?1, ?2, 'local', 'graph-user')",
+    )
+    .bind(ring_id)
+    .bind("Graph Target Ring")
+    .execute(&state.db)
+    .await
+    .unwrap();
+
+    let default_graph = ring_server::models::graph::ensure_default_graph(&state.db, ring_id)
+        .await
+        .unwrap();
+    let alt_graph = ring_server::models::graph::create_graph(&state.db, ring_id, "secondary")
+        .await
+        .unwrap();
+
+    let first_node = ring_server::services::graph::create_node(
+        &state,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "API Gateway".into(),
+            graph_id: Some(alt_graph.id.clone()),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec!["gateway".into()],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(first_node.graph_id, alt_graph.id);
+
+    let second_node = ring_server::services::graph::create_node(
+        &state,
+        ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Order Service".into(),
+            graph_id: Some(alt_graph.id.clone()),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(second_node.graph_id, alt_graph.id);
+
+    let edge = ring_server::services::graph::create_edge(
+        &state,
+        ring_id,
+        &ring_server::models::graph::CreateEdgeInput {
+            graph_id: Some(alt_graph.id.clone()),
+            source_id: first_node.id.clone(),
+            target_id: second_node.id.clone(),
+            relation: "related_to".into(),
+            label: "calls".into(),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(edge.graph_id, alt_graph.id);
+
+    let default_nodes = ring_server::models::graph::list_nodes(&state.db, &default_graph.id)
+        .await
+        .unwrap();
+    let alt_nodes = ring_server::models::graph::list_nodes(&state.db, &alt_graph.id)
+        .await
+        .unwrap();
+    let default_edges = ring_server::models::graph::list_edges(&state.db, &default_graph.id)
+        .await
+        .unwrap();
+    let alt_edges = ring_server::models::graph::list_edges(&state.db, &alt_graph.id)
+        .await
+        .unwrap();
+
+    assert!(default_nodes.is_empty());
+    assert!(default_edges.is_empty());
+    assert_eq!(alt_nodes.len(), 2);
+    assert_eq!(alt_edges.len(), 1);
+}
+
+#[tokio::test]
+async fn test_graph_edge_update_route() {
+    let state = setup_app().await;
+    let app = build_router(state.clone());
+
+    let token = do_setup(&app).await;
+    let ring_id = create_ring(&app, &token).await;
+
+    let graph = ring_server::models::graph::ensure_default_graph(&state.db, &ring_id)
+        .await
+        .unwrap();
+
+    let node_a = ring_server::models::graph::create_node(
+        &state.db,
+        "node-a",
+        &graph.id,
+        &ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Node A".into(),
+            graph_id: Some(graph.id.clone()),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    let node_b = ring_server::models::graph::create_node(
+        &state.db,
+        "node-b",
+        &graph.id,
+        &ring_id,
+        &ring_server::models::graph::CreateNodeInput {
+            label: "Node B".into(),
+            graph_id: Some(graph.id.clone()),
+            parent_id: None,
+            node_type: "topic".into(),
+            tags: vec![],
+            content: "".into(),
+            markdown_path: None,
+            metadata: serde_json::json!({}),
+        },
+    )
+    .await
+    .unwrap();
+
+    let edge = ring_server::models::graph::create_edge(
+        &state.db,
+        "edge-ab",
+        &graph.id,
+        &ring_id,
+        &ring_server::models::graph::CreateEdgeInput {
+            graph_id: Some(graph.id.clone()),
+            source_id: node_a.id.clone(),
+            target_id: node_b.id.clone(),
+            relation: "related_to".into(),
+            label: "".into(),
+        },
+    )
+    .await
+    .unwrap();
+
+    let resp = app
+        .clone()
+        .oneshot(make_request(
+            "PUT",
+            &format!("/api/rings/{ring_id}/graph/edges/{}", edge.id),
+            Some(r#"{"relation":"depends_on","label":"A depends on B"}"#),
+            Some(&token),
+        ))
+        .await
+        .unwrap();
+
+    assert_eq!(resp.status(), StatusCode::OK);
+    let json = read_body(resp).await;
+    assert_eq!(json["relation"], "depends_on");
+    assert_eq!(json["label"], "A depends on B");
+
+    let saved = ring_server::models::graph::list_edges(&state.db, &graph.id)
+        .await
+        .unwrap();
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].relation, "depends_on");
+    assert_eq!(saved[0].label, "A depends on B");
 }

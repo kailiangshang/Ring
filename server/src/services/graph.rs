@@ -42,6 +42,24 @@ pub struct GraphResponse {
     pub updated_at: String,
 }
 
+async fn resolve_target_graph(
+    state: &AppState,
+    ring_id: &str,
+    requested_graph_id: Option<&str>,
+) -> Result<graph::GraphRow> {
+    if let Some(graph_id) = requested_graph_id {
+        let g = graph::get_graph_by_id(&state.db, graph_id).await?;
+        if g.ring_id != ring_id {
+            return Err(crate::error::RingError::BadRequest(
+                "graph does not belong to ring".into(),
+            ));
+        }
+        Ok(g)
+    } else {
+        graph::ensure_default_graph(&state.db, ring_id).await
+    }
+}
+
 async fn persist_graph_snapshot(state: &AppState, ring_id: &str) {
     let graphs = match graph::list_graphs(&state.db, ring_id).await {
         Ok(g) => g,
@@ -136,7 +154,7 @@ pub async fn create_node(
     ring_id: &str,
     input: &graph::CreateNodeInput,
 ) -> Result<graph::GraphNodeRow> {
-    let g = graph::ensure_default_graph(&state.db, ring_id).await?;
+    let g = resolve_target_graph(state, ring_id, input.graph_id.as_deref()).await?;
     let id = ulid::Ulid::new().to_string();
     let node = graph::create_node(&state.db, &id, &g.id, ring_id, input).await?;
     let ring_name = crate::services::search::get_ring_name(&state.db, &node.ring_id)
@@ -204,10 +222,20 @@ pub async fn create_edge(
     ring_id: &str,
     input: &graph::CreateEdgeInput,
 ) -> Result<graph::GraphEdgeRow> {
-    let g = graph::ensure_default_graph(&state.db, ring_id).await?;
+    let g = resolve_target_graph(state, ring_id, input.graph_id.as_deref()).await?;
     let id = ulid::Ulid::new().to_string();
     let edge = graph::create_edge(&state.db, &id, &g.id, ring_id, input).await?;
     persist_graph_snapshot(state, ring_id).await;
+    Ok(edge)
+}
+
+pub async fn update_edge(
+    state: &AppState,
+    edge_id: &str,
+    input: &graph::UpdateEdgeInput,
+) -> Result<graph::GraphEdgeRow> {
+    let edge = graph::update_edge(&state.db, edge_id, input).await?;
+    persist_graph_snapshot(state, &edge.ring_id).await;
     Ok(edge)
 }
 

@@ -69,6 +69,7 @@ pub async fn try_handle_graph_command(
         "create_node" => {
             let input = CreateNodeInput {
                 label: cmd.label.unwrap_or_else(|| "New Node".into()),
+                graph_id: None,
                 parent_id: cmd.parent_id,
                 node_type: cmd.node_type.unwrap_or_else(|| "topic".into()),
                 tags: cmd.tags.unwrap_or_default(),
@@ -110,6 +111,7 @@ pub async fn try_handle_graph_command(
         }
         "create_edge" => {
             let input = CreateEdgeInput {
+                graph_id: None,
                 source_id: cmd.source_id.unwrap_or_default(),
                 target_id: cmd.target_id.unwrap_or_default(),
                 relation: cmd.relation.unwrap_or_else(|| "related_to".into()),

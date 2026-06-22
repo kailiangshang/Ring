@@ -38,6 +38,7 @@ export function ConfigPanel() {
   const [syncResult, setSyncResult] = useState<string | null>(null)
   const [confirmDialog, setConfirmDialog] = useState<{ title: string; message: string; action: () => void; variant?: 'danger' | 'default' } | null>(null)
   const [promptDialog, setPromptDialog] = useState<{ title: string; placeholder: string; action: (value: string) => void } | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   const tokens = useInviteStore((s) => s.tokens)
   const join_requests = useInviteStore((s) => s.join_requests)
@@ -68,6 +69,11 @@ export function ConfigPanel() {
     api.get<{ auto_compact: boolean }>('/config/auto_compact')
       .then((res) => setAutoCompact(res.auto_compact))
       .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(Date.now()), 60000)
+    return () => window.clearInterval(interval)
   }, [])
 
   useEffect(() => {
@@ -113,7 +119,7 @@ export function ConfigPanel() {
   }
 
   const time_remaining = (expires_at: string) => {
-    const diff = new Date(expires_at).getTime() - Date.now()
+    const diff = new Date(expires_at).getTime() - now
     if (diff <= 0) return 'expired'
     const hours = Math.floor(diff / 3600000)
     if (hours > 24) return `${Math.floor(hours / 24)}d left`

@@ -204,6 +204,7 @@ pub async fn trigger_archive(
                 &ring_id,
                 &crate::models::graph::CreateNodeInput {
                     label: node_title.clone(),
+                    graph_id: None,
                     parent_id: parent_id.clone(),
                     node_type: nt.to_string(),
                     tags: vec![],

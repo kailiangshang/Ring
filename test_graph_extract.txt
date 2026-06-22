@@ -1,0 +1,54 @@
+微服务架构设计讨论
+
+我们正在设计一个电商平台的微服务架构，需要考虑以下核心组件和它们之间的关系：
+
+1. **API 网关（API Gateway）**
+   - 统一入口，负责路由、鉴权、限流
+   - 使用 Kong 或 Spring Cloud Gateway
+   - 需要处理高并发请求，QPS 预计 10万+
+
+2. **用户服务（User Service）**
+   - 用户注册、登录、权限管理
+   - 使用 JWT Token 进行身份认证
+   - 数据存储：MySQL + Redis 缓存
+
+3. **订单服务（Order Service）**
+   - 订单创建、支付、状态流转
+   - 采用 Saga 模式处理分布式事务
+   - 与库存服务、支付服务强关联
+
+4. **库存服务（Inventory Service）**
+   - 商品库存扣减、预占、释放
+   - 使用 Redis 做库存扣减（防止超卖）
+   - 异步同步到 MySQL
+
+5. **支付服务（Payment Service）**
+   - 对接支付宝、微信支付
+   - 需要保证幂等性
+   - 支付回调处理
+
+6. **消息队列（Message Queue）**
+   - 使用 Kafka 或 RabbitMQ
+   - 订单状态变更事件广播
+   - 异步处理：短信通知、邮件发送
+
+7. **服务发现（Service Discovery）**
+   - 使用 Consul 或 Nacos
+   - 健康检查机制
+   - 动态路由
+
+8. **配置中心（Config Center）**
+   - 集中管理各服务配置
+   - 支持动态刷新
+   - 使用 Apollo 或 Nacos Config
+
+关键决策点：
+- 服务间通信：同步用 gRPC，异步用消息队列
+- 数据一致性：最终一致性，采用事件驱动架构
+- 监控方案：Prometheus + Grafana + ELK
+- 容器化：Docker + Kubernetes
+
+风险：
+- 分布式事务复杂度
+- 服务调用链路追踪
+- 数据一致性保障

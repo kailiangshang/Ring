@@ -28,3 +28,10 @@ docs/BACKEND_TEST.md
 docs/STATUS.md
 docs/OPTIMIZATION-v0.1.md
 docs/product/
+docs/
+
+# Local runtime and test artifacts
+.codex-run/
+server/.ring/
+server/target-test/
+server/target-test-chat/
