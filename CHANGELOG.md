@@ -121,7 +121,7 @@ All notable changes to this project will be documented in this file.
 ### 测试
 
 - 73 个集成测试全部通过（+2 安全回归测试）
-- 新增：路径遍历防护测试、skills 认证测试、super settings 权限测试
+- 新增：路径遍历防护测试、skills 认证测试、super settings 权限测试、graph 多图与去重测试
 
 ### 基础设施
 
@@ -130,6 +130,15 @@ All notable changes to this project will be documented in this file.
 - 19 个数据库迁移
 - clippy 完全清洁（0 warnings）
 - CI 自动化（fmt + clippy + test + lint + build）
-- 73 后端测试 + 75 前端测试全部通过
+- 75 后端测试 + 77 前端测试全部通过
+- TLS 切换至 rustls（静态链接，跨发行版可移植）
+
+### 知识图谱（合并改进）
+
+- GraphCanvas 视觉重设计：矩形节点 + canvas 文字测量 + 拖拽位置持久化
+- 关系草稿高亮 + 选中边视觉强调（适配新视觉体系）
+- `createNodesFromExtraction` 去重 + 多图 `targetGraphId` 支持
+- GraphPanel 完整功能：树视图 / 关系草稿选择器 / 边编辑器 / 确认弹窗
+- 服务层 `resolve_target_graph()` 复用图解析逻辑
 
 [0.1.0]: https://github.com/kailiangshang/Ring/releases/tag/v0.1.0

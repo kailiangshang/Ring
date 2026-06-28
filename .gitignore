@@ -35,3 +35,9 @@ docs/
 server/.ring/
 server/target-test/
 server/target-test-chat/
+
+# Build artifacts
+Building
+
+# Internal planning docs (superpowers worklogs)
+worklog/

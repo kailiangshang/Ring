@@ -8,7 +8,7 @@
 <a href="https://www.rust-lang.org"><img src="https://img.shields.io/badge/Rust-1.85+-orange?logo=rust" alt="Rust"></a>
 <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19-61DAFB?logo=react" alt="React"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
-<a href="#"><img src="https://img.shields.io/badge/Tests-73%2F73%20passing-brightgreen" alt="Tests"></a>
+<a href="#"><img src="https://img.shields.io/badge/Tests-75%2F75%20passing-brightgreen" alt="Tests"></a>
 </p>
 
 </div>
@@ -158,13 +158,6 @@ cd Ring
 
 > 注：Rust crate 内部名保留为 `ring-server`（避免与 `ring` crypto 库冲突），但构建产物为 `ring`，与产品名一致。
 
-### 方式三：npm 全局安装（即将支持）
-
-```bash
-npm install -g ring
-ring
-```
-
 ---
 
 ## 快速开始
@@ -303,11 +296,11 @@ Ring 所有数据存放在 `~/.ring/`，完全本地，你可以直接 `cp -r ~/
 ## 测试
 
 ```bash
-# 后端测试（73 个集成测试）
+# 后端测试（75 个集成测试）
 cd server && cargo test
-# test result: ok. 73 passed; 0 failed
+# test result: ok. 75 passed; 0 failed
 
-# 前端测试（75 个单元测试）
+# 前端测试（77 个单元测试）
 cd ui && npm test
 
 # 前端构建验证
@@ -323,7 +316,7 @@ cat docs/BACKEND_TEST.md
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
-| v0.1.0 | 2026-05-07 | 首个发布版本 — 全量安全加固 + 架构优化，73 后端测试 + 75 前端测试通过 |
+| v0.1.0 | 2026-05-07 | 首个发布版本 — 全量安全加固 + 架构优化，75 后端测试 + 77 前端测试通过 |
 
 ### v0.1.0 完整功能清单
 
@@ -354,29 +347,6 @@ cat docs/BACKEND_TEST.md
 - Markdown / PDF / JSON / tar.gz / SVG / PNG
 
 详见 [CHANGELOG.md](CHANGELOG.md)
-
----
-
-## 未来路线图
-
-### v1.1 — 体验优化（2026 Q2）
-- 移动端响应式适配
-- npm 全局安装
-- 自动更新检查
-
-### v1.2 — AI 增强（2026 Q3）
-- Headless Chrome 网页爬取（JavaScript 渲染页面）
-- 本地 Embedding + 向量语义搜索
-- 多步骤 Agent 工作流（研究 → 总结 → 归档 → 图谱更新）
-- 语音输入（Web Speech API）
-
-### v1.3 — 企业级（2026 Q4）
-- SSO 集成（OAuth2 / LDAP）
-- 审计日志
-- 数据库加密 at-rest
-- 集群部署（LiteFS / rqlite）
-
-详见 [docs/STATUS.md](docs/STATUS.md)
 
 ---
 
