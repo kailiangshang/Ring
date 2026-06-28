@@ -54,6 +54,8 @@ pub struct CreateNodeInput {
     pub markdown_path: Option<String>,
     #[serde(default = "default_metadata")]
     pub metadata: serde_json::Value,
+    #[serde(default)]
+    pub graph_id: Option<String>,
 }
 
 fn default_node_type() -> String {
@@ -81,6 +83,8 @@ pub struct CreateEdgeInput {
     pub relation: String,
     #[serde(default)]
     pub label: String,
+    #[serde(default)]
+    pub graph_id: Option<String>,
 }
 
 fn default_relation() -> String {
@@ -222,6 +226,13 @@ pub async fn create_node(
     ring_id: &str,
     input: &CreateNodeInput,
 ) -> Result<GraphNodeRow> {
+    let valid_node_types = ["topic", "category", "leaf"];
+    if !valid_node_types.contains(&input.node_type.as_str()) {
+        return Err(RingError::BadRequest(format!(
+            "invalid node_type '{}', must be one of {:?}",
+            input.node_type, valid_node_types
+        )));
+    }
     sqlx::query_as::<_, GraphNodeRow>(
         "INSERT INTO graph_nodes (id, graph_id, ring_id, label, parent_id, node_type, content, tags, markdown_path, metadata)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)
@@ -264,7 +275,8 @@ pub async fn update_node(
     let markdown_path = input
         .markdown_path
         .as_deref()
-        .unwrap_or(current.markdown_path.as_deref().unwrap_or(""));
+        .or(current.markdown_path.as_deref())
+        .unwrap_or("");
     let metadata = input
         .metadata
         .as_ref()
@@ -312,6 +324,13 @@ pub async fn create_edge(
     ring_id: &str,
     input: &CreateEdgeInput,
 ) -> Result<GraphEdgeRow> {
+    let valid_relations = ["depends_on", "related_to", "derives_from", "contradicts"];
+    if !valid_relations.contains(&input.relation.as_str()) {
+        return Err(RingError::BadRequest(format!(
+            "invalid relation '{}', must be one of {:?}",
+            input.relation, valid_relations
+        )));
+    }
     sqlx::query_as::<_, GraphEdgeRow>(
         "INSERT INTO graph_edges (id, graph_id, ring_id, source_id, target_id, relation, label)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)

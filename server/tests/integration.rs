@@ -2429,12 +2429,13 @@ async fn test_blueprint_chat_requires_creator() {
 #[sqlx::test(migrations = "./migrations")]
 async fn test_group_ring_tools_defined(_pool: SqlitePool) {
     let tools = ring_server::services::chat::get_group_ring_tools();
-    assert_eq!(tools.len(), 3);
+    assert_eq!(tools.len(), 4);
 
     let names: Vec<&str> = tools.iter().map(|t| t.function.name.as_str()).collect();
     assert!(names.contains(&"file_parse"));
     assert!(names.contains(&"knowledge_extract"));
     assert!(names.contains(&"fetch_url"));
+    assert!(names.contains(&"graph_mutation"));
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -2570,6 +2571,7 @@ async fn test_graph_node_delete_cascades_edges() {
             content: "".into(),
             markdown_path: None,
             metadata: serde_json::json!({}),
+            graph_id: None,
         },
     )
     .await
@@ -2588,6 +2590,7 @@ async fn test_graph_node_delete_cascades_edges() {
             content: "".into(),
             markdown_path: None,
             metadata: serde_json::json!({}),
+            graph_id: None,
         },
     )
     .await
@@ -2606,6 +2609,7 @@ async fn test_graph_node_delete_cascades_edges() {
             content: "".into(),
             markdown_path: None,
             metadata: serde_json::json!({}),
+            graph_id: None,
         },
     )
     .await
@@ -2621,6 +2625,7 @@ async fn test_graph_node_delete_cascades_edges() {
             target_id: node_b.id.clone(),
             relation: "related_to".into(),
             label: "A-B".into(),
+            graph_id: None,
         },
     )
     .await
@@ -2636,6 +2641,7 @@ async fn test_graph_node_delete_cascades_edges() {
             target_id: node_c.id.clone(),
             relation: "related_to".into(),
             label: "A-C".into(),
+            graph_id: None,
         },
     )
     .await
@@ -2699,6 +2705,7 @@ async fn test_graph_node_delete_without_edges() {
             content: "".into(),
             markdown_path: None,
             metadata: serde_json::json!({}),
+            graph_id: None,
         },
     )
     .await

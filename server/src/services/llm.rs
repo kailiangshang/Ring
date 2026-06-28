@@ -148,13 +148,19 @@ impl LlmClient {
         })
     }
 
-    pub fn chat_stream(
+    pub fn chat_stream<C>(
         self,
         system_prompt: String,
         history: Vec<(String, String)>,
         user_message: String,
         ai_role: String,
-    ) -> tokio::sync::mpsc::Receiver<SseEvent> {
+        on_complete: C,
+    ) -> tokio::sync::mpsc::Receiver<SseEvent>
+    where
+        C: Fn(String, Option<String>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+            + Send
+            + 'static,
+    {
         let (tx, rx) = tokio::sync::mpsc::channel(32);
 
         tokio::spawn(async move {
@@ -242,10 +248,11 @@ impl LlmClient {
                     let _ = tx
                         .send(SseEvent::End {
                             message_id: message_id.clone(),
-                            full_content,
-                            token_usage,
+                            full_content: full_content.clone(),
+                            token_usage: token_usage.clone(),
                         })
                         .await;
+                    on_complete(full_content, token_usage).await;
                 }
                 Err(e) => {
                     tracing::error!(
@@ -326,7 +333,8 @@ impl LlmClient {
         }
     }
 
-    pub fn chat_stream_with_tools<F>(
+    #[allow(clippy::too_many_arguments)]
+    pub fn chat_stream_with_tools<F, C>(
         self,
         system_prompt: String,
         history: Vec<(String, String)>,
@@ -334,6 +342,7 @@ impl LlmClient {
         ai_role: String,
         tools: Vec<async_openai::types::ChatCompletionTool>,
         tool_executor: F,
+        on_complete: C,
     ) -> tokio::sync::mpsc::Receiver<SseEvent>
     where
         F: Fn(
@@ -342,6 +351,9 @@ impl LlmClient {
             ) -> std::pin::Pin<
                 Box<dyn std::future::Future<Output = crate::error::Result<String>> + Send>,
             > + Send
+            + 'static,
+        C: Fn(String, Option<String>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+            + Send
             + 'static,
     {
         let (tx, rx) = tokio::sync::mpsc::channel(32);
@@ -433,6 +445,14 @@ impl LlmClient {
                             }
                             Err(e) => {
                                 let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                let _ = tx
+                                    .send(SseEvent::End {
+                                        message_id: message_id.clone(),
+                                        full_content: first_pass_content.clone(),
+                                        token_usage: first_pass_usage.clone(),
+                                    })
+                                    .await;
+                                on_complete(first_pass_content, first_pass_usage).await;
                                 return;
                             }
                         }
@@ -487,16 +507,16 @@ impl LlmClient {
                             ..Default::default()
                         };
 
+                        let mut combined = first_pass_content.clone();
                         match client.chat().create_stream(second_request).await {
                             Ok(mut stream2) => {
-                                let mut full_content = String::new();
                                 let mut token_usage: Option<String> = None;
                                 while let Some(result) = stream2.next().await {
                                     match result {
                                         Ok(chunk) => {
                                             if let Some(choice) = chunk.choices.first() {
                                                 if let Some(delta) = &choice.delta.content {
-                                                    full_content.push_str(delta);
+                                                    combined.push_str(delta);
                                                     let _ = tx
                                                         .send(SseEvent::Delta {
                                                             content: delta.clone(),
@@ -520,24 +540,34 @@ impl LlmClient {
                                 let _ = tx
                                     .send(SseEvent::End {
                                         message_id: message_id.clone(),
-                                        full_content,
-                                        token_usage,
+                                        full_content: combined.clone(),
+                                        token_usage: token_usage.clone(),
                                     })
                                     .await;
+                                on_complete(combined, token_usage).await;
                             }
                             Err(e) => {
                                 tracing::error!("{ai_role}: API call error: {}", e);
                                 let _ = tx.send(SseEvent::Error(e.to_string())).await;
+                                let _ = tx
+                                    .send(SseEvent::End {
+                                        message_id: message_id.clone(),
+                                        full_content: combined.clone(),
+                                        token_usage: None,
+                                    })
+                                    .await;
+                                on_complete(combined, None).await;
                             }
                         }
                     } else {
                         let _ = tx
                             .send(SseEvent::End {
                                 message_id: message_id.clone(),
-                                full_content: first_pass_content,
-                                token_usage: first_pass_usage,
+                                full_content: first_pass_content.clone(),
+                                token_usage: first_pass_usage.clone(),
                             })
                             .await;
+                        on_complete(first_pass_content, first_pass_usage).await;
                     }
                 }
                 Err(e) => {

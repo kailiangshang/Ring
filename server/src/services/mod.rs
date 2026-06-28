@@ -8,7 +8,6 @@ pub mod cross_ring_cache;
 pub mod encryption;
 pub mod git_service;
 pub mod graph;
-pub mod graph_chat_command;
 pub mod group_doc_maintenance;
 pub mod invite;
 pub mod llm;

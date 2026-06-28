@@ -81,6 +81,29 @@ async fn main() {
         }
     };
 
+    {
+        let has_col: bool = sqlx::query_scalar(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'token_created_at'"
+        )
+            .fetch_one(&pool)
+            .await
+            .unwrap_or(false);
+        let has_migration: bool = sqlx::query_scalar(
+            "SELECT COUNT(*) > 0 FROM _sqlx_migrations WHERE version = 18"
+        )
+            .fetch_one(&pool)
+            .await
+            .unwrap_or(false);
+        if has_col && !has_migration {
+            sqlx::query(
+                "INSERT INTO _sqlx_migrations (version, description, checksum, installed_on, execution_time, success) \
+                 VALUES (18, 'token_created_at', X'B0A6B485EC07E3E4E80B135FC8DB3154822D3FDCBA6A33AF829F72F5EA3D9AD254B292F90B72A5DA6340C9BBC2B5327F', datetime('now'), 0, 1)"
+            )
+                .execute(&pool)
+                .await
+                .ok();
+        }
+    }
     if let Err(e) = sqlx::migrate!("./migrations").run(&pool).await {
         eprintln!("ERROR: failed to run migrations: {e}");
         std::process::exit(1);

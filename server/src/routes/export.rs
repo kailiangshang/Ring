@@ -262,16 +262,23 @@ pub async fn export_ring_graph(
 ) -> Result<impl IntoResponse> {
     let _role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
 
-    let graph = graph::ensure_default_graph(&state.db, &ring_id).await?;
-    let nodes = graph::list_nodes(&state.db, &graph.id).await?;
-    let edges = graph::list_edges(&state.db, &graph.id).await?;
+    let all_graphs = graph::list_graphs(&state.db, &ring_id).await?;
+    let mut all_graph_data = Vec::new();
+    for g in &all_graphs {
+        let nodes = graph::list_nodes(&state.db, &g.id).await?;
+        let edges = graph::list_edges(&state.db, &g.id).await?;
+        all_graph_data.push(serde_json::json!({
+            "id": g.id,
+            "name": g.name,
+            "nodes": nodes,
+            "edges": edges,
+            "updated_at": g.updated_at,
+        }));
+    }
 
     let json = serde_json::json!({
-        "ring_id": graph.ring_id,
-        "name": graph.name,
-        "nodes": nodes,
-        "edges": edges,
-        "updated_at": graph.updated_at,
+        "ring_id": ring_id,
+        "graphs": all_graph_data,
     });
 
     let json_str =
@@ -304,9 +311,18 @@ pub async fn export_ring_backup(
     let messages =
         message::list_messages(&state.db, Some(&ring_id), &user.token_id, None, 10000).await?;
 
-    let graph = graph::ensure_default_graph(&state.db, &ring_id).await?;
-    let nodes = graph::list_nodes(&state.db, &graph.id).await?;
-    let edges = graph::list_edges(&state.db, &graph.id).await?;
+    let all_graphs = graph::list_graphs(&state.db, &ring_id).await?;
+    let mut all_graph_data = Vec::new();
+    for g in &all_graphs {
+        let nodes = graph::list_nodes(&state.db, &g.id).await?;
+        let edges = graph::list_edges(&state.db, &g.id).await?;
+        all_graph_data.push(serde_json::json!({
+            "id": g.id,
+            "name": g.name,
+            "nodes": nodes,
+            "edges": edges,
+        }));
+    }
 
     let sessions = sqlx::query_as::<_, crate::models::session::SessionRow>(
         "SELECT * FROM sessions WHERE ring_id = ?1",
@@ -337,8 +353,7 @@ pub async fn export_ring_backup(
     });
 
     let graph_json = serde_json::json!({
-        "nodes": nodes,
-        "edges": edges,
+        "graphs": all_graph_data,
     });
 
     let mut chat_md = String::new();

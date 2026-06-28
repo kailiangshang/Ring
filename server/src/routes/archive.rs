@@ -193,26 +193,18 @@ pub async fn trigger_archive(
             node_type,
             parent_id,
         } => {
-            let default_graph =
-                crate::models::graph::ensure_default_graph(&state.db, &ring_id).await?;
-            let node_id = ulid::Ulid::new().to_string();
-            let nt = node_type.as_deref().unwrap_or("topic");
-            let node = crate::models::graph::create_node(
-                &state.db,
-                &node_id,
-                &default_graph.id,
-                &ring_id,
-                &crate::models::graph::CreateNodeInput {
-                    label: node_title.clone(),
-                    parent_id: parent_id.clone(),
-                    node_type: nt.to_string(),
-                    tags: vec![],
-                    content: String::new(),
-                    markdown_path: None,
-                    metadata: serde_json::json!({}),
-                },
-            )
-            .await?;
+            let input = crate::models::graph::CreateNodeInput {
+                label: node_title.clone(),
+                parent_id: parent_id.clone(),
+                node_type: node_type.as_deref().unwrap_or("topic").to_string(),
+                tags: vec![],
+                content: String::new(),
+                markdown_path: None,
+                metadata: serde_json::json!({}),
+                graph_id: None,
+            };
+            let node =
+                crate::services::graph::create_node(&state, &ring_id, &input).await?;
             Some(node.id)
         }
         archive::NodeSuggestionInput::AttachExisting { node_id } => Some(node_id.clone()),

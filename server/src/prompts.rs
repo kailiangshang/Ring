@@ -16,6 +16,7 @@ pub mod group_ring {
 - file_parse：解析用户上传的文件，提取知识并推荐图谱节点
 - knowledge_extract：从文本提取知识概念，生成图谱节点建议
 - fetch_url：抓取网页内容，用于调研和收集信息
+- graph_mutation：操作知识图谱（创建/更新/删除节点和边）。当用户明确要求修改图谱，或你发现重要的新知识需要结构化时使用
 </tools>
 
 <output_rules>

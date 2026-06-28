@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, lazy, Suspense, useCallback } from 'react'
 import { Sidebar } from './Sidebar'
 import { HeaderTabBar } from './HeaderTabBar'
 import { PanelStack } from './PanelStack'
@@ -105,89 +105,60 @@ function GraphFloat() {
   const nodes = useGraphStore((s) => s.nodes)
   const edges = useGraphStore((s) => s.edges)
   const selected_node_id = useGraphStore((s) => s.selected_node_id)
+  const selectedNode = nodes.find((n) => n.id === selected_node_id)
   const collapsed_nodes = useGraphStore((s) => s.collapsed_nodes)
   const selectNode = useGraphStore((s) => s.selectNode)
   const toggleCollapse = useGraphStore((s) => s.toggleCollapse)
+  const graphs = useGraphStore((s) => s.graphs)
+  const switchGraph = useGraphStore((s) => s.switchGraph)
+  const graph_id = useGraphStore((s) => s.graph_id)
+  const active_ring_id = useRingStore((s) => s.active_ring_id)
 
   const { onMouseDown: onDragDown } = useDrag(setFloatPosition, { width: float_size.w, height: float_size.h })
   const { onMouseDown: onResizeDown } = useResize(setFloatSize, { w: 400, h: 300 })
 
+  const handleSelectNode = useCallback((nodeId: string | null) => {
+    selectNode(nodeId)
+  }, [selectNode])
+
   if (!float_open) return null
 
+  const nodeColor: Record<string, string> = { topic: '#0e7490', category: '#15803d', leaf: '#b45309' }
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        left: float_position.x,
-        top: float_position.y,
-        width: float_size.w,
-        height: float_size.h,
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--accent-cyan)',
-        borderRadius: 8,
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 999,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        onMouseDown={onDragDown}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 12px',
-          borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-panel)',
-          cursor: 'move',
-          userSelect: 'none',
-          flexShrink: 0,
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-ice)', letterSpacing: '0.05em' }}>
-          Graph — {nodes.length} nodes · {edges.length} edges
-        </span>
-        <button
-          onClick={() => setFloatOpen(false)}
-          style={{
-            background: 'var(--bg-hover)',
-            color: 'var(--text-secondary)',
-            border: '1px solid var(--border)',
-            borderRadius: 4,
-            padding: '4px 12px',
-            fontSize: 12,
-            cursor: 'pointer',
-            fontWeight: 700,
-          }}
-        >
-          ×
-        </button>
+    <div style={{ position: 'fixed', left: float_position.x, top: float_position.y, width: float_size.w, height: float_size.h, background: 'var(--bg-panel)', border: '1px solid var(--accent-cyan)', borderRadius: 8, display: 'flex', flexDirection: 'column', zIndex: 999, boxShadow: '0 8px 32px rgba(0,0,0,0.5)', overflow: 'hidden' }}>
+      <div onMouseDown={onDragDown} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', borderBottom: '1px solid var(--border)', cursor: 'move', userSelect: 'none', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {graphs.length > 1 && graphs.map((g) => (
+            <button key={g.id} onClick={() => active_ring_id && switchGraph(active_ring_id, g.id)} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 3, border: `1px solid ${g.id === graph_id ? 'var(--accent-cyan)' : 'var(--border)'}`, background: g.id === graph_id ? 'var(--accent-cyan)' : 'var(--bg-hover)', color: g.id === graph_id ? 'var(--bg-base)' : 'var(--text-secondary)', cursor: 'pointer', fontWeight: g.id === graph_id ? 700 : 400 }}>{g.name}</button>
+          ))}
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{nodes.length} nodes · {edges.length} edges</span>
+        </div>
+        <button onClick={() => setFloatOpen(false)} style={{ background: 'var(--bg-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 8px', fontSize: 12, cursor: 'pointer' }}>×</button>
       </div>
+
       <div style={{ flex: 1, minHeight: 0 }}>
         <GraphCanvas
-          nodes={nodes}
-          edges={edges}
-          selectedNodeId={selected_node_id}
-          collapsedNodes={collapsed_nodes}
-          onSelectNode={selectNode}
-          onToggleCollapse={toggleCollapse}
-          fullscreen
+          nodes={nodes} edges={edges} selectedNodeId={selected_node_id} collapsedNodes={collapsed_nodes}
+          onSelectNode={handleSelectNode} onToggleCollapse={toggleCollapse} fullscreen
         />
       </div>
-      <div
-        onMouseDown={onResizeDown}
-        style={{
-          position: 'absolute',
-          right: 0,
-          bottom: 0,
-          width: 16,
-          height: 16,
-          cursor: 'nwse-resize',
-          zIndex: 2,
-        }}
-      >
+
+      {selectedNode && (
+        <div style={{ padding: '6px 10px', borderTop: '1px solid var(--border)', background: 'var(--bg-panel)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ width: 7, height: 7, borderRadius: 2, background: nodeColor[selectedNode.node_type] ?? '#0e7490', display: 'inline-block' }} />
+            <span style={{ color: 'var(--accent-ice)', fontWeight: 600, fontSize: 10 }}>{selectedNode.label}</span>
+            <span style={{ fontSize: 8, background: 'var(--bg-hover)', padding: '1px 4px', borderRadius: 2, color: 'var(--text-dim)' }}>{selectedNode.node_type}</span>
+            {Array.isArray(selectedNode.tags) && selectedNode.tags.slice(0, 3).map((tag) => (
+              <span key={tag} style={{ fontSize: 8, background: 'var(--bg-hover)', padding: '0 4px', borderRadius: 2, color: 'var(--text-secondary)' }}>{tag}</span>
+            ))}
+          </div>
+          <button onClick={() => selectNode(null)} style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 11 }}>×</button>
+        </div>
+      )}
+
+      <div onMouseDown={onResizeDown} style={{ position: 'absolute', right: 0, bottom: 0, width: 16, height: 16, cursor: 'nwse-resize', zIndex: 2 }}>
         <svg width="16" height="16" viewBox="0 0 16 16" style={{ display: 'block' }}>
           <line x1="12" y1="4" x2="4" y2="12" stroke="var(--text-dim)" strokeWidth="1" />
           <line x1="14" y1="8" x2="8" y2="14" stroke="var(--text-dim)" strokeWidth="1" />

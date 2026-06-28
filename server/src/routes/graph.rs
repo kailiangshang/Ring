@@ -77,6 +77,29 @@ pub async fn update_node(
     ring::reject_readonly(&role)?;
     let node = services::graph::update_node(&state, &node_id, &body).await?;
 
+    {
+        let cache = state.cross_ring_cache.clone();
+        let rid = ring_id.clone();
+        tokio::spawn(async move {
+            crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
+        });
+    }
+
+    let state_c = state.clone();
+    let ring_id_c = ring_id.clone();
+    let token_id_c = user.token_id.clone();
+    tokio::spawn(async move {
+        if let Ok(user_row) = state_c.get_user_decrypted(&token_id_c).await {
+            if let Err(e) = crate::services::group_doc_maintenance::update_knowledge_summary(
+                &state_c, &ring_id_c, &user_row,
+            )
+            .await
+            {
+                tracing::warn!("failed to update knowledge summary: {e}");
+            }
+        }
+    });
+
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
         tracing::warn!("failed to record tool usage: {e}");

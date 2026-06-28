@@ -114,7 +114,7 @@ pub async fn ring_chat(
     }
 
     let tools = crate::services::chat::get_group_ring_tools();
-    let pool_c = state.db.clone();
+    let state_t = state.clone();
     let user_row_tool = user_row.clone();
 
     let mut rx = {
@@ -149,8 +149,15 @@ pub async fn ring_chat(
             .unwrap_or_default();
         let filtered_content =
             crate::services::privacy_filter::apply_filters(&body.content, &filters);
-        let pool_t = pool_c.clone();
+        let state_t2 = state_t.clone();
+        let ring_id_t = ring_id.clone();
         let user_t = user_row_tool.clone();
+        let pool_oc = state.db.clone();
+        let ring_id_oc = ring_id.clone();
+        let user_id_oc = user.token_id.clone();
+        let user_row_oc = user_row.clone();
+        let user_message_oc = body.content.clone();
+        let state_oc = state.clone();
         llm.chat_stream_with_tools(
             system_prompt,
             history,
@@ -158,53 +165,27 @@ pub async fn ring_chat(
             "group_ring".to_string(),
             tools,
             move |name: String, args: serde_json::Value| {
-                let pool = pool_t.clone();
+                let state = state_t2.clone();
+                let rid = ring_id_t.clone();
                 let user = user_t.clone();
                 Box::pin(async move {
-                    crate::services::chat::execute_group_tool(&pool, &user, name, args).await
+                    crate::services::chat::execute_group_tool(&state, Some(&rid), &user, name, args).await
                 })
             },
-        )
-    };
-
-    let pool = state.db.clone();
-    let ring_id_c = ring_id.clone();
-    let user_id = user.token_id.clone();
-    let state_c = state.clone();
-    let user_row_c = user_row.clone();
-    let self_dir = crate::services::self_data::get_self_dir(&user_id);
-    let content_len = body.content.len();
-    let user_message = body.content.clone();
-    if let Err(e) =
-        crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id_c), content_len)
-    {
-        tracing::warn!("failed to record chat message: {e}");
-    }
-
-    let s = stream! {
-        while let Some(event) = rx.recv().await {
-            match event {
-                SseEvent::Start { message_id, role } => {
-                    let data = serde_json::json!({"message_id": message_id, "role": role});
-                    yield Ok(Event::default().event("message_start").data(data.to_string()));
-                }
-                SseEvent::Delta { content } => {
-                    let data = serde_json::json!({ "content": content });
-                    yield Ok(Event::default().event("delta").data(data.to_string()));
-                }
-                SseEvent::End { message_id, full_content, token_usage } => {
-                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
-                    let data = serde_json::json!({
-                        "message_id": message_id,
-                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
-                    });
-                    yield Ok(Event::default().event("message_end").data(data.to_string()));
-
+            move |full_content: String, token_usage: Option<String>| {
+                let pool = pool_oc.clone();
+                let ring_id = ring_id_oc.clone();
+                let user_id = user_id_oc.clone();
+                let user_row = user_row_oc.clone();
+                let user_message = user_message_oc.clone();
+                let state = state_oc.clone();
+                let message_id = ulid::Ulid::new().to_string();
+                Box::pin(async move {
                     if let Err(e) = message::insert_message(
                         &pool,
                         &message::NewMessage {
                             id: &message_id,
-                            ring_id: Some(&ring_id_c),
+                            ring_id: Some(&ring_id),
                             user_id: &user_id,
                             role: "group_ring",
                             sender_name: "GROUP RING",
@@ -217,36 +198,35 @@ pub async fn ring_chat(
                         tracing::warn!("failed to insert message: {e}");
                     }
 
-                    let ring_name_search = crate::services::search::get_ring_name(&pool, &ring_id_c).await.unwrap_or_default();
+                    let ring_name_search = crate::services::search::get_ring_name(&pool, &ring_id).await.unwrap_or_default();
                     if let Err(e) = crate::services::search::upsert_search_index(
-                        &pool, "message", &message_id, &ring_id_c, &ring_name_search,
+                        &pool, "message", &message_id, &ring_id, &ring_name_search,
                         "GROUP RING", &full_content,
                         &serde_json::json!({"role": "group_ring"}).to_string(),
                     ).await {
                         tracing::warn!("failed to update search index: {e}");
                     }
 
-                    let state = state_c.clone();
-                    let ring_id = ring_id_c.clone();
-                    let user_id_for_doc = user_id.clone();
-                    let user_row = user_row_c.clone();
+                    let state_doc = state.clone();
+                    let ring_id_doc = ring_id.clone();
+                    let user_id_doc = user_id.clone();
+                    let user_row_doc = user_row.clone();
                     tokio::spawn(async move {
                         if let Err(e) = crate::services::group_doc_maintenance::update_active_context(
-                            &state, &ring_id, &user_id_for_doc, &user_row
+                            &state_doc, &ring_id_doc, &user_id_doc, &user_row_doc
                         ).await {
                             tracing::warn!("failed to update active context: {e}");
                         }
                     });
 
-                    // Auto-archive check
                     let pool_auto = pool.clone();
-                    let ring_id_auto = ring_id_c.clone();
+                    let ring_id_auto = ring_id.clone();
                     let user_id_auto = user_id.clone();
-                    let user_row_auto = user_row_c.clone();
+                    let user_row_auto = user_row.clone();
                     let content_auto = full_content.clone();
                     let user_message_auto = user_message.clone();
-                    let rings_dir_auto = state_c.rings_dir.clone();
-                    let backend_auto = match crate::services::archive_service::get_backend(&state_c.db, &ring_id_auto, Some(&user_row_c), Some(&state_c.encryption)).await {
+                    let rings_dir_auto = state.rings_dir.clone();
+                    let backend_auto = match crate::services::archive_service::get_backend(&state.db, &ring_id_auto, Some(&user_row), Some(&state.encryption)).await {
                         Ok(b) => b,
                         Err(e) => {
                             tracing::warn!("auto_archive_chat: failed to get backend: {e}");
@@ -276,6 +256,37 @@ pub async fn ring_chat(
                             .await;
                         }
                     });
+                })
+            },
+        )
+    };
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    let content_len = body.content.len();
+    if let Err(e) =
+        crate::services::self_data::record_chat_message(&self_dir, Some(&ring_id), content_len)
+    {
+        tracing::warn!("failed to record chat message: {e}");
+    }
+
+    let s = stream! {
+        while let Some(event) = rx.recv().await {
+            match event {
+                SseEvent::Start { message_id, role } => {
+                    let data = serde_json::json!({"message_id": message_id, "role": role});
+                    yield Ok(Event::default().event("message_start").data(data.to_string()));
+                }
+                SseEvent::Delta { content } => {
+                    let data = serde_json::json!({ "content": content });
+                    yield Ok(Event::default().event("delta").data(data.to_string()));
+                }
+                SseEvent::End { message_id, full_content: _, token_usage } => {
+                    let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
+                    let data = serde_json::json!({
+                        "message_id": message_id,
+                        "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
+                    });
+                    yield Ok(Event::default().event("message_end").data(data.to_string()));
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });
@@ -346,6 +357,11 @@ pub async fn self_chat(
         request_start.elapsed().as_secs_f64()
     );
 
+    let pool_oc = state.db.clone();
+    let user_id_oc = user.token_id.clone();
+    let user_row_oc = user_row.clone();
+    let user_message_oc = body.content.clone();
+
     let mut rx = chat::start_chat_stream(
         &state,
         &user_row,
@@ -359,26 +375,69 @@ pub async fn self_chat(
             tag_refs: body.tag_refs,
             ephemeral: false,
         },
+        move |full_content: String, token_usage: Option<String>| {
+            let pool = pool_oc.clone();
+            let user_id = user_id_oc.clone();
+            let user_row = user_row_oc.clone();
+            let user_message = user_message_oc.clone();
+            let message_id = ulid::Ulid::new().to_string();
+            Box::pin(async move {
+                if let Err(e) = message::insert_message(
+                    &pool,
+                    &message::NewMessage {
+                        id: &message_id,
+                        ring_id: None,
+                        user_id: &user_id,
+                        role: "self",
+                        sender_name: "SELF",
+                        content: &full_content,
+                        node_refs: &[],
+                        tag_refs: &[],
+                        token_usage: token_usage.as_deref(),
+                    },
+                ).await {
+                    tracing::warn!("failed to insert message: {e}");
+                }
+
+                let extract_user_id = user_id;
+                let extract_user_msg = user_message;
+                let extract_ai_msg = full_content;
+                let extract_user_row = user_row;
+                tokio::spawn(async move {
+                    if let Err(e) = crate::services::self_memory::extract_memories(
+                        &extract_user_row,
+                        &extract_user_id,
+                        &extract_user_msg,
+                        &extract_ai_msg,
+                    ).await {
+                        tracing::warn!("failed to extract memories: {e}");
+                    }
+                    if let Err(e) = crate::services::self_memory::check_and_compress(
+                        &extract_user_row,
+                        &extract_user_id,
+                    ).await {
+                        tracing::warn!("failed to compress memories: {e}");
+                    }
+                });
+            })
+        },
     )
     .await?;
 
-    let pool = state.db.clone();
-    let user_id = user.token_id.clone();
-    let self_dir = crate::services::self_data::get_self_dir(&user_id);
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     let content_len = body.content.len();
-    let user_message = body.content.clone();
     if let Err(e) = crate::services::self_data::record_chat_message(&self_dir, None, content_len) {
         tracing::warn!("failed to record chat message: {e}");
     }
-    let user_row_c = user_row.clone();
 
+    let request_start_c = request_start;
     let s = stream! {
-        tracing::info!("self_chat route: stream consumer started at {:?}", request_start.elapsed().as_secs_f64());
+        tracing::info!("self_chat route: stream consumer started at {:?}", request_start_c.elapsed().as_secs_f64());
         let mut event_count = 0;
         while let Some(event) = rx.recv().await {
             event_count += 1;
             if event_count == 1 {
-                tracing::info!("self_chat route: first event received at {:?}", request_start.elapsed().as_secs_f64());
+                tracing::info!("self_chat route: first event received at {:?}", request_start_c.elapsed().as_secs_f64());
             }
             match event {
                 SseEvent::Start { message_id, role } => {
@@ -389,52 +448,14 @@ pub async fn self_chat(
                     let data = serde_json::json!({ "content": content });
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
-                SseEvent::End { message_id, full_content, token_usage } => {
-                    tracing::info!("self_chat route: End event received at {:?}, total_events={}", request_start.elapsed().as_secs_f64(), event_count);
+                SseEvent::End { message_id, full_content: _, token_usage } => {
+                    tracing::info!("self_chat route: End event received at {:?}, total_events={}", request_start_c.elapsed().as_secs_f64(), event_count);
                     let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
                     let data = serde_json::json!({
                         "message_id": message_id,
                         "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
-
-                    if let Err(e) = message::insert_message(
-                        &pool,
-                        &message::NewMessage {
-                            id: &message_id,
-                            ring_id: None,
-                            user_id: &user_id,
-                            role: "self",
-                            sender_name: "SELF",
-                            content: &full_content,
-                            node_refs: &[],
-                            tag_refs: &[],
-                            token_usage: token_usage.as_deref(),
-                        },
-                    ).await {
-                        tracing::warn!("failed to insert message: {e}");
-                    }
-
-                    let extract_user_id = user_id.clone();
-                    let extract_user_msg = user_message.clone();
-                    let extract_ai_msg = full_content.clone();
-                    let extract_user_row = user_row_c.clone();
-                    tokio::spawn(async move {
-                        if let Err(e) = crate::services::self_memory::extract_memories(
-                            &extract_user_row,
-                            &extract_user_id,
-                            &extract_user_msg,
-                            &extract_ai_msg,
-                        ).await {
-                            tracing::warn!("failed to extract memories: {e}");
-                        }
-                        if let Err(e) = crate::services::self_memory::check_and_compress(
-                            &extract_user_row,
-                            &extract_user_id,
-                        ).await {
-                            tracing::warn!("failed to compress memories: {e}");
-                        }
-                    });
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });

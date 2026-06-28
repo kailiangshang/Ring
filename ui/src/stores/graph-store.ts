@@ -209,9 +209,11 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   createNode: async (ringId, label, nodeType) => {
+    const { graph_id } = get()
     const res = await api.post<NodeResponse>(`/rings/${ringId}/graph`, {
       label,
       node_type: nodeType ?? 'topic',
+      graph_id: graph_id ?? undefined,
     })
     set((s) => ({ nodes: [...s.nodes, toGraphNode(res)] }))
   },
@@ -276,7 +278,6 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   createNodesFromExtraction: async (ringId, concepts, relations) => {
     await get().fetchGraphs(ringId)
     const { graph_id } = get()
-    if (!graph_id) return
 
     const labelToId = new Map<string, string>()
 
@@ -286,6 +287,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
           label: concept.label,
           node_type: concept.node_type,
           tags: concept.tags,
+          graph_id: graph_id ?? undefined,
         })
         labelToId.set(concept.label, res.id)
       } catch (e) {

@@ -67,6 +67,11 @@ function createSseCallbacks(
         })
       }
       set({ sending: false, streaming_message_id: null, abort_controller: null })
+      const ctx = useAppStore.getState().current_context
+      const ringId = useRingStore.getState().active_ring_id
+      if (ctx === 'ring' && ringId) {
+        useGraphStore.getState().fetchGraph(ringId)
+      }
     },
     onError: (data: { error: string }) => {
       const { streaming_message_id } = get()

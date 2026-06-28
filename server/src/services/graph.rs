@@ -136,7 +136,11 @@ pub async fn create_node(
     ring_id: &str,
     input: &graph::CreateNodeInput,
 ) -> Result<graph::GraphNodeRow> {
-    let g = graph::ensure_default_graph(&state.db, ring_id).await?;
+    let g = if let Some(ref gid) = input.graph_id {
+        graph::get_graph_by_id(&state.db, gid).await?
+    } else {
+        graph::ensure_default_graph(&state.db, ring_id).await?
+    };
     let id = ulid::Ulid::new().to_string();
     let node = graph::create_node(&state.db, &id, &g.id, ring_id, input).await?;
     let ring_name = crate::services::search::get_ring_name(&state.db, &node.ring_id)
@@ -204,7 +208,11 @@ pub async fn create_edge(
     ring_id: &str,
     input: &graph::CreateEdgeInput,
 ) -> Result<graph::GraphEdgeRow> {
-    let g = graph::ensure_default_graph(&state.db, ring_id).await?;
+    let g = if let Some(ref gid) = input.graph_id {
+        graph::get_graph_by_id(&state.db, gid).await?
+    } else {
+        graph::ensure_default_graph(&state.db, ring_id).await?
+    };
     let id = ulid::Ulid::new().to_string();
     let edge = graph::create_edge(&state.db, &id, &g.id, ring_id, input).await?;
     persist_graph_snapshot(state, ring_id).await;

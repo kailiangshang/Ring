@@ -621,6 +621,7 @@ pub fn start_summarize_stream(
         vec![],
         user_message,
         "session_ring".to_string(),
+        |_: String, _: Option<String>| Box::pin(async {}),
     );
     Ok(rx)
 }

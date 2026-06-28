@@ -170,16 +170,44 @@ pub async fn blueprint_chat(
     .await?;
 
     let llm = crate::services::llm::LlmClient::from_user(&user_row)?;
+    let pool_oc = state.db.clone();
+    let ring_id_oc = ring_id.clone();
+    let user_id_oc = user.token_id.clone();
     let mut rx = llm.chat_stream(
         system_prompt,
         history_messages,
         body.content.clone(),
         "blueprint".to_string(),
-    );
+        move |full_content: String, token_usage: Option<String>| {
+            let pool = pool_oc.clone();
+            let ring_id = ring_id_oc.clone();
+            let user_id = user_id_oc.clone();
+            let message_id = ulid::Ulid::new().to_string();
+            Box::pin(async move {
+                if let Err(e) = message::insert_message(
+                    &pool,
+                    &message::NewMessage {
+                        id: &message_id,
+                        ring_id: Some(&ring_id),
+                        user_id: &user_id,
+                        role: "blueprint",
+                        sender_name: "GROUP RING",
+                        content: &full_content,
+                        node_refs: &[],
+                        tag_refs: &[],
+                        token_usage: token_usage.as_deref(),
+                    },
+                ).await {
+                    tracing::warn!("failed to insert message: {e}");
+                }
 
-    let pool = state.db.clone();
-    let ring_id_c = ring_id.clone();
-    let user_id = user.token_id.clone();
+                let self_dir = crate::services::self_data::get_self_dir(&user_id);
+                if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "blueprint") {
+                    tracing::warn!("failed to record tool usage: {e}");
+                }
+            })
+        },
+    );
 
     let s = stream! {
         while let Some(event) = rx.recv().await {
@@ -192,35 +220,13 @@ pub async fn blueprint_chat(
                     let data = serde_json::json!({ "content": content });
                     yield Ok(Event::default().event("delta").data(data.to_string()));
                 }
-                SseEvent::End { message_id, full_content, token_usage } => {
+                SseEvent::End { message_id, full_content: _, token_usage } => {
                     let usage_json = token_usage.as_deref().and_then(|u| serde_json::from_str::<serde_json::Value>(u).ok());
                     let data = serde_json::json!({
                         "message_id": message_id,
                         "usage": usage_json.unwrap_or(serde_json::json!({ "prompt_tokens": 0, "completion_tokens": 0 }))
                     });
                     yield Ok(Event::default().event("message_end").data(data.to_string()));
-
-                    if let Err(e) = message::insert_message(
-                        &pool,
-                        &message::NewMessage {
-                            id: &message_id,
-                            ring_id: Some(&ring_id_c),
-                            user_id: &user_id,
-                            role: "blueprint",
-                            sender_name: "GROUP RING",
-                            content: &full_content,
-                            node_refs: &[],
-                            tag_refs: &[],
-                            token_usage: token_usage.as_deref(),
-                        },
-                    ).await {
-                        tracing::warn!("failed to insert message: {e}");
-                    }
-
-                    let self_dir = crate::services::self_data::get_self_dir(&user_id);
-                    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "blueprint") {
-                        tracing::warn!("failed to record tool usage: {e}");
-                    }
                 }
                 SseEvent::Error(msg) => {
                     let data = serde_json::json!({ "error": msg });

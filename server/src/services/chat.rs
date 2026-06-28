@@ -504,11 +504,17 @@ pub async fn save_user_message(
     Ok(msg_id)
 }
 
-pub async fn start_chat_stream(
+pub async fn start_chat_stream<C>(
     state: &AppState,
     user: &crate::models::user::UserRow,
     params: &ChatParams<'_>,
-) -> Result<tokio::sync::mpsc::Receiver<SseEvent>> {
+    on_complete: C,
+) -> Result<tokio::sync::mpsc::Receiver<SseEvent>>
+where
+    C: Fn(String, Option<String>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+        + Send
+        + 'static,
+{
     let system_prompt = if let (Some(name), Some(ring_id)) = (params.ring_name, params.ring_id) {
         build_group_ring_prompt_with_docs(
             &state.db,
@@ -558,6 +564,7 @@ pub async fn start_chat_stream(
         history,
         filtered_content,
         params.ai_role.to_string(),
+        on_complete,
     );
     Ok(rx)
 }
@@ -612,11 +619,37 @@ pub fn get_group_ring_tools() -> Vec<async_openai::types::ChatCompletionTool> {
                 strict: Some(true),
             },
         },
+        async_openai::types::ChatCompletionTool {
+            r#type: async_openai::types::ChatCompletionToolType::Function,
+            function: async_openai::types::FunctionObject {
+                name: "graph_mutation".into(),
+                description: Some("Mutate the knowledge graph: create, update, or delete nodes and edges. Use when the user explicitly asks to modify the graph, or when you identify important knowledge that should be structured into the graph. The ring_id is determined automatically from context.".into()),
+                parameters: Some(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "action": { "type": "string", "enum": ["create_node", "update_node", "delete_node", "create_edge", "delete_edge"], "description": "The graph mutation action" },
+                        "node_id": { "type": "string", "description": "Node ID (required for update_node, delete_node)" },
+                        "label": { "type": "string", "description": "Node label (required for create_node, optional for update_node)" },
+                        "node_type": { "type": "string", "enum": ["topic", "category", "leaf"], "description": "Node type (default: topic)" },
+                        "parent_id": { "type": "string", "description": "Parent node ID (optional for create_node)" },
+                        "content": { "type": "string", "description": "Node content text" },
+                        "tags": { "type": "array", "items": { "type": "string" }, "description": "Node tags" },
+                        "source_id": { "type": "string", "description": "Source node ID (required for create_edge)" },
+                        "target_id": { "type": "string", "description": "Target node ID (required for create_edge)" },
+                        "relation": { "type": "string", "description": "Edge relation type (default: related_to)" },
+                        "edge_id": { "type": "string", "description": "Edge ID (required for delete_edge)" }
+                    },
+                    "required": ["action"]
+                })),
+                strict: Some(true),
+            },
+        },
     ]
 }
 
 pub async fn execute_group_tool(
-    pool: &sqlx::SqlitePool,
+    state: &crate::state::AppState,
+    ring_id: Option<&str>,
     user: &crate::models::user::UserRow,
     tool_name: String,
     args: serde_json::Value,
@@ -625,7 +658,7 @@ pub async fn execute_group_tool(
         "file_parse" => {
             let parsed: crate::services::workflow::FileParseArgs = serde_json::from_value(args)
                 .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
-            crate::services::workflow::execute_file_parse(pool, user, &parsed).await
+            crate::services::workflow::execute_file_parse(&state.db, user, &parsed).await
         }
         "knowledge_extract" => {
             let parsed: crate::services::workflow::KnowledgeExtractArgs =
@@ -637,6 +670,12 @@ pub async fn execute_group_tool(
             let parsed: crate::services::workflow::FetchUrlArgs = serde_json::from_value(args)
                 .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
             crate::services::workflow::execute_fetch_url(&parsed).await
+        }
+        "graph_mutation" => {
+            let rid = ring_id.ok_or_else(|| crate::error::RingError::BadRequest("ring_id required for graph_mutation".into()))?;
+            let parsed: crate::services::workflow::GraphMutationArgs = serde_json::from_value(args)
+                .map_err(|e| crate::error::RingError::BadRequest(e.to_string()))?;
+            crate::services::workflow::execute_graph_mutation(state, rid, &parsed).await
         }
         _ => Err(crate::error::RingError::BadRequest(format!(
             "unknown tool: {tool_name}"

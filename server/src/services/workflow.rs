@@ -4,6 +4,7 @@ use sqlx::SqlitePool;
 use crate::error::{Result, RingError};
 use crate::models::user::UserRow;
 use crate::services::llm::LlmClient;
+use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct FileParseArgs {
@@ -21,6 +22,102 @@ pub struct KnowledgeExtractArgs {
 pub struct FetchUrlArgs {
     pub url: String,
     pub focus: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GraphMutationArgs {
+    pub action: String,
+    pub node_id: Option<String>,
+    pub label: Option<String>,
+    pub node_type: Option<String>,
+    pub parent_id: Option<String>,
+    pub content: Option<String>,
+    pub tags: Option<Vec<String>>,
+    pub source_id: Option<String>,
+    pub target_id: Option<String>,
+    pub relation: Option<String>,
+    pub edge_id: Option<String>,
+}
+
+pub async fn execute_graph_mutation(
+    state: &AppState,
+    ring_id: &str,
+    args: &GraphMutationArgs,
+) -> Result<String> {
+    match args.action.as_str() {
+        "create_node" => {
+            let input = crate::models::graph::CreateNodeInput {
+                label: args.label.clone().unwrap_or_else(|| "New Node".into()),
+                parent_id: args.parent_id.clone(),
+                node_type: args.node_type.clone().unwrap_or_else(|| "topic".into()),
+                tags: args.tags.clone().unwrap_or_default(),
+                content: args.content.clone().unwrap_or_default(),
+                markdown_path: None,
+                metadata: serde_json::json!({}),
+                graph_id: None,
+            };
+            let node = crate::services::graph::create_node(state, ring_id, &input).await?;
+            Ok(format!("Created node: {} ({})", node.label, node.id))
+        }
+        "update_node" => {
+            let node_id = args
+                .node_id
+                .as_deref()
+                .ok_or_else(|| RingError::BadRequest("node_id required for update_node".into()))?;
+            let input = crate::models::graph::UpdateNodeInput {
+                label: args.label.clone(),
+                tags: args.tags.clone(),
+                content: args.content.clone(),
+                markdown_path: None,
+                metadata: None,
+            };
+            let node = crate::services::graph::update_node(state, node_id, &input).await?;
+            Ok(format!("Updated node: {} ({})", node.label, node.id))
+        }
+        "delete_node" => {
+            let node_id = args
+                .node_id
+                .as_deref()
+                .ok_or_else(|| RingError::BadRequest("node_id required for delete_node".into()))?;
+            crate::services::graph::delete_node(state, node_id).await?;
+            Ok("Deleted node".into())
+        }
+        "create_edge" => {
+            let input = crate::models::graph::CreateEdgeInput {
+                source_id: args
+                    .source_id
+                    .clone()
+                    .ok_or_else(|| RingError::BadRequest("source_id required".into()))?,
+                target_id: args
+                    .target_id
+                    .clone()
+                    .ok_or_else(|| RingError::BadRequest("target_id required".into()))?,
+                relation: args
+                    .relation
+                    .clone()
+                    .unwrap_or_else(|| "related_to".into()),
+                label: String::new(),
+                graph_id: None,
+            };
+            let edge = crate::services::graph::create_edge(state, ring_id, &input).await?;
+            Ok(format!(
+                "Created edge: {} -[{}]-> {} ({})",
+                edge.source_id, edge.relation, edge.target_id, edge.id
+            ))
+        }
+        "delete_edge" => {
+            let edge_id = args
+                .edge_id
+                .as_deref()
+                .ok_or_else(|| RingError::BadRequest("edge_id required for delete_edge".into()))?;
+            crate::services::graph::delete_edge(state, edge_id).await?;
+            Ok("Deleted edge".into())
+        }
+        _ => Err(RingError::BadRequest(format!(
+            "unknown graph mutation action: {}",
+            args.action
+        ))),
+    }
 }
 
 pub async fn execute_file_parse(
