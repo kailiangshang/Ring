@@ -1063,7 +1063,13 @@ async fn stream_cross_ring_query_inner(
 
     let llm = LlmClient::from_user(&user)?;
 
-    let mut rx = llm.chat_stream(system_prompt, vec![], query, "super_ring".to_string(), |_: String, _: Option<String>| Box::pin(async {}));
+    let mut rx = llm.chat_stream(
+        system_prompt,
+        vec![],
+        query,
+        "super_ring".to_string(),
+        |_: String, _: Option<String>| Box::pin(async {}),
+    );
 
     let (msg_id, full_content) = forward_sse_stream(&mut rx, tx).await;
 

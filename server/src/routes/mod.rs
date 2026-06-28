@@ -254,7 +254,7 @@ pub fn build_router(state: AppState) -> Router {
         )
         .route(
             "/rings/{ring_id}/graph/edges/{edge_id}",
-            delete(graph::delete_edge),
+            put(graph::update_edge).delete(graph::delete_edge),
         )
         .route(
             "/rings/{ring_id}/sessions",

@@ -29,6 +29,9 @@ pub mod group_ring {
 </output_rules>
 </system>"#
         );
+        prompt.push_str(
+            "\n\n<completion_guard>\nOnly say an operation is completed after the system has actually finished it. Before real persistence or archive completion, use wording like suggestion, preview, candidate, or pending confirmation. Do not claim content is already saved, mounted to graph, archived, or written unless that action truly happened.\n</completion_guard>",
+        );
         if let Some(desc) = role_description {
             if !desc.trim().is_empty() {
                 prompt.push_str(&format!("\n\n<ring_role>{desc}</ring_role>"));
@@ -718,6 +721,8 @@ pub mod workflow {
 <rules>
 - 概念粒度：一个概念 = 一个可独立理解的实体
 - relation 必须有语义，不要都填 related_to
+- 当 concepts 数量 >= 2 时，relations 不能为空，至少要足够让图谱连通
+- relation 的 from / to 必须直接使用 concepts 中出现过的标签，不要改写或另起别名
 - suggested_graph 推荐最合适的图谱名
 </rules>
 </system>"#,

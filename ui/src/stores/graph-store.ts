@@ -17,6 +17,7 @@ interface GraphState {
   graphs: GraphInfo[]
   loading: boolean
   selected_node_id: string | null
+  selected_edge_id: string | null
   collapsed_nodes: Set<string>
   float_open: boolean
   float_position: { x: number; y: number }
@@ -32,9 +33,11 @@ interface GraphState {
   switchGraph: (ringId: string, graphId: string) => Promise<void>
   createNode: (ringId: string, label: string, nodeType?: string) => Promise<void>
   deleteNode: (ringId: string, nodeId: string) => Promise<void>
-  createEdge: (ringId: string, sourceId: string, targetId: string, relation?: string) => Promise<void>
+  createEdge: (ringId: string, sourceId: string, targetId: string, relation?: string, label?: string) => Promise<void>
+  updateEdge: (ringId: string, edgeId: string, input: { relation?: string; label?: string }) => Promise<void>
   deleteEdge: (ringId: string, edgeId: string) => Promise<void>
   selectNode: (nodeId: string | null) => void
+  selectEdge: (edgeId: string | null) => void
   toggleCollapse: (nodeId: string) => void
   isCollapsed: (nodeId: string) => boolean
   expandAll: (parentIds: string[]) => void
@@ -43,7 +46,8 @@ interface GraphState {
     ringId: string,
     concepts: { label: string; node_type: string; tags: string[] }[],
     relations: { from: string; to: string; relation: string }[],
-  ) => Promise<void>
+    targetGraphId?: string | null,
+  ) => Promise<{ createdNodes: number; createdEdges: number }>
 }
 
 interface GraphResponse {
@@ -132,6 +136,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   graphs: [],
   loading: false,
   selected_node_id: null,
+  selected_edge_id: null,
   collapsed_nodes: new Set<string>(),
   float_open: false,
   float_position: typeof window !== 'undefined'
@@ -182,6 +187,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         loading: false,
         collapsed_nodes: new Set(),
         selected_node_id: null,
+        selected_edge_id: null,
       })
     } catch (e) {
       console.error('switchGraph error:', e)
@@ -189,11 +195,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     }
   },
 
-  fetchGraph: async (ringId: string) => {
+  fetchGraph: async (ringId: string, graphId?: string) => {
     set({ loading: true })
     try {
       await get().fetchGraphs(ringId)
-      const res = await api.get<GraphResponse>(`/rings/${ringId}/graph`)
+      const path = graphId
+        ? `/rings/${ringId}/graph?graph_id=${graphId}`
+        : `/rings/${ringId}/graph`
+      const res = await api.get<GraphResponse>(path)
       const rawNodes = (res.nodes ?? []) as unknown as NodeResponse[]
       const rawEdges = (res.edges ?? []) as unknown as EdgeResponse[]
       set({
@@ -201,6 +210,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         nodes: rawNodes.map(toGraphNode),
         edges: rawEdges.map(toGraphEdge),
         loading: false,
+        selected_edge_id: null,
       })
     } catch (e) {
       console.error('fetchGraph error:', e)
@@ -232,21 +242,36 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     })
   },
 
-  createEdge: async (ringId, sourceId, targetId, relation) => {
+  createEdge: async (ringId, sourceId, targetId, relation, label) => {
     const res = await api.post<EdgeResponse>(`/rings/${ringId}/graph/edges`, {
+      graph_id: get().graph_id ?? undefined,
       source_id: sourceId,
       target_id: targetId,
       relation: relation ?? 'related_to',
+      label: label ?? '',
     })
     set((s) => ({ edges: [...s.edges, toGraphEdge(res)] }))
   },
 
-  deleteEdge: async (ringId, edgeId) => {
-    await api.delete(`/rings/${ringId}/graph/edges/${edgeId}`)
-    set((s) => ({ edges: s.edges.filter((e) => e.id !== edgeId) }))
+  updateEdge: async (ringId, edgeId, input) => {
+    const res = await api.put<EdgeResponse>(`/rings/${ringId}/graph/edges/${edgeId}`, input)
+    set((s) => ({
+      edges: s.edges.map((edge) => (edge.id === edgeId ? toGraphEdge(res) : edge)),
+      selected_edge_id: edgeId,
+    }))
   },
 
-  selectNode: (nodeId) => set({ selected_node_id: nodeId }),
+  deleteEdge: async (ringId, edgeId) => {
+    await api.delete(`/rings/${ringId}/graph/edges/${edgeId}`)
+    set((s) => ({
+      edges: s.edges.filter((e) => e.id !== edgeId),
+      selected_edge_id: s.selected_edge_id === edgeId ? null : s.selected_edge_id,
+    }))
+  },
+
+  selectNode: (nodeId) => set({ selected_node_id: nodeId, selected_edge_id: null }),
+
+  selectEdge: (edgeId) => set({ selected_edge_id: edgeId, selected_node_id: null }),
 
   toggleCollapse: (nodeId: string) => {
     const { collapsed_nodes } = get()
@@ -275,42 +300,87 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ collapsed_nodes: newCollapsed })
   },
 
-  createNodesFromExtraction: async (ringId, concepts, relations) => {
+  createNodesFromExtraction: async (ringId, concepts, relations, targetGraphId) => {
     await get().fetchGraphs(ringId)
-    const { graph_id } = get()
+    let { graph_id } = get()
+    const { graphs } = get()
+    let activeGraphId =
+      targetGraphId && graphs.some((graph) => graph.id === targetGraphId)
+        ? targetGraphId
+        : graph_id
+
+    if (!activeGraphId) {
+      await get().fetchGraph(ringId)
+      graph_id = get().graph_id
+      activeGraphId = graph_id
+    }
+
+    if (activeGraphId && get().graph_id !== activeGraphId) {
+      await get().switchGraph(ringId, activeGraphId)
+    }
+
+    const { nodes, edges } = get()
+    const existingLabels = new Map<string, string>()
+    for (const node of nodes) {
+      existingLabels.set(node.label.trim().toLowerCase(), node.id)
+    }
+
+    if (!activeGraphId) {
+      return { createdNodes: 0, createdEdges: 0 }
+    }
 
     const labelToId = new Map<string, string>()
+    let createdNodes = 0
+    let createdEdges = 0
+
+    for (const [label, id] of existingLabels.entries()) {
+      labelToId.set(label, id)
+    }
 
     for (const concept of concepts) {
+      const normalized = concept.label.trim().toLowerCase()
+      if (!normalized) continue
+      if (labelToId.has(normalized)) continue
       try {
         const res = await api.post<{ id: string }>(`/rings/${ringId}/graph`, {
           label: concept.label,
+          graph_id: activeGraphId,
           node_type: concept.node_type,
           tags: concept.tags,
-          graph_id: graph_id ?? undefined,
         })
-        labelToId.set(concept.label, res.id)
+        labelToId.set(normalized, res.id)
+        createdNodes += 1
       } catch (e) {
         console.error('createNode error:', e)
       }
     }
 
+    const existingEdgeKeys = new Set(
+      edges.map((edge) => `${edge.source_id}|${edge.target_id}|${edge.relation}`),
+    )
+
     for (const rel of relations) {
-      const sourceId = labelToId.get(rel.from)
-      const targetId = labelToId.get(rel.to)
+      const sourceId = labelToId.get(rel.from.trim().toLowerCase())
+      const targetId = labelToId.get(rel.to.trim().toLowerCase())
       if (sourceId && targetId) {
+        const edgeKey = `${sourceId}|${targetId}|${rel.relation}`
+        if (existingEdgeKeys.has(edgeKey)) continue
         try {
           await api.post(`/rings/${ringId}/graph/edges`, {
+            graph_id: activeGraphId,
             source_id: sourceId,
             target_id: targetId,
             relation: rel.relation,
           })
+          existingEdgeKeys.add(edgeKey)
+          createdEdges += 1
         } catch (e) {
           console.error('createEdge error:', e)
         }
       }
     }
 
-    get().fetchGraph(ringId)
+    await get().fetchGraph(ringId, activeGraphId)
+    return { createdNodes, createdEdges }
   },
 }))

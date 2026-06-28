@@ -197,12 +197,16 @@ pub async fn blueprint_chat(
                         tag_refs: &[],
                         token_usage: token_usage.as_deref(),
                     },
-                ).await {
+                )
+                .await
+                {
                     tracing::warn!("failed to insert message: {e}");
                 }
 
                 let self_dir = crate::services::self_data::get_self_dir(&user_id);
-                if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "blueprint") {
+                if let Err(e) =
+                    crate::services::self_data::record_tool_usage(&self_dir, "blueprint")
+                {
                     tracing::warn!("failed to record tool usage: {e}");
                 }
             })

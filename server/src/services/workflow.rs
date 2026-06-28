@@ -92,10 +92,7 @@ pub async fn execute_graph_mutation(
                     .target_id
                     .clone()
                     .ok_or_else(|| RingError::BadRequest("target_id required".into()))?,
-                relation: args
-                    .relation
-                    .clone()
-                    .unwrap_or_else(|| "related_to".into()),
+                relation: args.relation.clone().unwrap_or_else(|| "related_to".into()),
                 label: String::new(),
                 graph_id: None,
             };

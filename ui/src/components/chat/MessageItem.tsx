@@ -3,8 +3,10 @@ import type { ChatMessage } from '../../types/chat'
 import { useChatStore } from '../../stores/chat-store'
 import { useRingStore } from '../../stores/ring-store'
 import { useAppStore } from '../../stores/app-store'
+import { usePanelStore } from '../../stores/panel-store'
 import { MarkdownRenderer } from '../common/MarkdownRenderer'
 import { useGraphStore } from '../../stores/graph-store'
+import { ConfirmModal } from '../common/ConfirmModal'
 
 const COLLAPSE_HEIGHT = 200
 
@@ -22,6 +24,12 @@ interface ExtractionData {
   suggested_graph?: string
 }
 
+interface GraphActionData {
+  intent: string
+}
+
+const handledGraphActionMessages = new Set<string>()
+
 function parseExtraction(text: string, tag: string): ExtractionData | null {
   const re = new RegExp(`<${tag}>\\s*([\\s\\S]*?)\\s*<\\/${tag}>`)
   const match = text.match(re)
@@ -37,6 +45,7 @@ function stripExtractionTags(text: string): string {
   return text
     .replace(/<file_analysis>[\s\S]*?<\/file_analysis>/g, '')
     .replace(/<knowledge_extraction>[\s\S]*?<\/knowledge_extraction>/g, '')
+    .replace(/<graph_action>[\s\S]*?<\/graph_action>/g, '')
     .trim()
 }
 
@@ -197,6 +206,21 @@ function MessageItemInner({ message }: MessageItemProps) {
   const rings = useRingStore((s) => s.rings)
   const selectRing = useRingStore((s) => s.selectRing)
   const setContext = useAppStore((s) => s.setContext)
+  const graphId = useGraphStore((s) => s.graph_id)
+  const graphs = useGraphStore((s) => s.graphs)
+  const addMessage = useChatStore((s) => s.addMessage)
+  const graphAction = isAi ? parseExtraction(message.content, 'graph_action') as GraphActionData | null : null
+  const activeGraphName = graphs.find((g) => g.id === graphId)?.name ?? 'main'
+  const [graphConfirmClosed, setGraphConfirmClosed] = useState(() => handledGraphActionMessages.has(message.id))
+  const graphConfirmOpen =
+    Boolean(knowledgeExtraction && graphAction?.intent === 'confirm_create_graph') &&
+    !graphConfirmClosed &&
+    !handledGraphActionMessages.has(message.id)
+
+  const closeGraphConfirm = () => {
+    handledGraphActionMessages.add(message.id)
+    setGraphConfirmClosed(true)
+  }
 
   const handleCitationClick = (ringName: string) => {
     const ring = rings.find((r) => r.name === ringName)
@@ -502,6 +526,7 @@ function MessageItemInner({ message }: MessageItemProps) {
                       activeRingId,
                       knowledgeExtraction.concepts,
                       knowledgeExtraction.relations,
+                      graphId,
                     )
                   }
                 }}
@@ -540,6 +565,50 @@ function MessageItemInner({ message }: MessageItemProps) {
           </div>
         )}
       </div>
+      <ConfirmModal
+        open={graphConfirmOpen}
+        title="Create Graph Nodes"
+        message={
+          knowledgeExtraction
+            ? `Create ${knowledgeExtraction.concepts.length} nodes and ${knowledgeExtraction.relations.length} relations in graph "${activeGraphName}"?`
+            : ''
+        }
+        confirm_label="Create"
+        cancel_label="Cancel"
+        on_cancel={closeGraphConfirm}
+        on_confirm={() => {
+          closeGraphConfirm()
+          if (!activeRingId || !knowledgeExtraction) return
+          useGraphStore
+            .getState()
+            .createNodesFromExtraction(
+              activeRingId,
+              knowledgeExtraction.concepts,
+              knowledgeExtraction.relations,
+              graphId,
+            )
+            .then(({ createdNodes, createdEdges }) => {
+              usePanelStore.getState().open('graph')
+              addMessage({
+                id: `sys-${crypto.randomUUID()}`,
+                role: 'system',
+                sender_name: 'SYSTEM',
+                content: `Graph updated: ${createdNodes} node(s), ${createdEdges} edge(s) created in ${activeGraphName}.`,
+                created_at: new Date().toISOString(),
+              })
+            })
+            .catch((error: unknown) => {
+              const msg = error instanceof Error ? error.message : 'failed to create graph nodes'
+              addMessage({
+                id: `sys-${crypto.randomUUID()}`,
+                role: 'system',
+                sender_name: 'SYSTEM',
+                content: `Graph creation failed: ${msg}`,
+                created_at: new Date().toISOString(),
+              })
+            })
+        }}
+      />
     </div>
   )
 }

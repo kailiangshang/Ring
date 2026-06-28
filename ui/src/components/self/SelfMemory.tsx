@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { api } from '../../services/api'
 import { ConfirmModal } from '../common/ConfirmModal'
 
@@ -26,18 +26,21 @@ export function SelfMemory() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [saveWarning, setSaveWarning] = useState(false)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const fileList = await api.get<MemoryFile[]>('/self/memory')
       setFiles(fileList)
     } catch {
       // silently ignore
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      void loadData()
+    }, 0)
+    return () => window.clearTimeout(timeout)
+  }, [loadData])
 
   const openEdit = async (name: string) => {
     try {

@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use crate::error::{Result, RingError};
 use crate::extractors::auth::AuthUser;
-use crate::models::graph::{CreateEdgeInput, CreateNodeInput, UpdateNodeInput};
+use crate::models::graph::{CreateEdgeInput, CreateNodeInput, UpdateEdgeInput, UpdateNodeInput};
 use crate::models::ring;
 use crate::services;
 use crate::state::AppState;
@@ -169,6 +169,24 @@ pub async fn create_edge_handler(
             crate::services::cross_ring_cache::invalidate_ring(&cache, &rid).await;
         });
     }
+
+    let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
+    if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {
+        tracing::warn!("failed to record tool usage: {e}");
+    }
+
+    Ok(Json(edge))
+}
+
+pub async fn update_edge(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((ring_id, edge_id)): Path<(String, String)>,
+    Json(body): Json<UpdateEdgeInput>,
+) -> Result<Json<crate::models::graph::GraphEdgeRow>> {
+    let role = ring::get_user_role(&state.db, &ring_id, &user.token_id).await?;
+    ring::reject_readonly(&role)?;
+    let edge = services::graph::update_edge(&state, &edge_id, &body).await?;
 
     let self_dir = crate::services::self_data::get_self_dir(&user.token_id);
     if let Err(e) = crate::services::self_data::record_tool_usage(&self_dir, "graph_edit") {

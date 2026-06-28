@@ -83,17 +83,16 @@ async fn main() {
 
     {
         let has_col: bool = sqlx::query_scalar(
-            "SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'token_created_at'"
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('users') WHERE name = 'token_created_at'",
         )
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(false);
-        let has_migration: bool = sqlx::query_scalar(
-            "SELECT COUNT(*) > 0 FROM _sqlx_migrations WHERE version = 18"
-        )
-            .fetch_one(&pool)
-            .await
-            .unwrap_or(false);
+        .fetch_one(&pool)
+        .await
+        .unwrap_or(false);
+        let has_migration: bool =
+            sqlx::query_scalar("SELECT COUNT(*) > 0 FROM _sqlx_migrations WHERE version = 18")
+                .fetch_one(&pool)
+                .await
+                .unwrap_or(false);
         if has_col && !has_migration {
             sqlx::query(
                 "INSERT INTO _sqlx_migrations (version, description, checksum, installed_on, execution_time, success) \

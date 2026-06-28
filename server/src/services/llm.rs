@@ -157,7 +157,10 @@ impl LlmClient {
         on_complete: C,
     ) -> tokio::sync::mpsc::Receiver<SseEvent>
     where
-        C: Fn(String, Option<String>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+        C: Fn(
+                String,
+                Option<String>,
+            ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
             + Send
             + 'static,
     {
@@ -352,7 +355,10 @@ impl LlmClient {
                 Box<dyn std::future::Future<Output = crate::error::Result<String>> + Send>,
             > + Send
             + 'static,
-        C: Fn(String, Option<String>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
+        C: Fn(
+                String,
+                Option<String>,
+            ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>
             + Send
             + 'static,
     {

@@ -15,14 +15,19 @@ interface SimEdge {
   target: string
   id: string
   relation: string
+  label: string
 }
 
 interface GraphCanvasProps {
   nodes: GraphNode[]
   edges: GraphEdge[]
   selectedNodeId: string | null
+  selectedEdgeId?: string | null
+  relationDraftSourceId?: string | null
+  relationDraftTargetId?: string | null
   collapsedNodes: Set<string>
   onSelectNode: (id: string | null) => void
+  onSelectEdge?: (id: string | null) => void
   onToggleCollapse: (id: string) => void
   fullscreen?: boolean
 }
@@ -53,7 +58,19 @@ function measureText(text: string, fontSize: number): number {
   return ctx.measureText(text).width
 }
 
-export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSelectNode, onToggleCollapse, fullscreen }: GraphCanvasProps) {
+export function GraphCanvas({
+  nodes,
+  edges,
+  selectedNodeId,
+  selectedEdgeId = null,
+  relationDraftSourceId = null,
+  relationDraftTargetId = null,
+  collapsedNodes,
+  onSelectNode,
+  onSelectEdge,
+  onToggleCollapse,
+  fullscreen,
+}: GraphCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null)
@@ -70,6 +87,19 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
     onToggleCollapseRef.current = onToggleCollapse
     selectedNodeIdRef.current = selectedNodeId
   })
+
+  const getNodeBorder = useCallback((d: SimNode) => {
+    if (d.id === relationDraftSourceId) return '#67E8F9'
+    if (d.id === relationDraftTargetId) return '#F59E0B'
+    if (d.id === selectedNodeId) return (NODE_COLORS[d.node_type] ?? NODE_COLORS.topic).border
+    return 'var(--border)'
+  }, [relationDraftSourceId, relationDraftTargetId, selectedNodeId])
+
+  const getNodeBorderWidth = useCallback((d: SimNode) => {
+    if (d.id === relationDraftSourceId || d.id === relationDraftTargetId) return 3
+    if (d.id === selectedNodeId) return 2
+    return 1
+  }, [relationDraftSourceId, relationDraftTargetId, selectedNodeId])
 
   const getVisible = useCallback(() => {
     const visibleIds = new Set<string>()
@@ -142,7 +172,7 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
     const fontSize = fullscreen ? 12 : 11
 
     const simEdges: SimEdge[] = visEdges.map((e) => ({
-      source: e.source_id, target: e.target_id, id: e.id, relation: e.relation,
+      source: e.source_id, target: e.target_id, id: e.id, relation: e.relation, label: e.label,
     }))
 
     const nodeMap = new Map(simNodes.map((n) => [n.id, n]))
@@ -157,7 +187,9 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
         (exit) => exit.remove(),
       )
       .attr('stroke', (d) => EDGE_COLORS[d.relation] ?? '#475569')
-      .attr('stroke-opacity', () => {
+      .attr('stroke-width', (d) => d.id === selectedEdgeId ? 2.6 : 1)
+      .attr('stroke-opacity', (d) => {
+        if (d.id === selectedEdgeId) return 0.95
         if (!selectedNodeIdRef.current) return 0.35
         return 0.1
       })
@@ -172,6 +204,21 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
       }
     })
 
+    g.selectAll<SVGLineElement, SimEdge>('.graph-edge-hit')
+      .data(simEdges, (d) => d.id)
+      .join(
+        (enter) => enter.append('line')
+          .attr('class', 'graph-edge-hit')
+          .attr('stroke', 'transparent')
+          .attr('stroke-width', fullscreen ? 18 : 14)
+          .attr('cursor', 'pointer')
+          .on('click', (_event, d) => {
+            onSelectEdge?.(d.id === selectedEdgeId ? null : d.id)
+          }),
+        (update) => update,
+        (exit) => exit.remove(),
+      )
+
     g.selectAll<SVGTextElement, SimEdge>('.edge-label')
       .data(simEdges, (d) => d.id)
       .join(
@@ -184,7 +231,7 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
         (exit) => exit.remove(),
       )
       .attr('fill', (d) => EDGE_COLORS[d.relation] ?? '#475569')
-      .text((d) => d.relation.replace('_', ' '))
+      .text((d) => d.label?.trim() || d.relation.replace('_', ' '))
 
     const linkLabelSel = g.selectAll<SVGTextElement, SimEdge>('.edge-label')
 
@@ -238,11 +285,8 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
       .attr('y', 0)
       .attr('width', (d) => widthRef.current.get(d.id) ?? 80)
       .attr('fill', (d) => (NODE_COLORS[d.node_type] ?? NODE_COLORS.topic).bg)
-      .attr('stroke', (d) => {
-        const sel = d.id === selectedNodeIdRef.current
-        return sel ? (NODE_COLORS[d.node_type] ?? NODE_COLORS.topic).border : 'var(--border)'
-      })
-      .attr('stroke-width', (d) => d.id === selectedNodeIdRef.current ? 2 : 1)
+      .attr('stroke', (d) => getNodeBorder(d))
+      .attr('stroke-width', (d) => getNodeBorderWidth(d))
 
     nodeSel
       .call(d3.drag<SVGGElement, SimNode>()
@@ -292,7 +336,7 @@ export function GraphCanvas({ nodes, edges, selectedNodeId, collapsedNodes, onSe
     nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`)
 
     updateLinkPositions(linkSel, linkLabelSel, nodeMap)
-  }, [getVisible, computeLayout, edges, collapsedNodes, fullscreen, selectedNodeId])
+  }, [getVisible, computeLayout, edges, collapsedNodes, fullscreen, selectedNodeId, selectedEdgeId, onSelectEdge, getNodeBorder, getNodeBorderWidth])
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return

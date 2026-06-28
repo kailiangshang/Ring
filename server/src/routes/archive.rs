@@ -203,8 +203,7 @@ pub async fn trigger_archive(
                 metadata: serde_json::json!({}),
                 graph_id: None,
             };
-            let node =
-                crate::services::graph::create_node(&state, &ring_id, &input).await?;
+            let node = crate::services::graph::create_node(&state, &ring_id, &input).await?;
             Some(node.id)
         }
         archive::NodeSuggestionInput::AttachExisting { node_id } => Some(node_id.clone()),
