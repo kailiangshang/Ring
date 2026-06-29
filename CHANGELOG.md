@@ -125,7 +125,7 @@ All notable changes to this project will be documented in this file.
 
 ### 基础设施
 
-- 单一 17MB 二进制（前后端一体）
+- 单一 ~15MB 二进制（前后端一体）
 - SQLite + 文件系统，零外部依赖
 - 19 个数据库迁移
 - clippy 完全清洁（0 warnings）

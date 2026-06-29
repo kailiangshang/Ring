@@ -13,9 +13,11 @@ struct Cli {
     #[arg(short, long, default_value = "7420")]
     port: u16,
 
+    /// 后台守护进程模式运行（Windows 不支持）
     #[arg(short, long)]
     daemon: bool,
 
+    /// 守护进程 PID 文件路径（默认 <data_dir>/ring.pid）
     #[arg(long)]
     pid_file: Option<String>,
 }

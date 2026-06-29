@@ -169,7 +169,7 @@ export function BlueprintPanel() {
       checkStatus(active_ring_id)
       loadHistory(active_ring_id)
     }
-  }, [active_ring_id])
+  }, [active_ring_id, checkStatus, loadHistory])
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -179,7 +179,7 @@ export function BlueprintPanel() {
     if (current_blueprint && current_blueprint.graphs.length > 0 && step === 'template') {
       setStep('confirm')
     }
-  }, [current_blueprint, step])
+  }, [current_blueprint, step, setStep])
 
   if (!active_ring_id) return null
 

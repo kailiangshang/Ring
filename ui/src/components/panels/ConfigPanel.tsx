@@ -63,6 +63,7 @@ export function ConfigPanel() {
       .catch(() => {})
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadLlm() }, [])
 
   useEffect(() => {
@@ -85,7 +86,7 @@ export function ConfigPanel() {
       fetch_tokens(active_ring_id)
       fetch_requests(active_ring_id)
     }
-  }, [active_ring_id, is_admin])
+  }, [active_ring_id, is_admin, fetch_tokens, fetch_requests])
 
   const startEdit = () => {
     if (!llmConfig) return

@@ -336,7 +336,7 @@ export function GraphCanvas({
     nodeSel.attr('transform', (d) => `translate(${d.x},${d.y})`)
 
     updateLinkPositions(linkSel, linkLabelSel, nodeMap)
-  }, [getVisible, computeLayout, edges, collapsedNodes, fullscreen, selectedNodeId, selectedEdgeId, onSelectEdge, getNodeBorder, getNodeBorderWidth])
+  }, [getVisible, computeLayout, edges, collapsedNodes, fullscreen, selectedEdgeId, onSelectEdge, getNodeBorder, getNodeBorderWidth])
 
   useEffect(() => {
     if (!svgRef.current || !containerRef.current) return

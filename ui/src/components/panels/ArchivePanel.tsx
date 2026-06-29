@@ -51,7 +51,7 @@ export function ArchivePanel() {
     fetchArchives(ringId)
     fetchQueue(ringId)
     fetchRepoStatus(ringId)
-  }, [ringId])
+  }, [ringId, fetchArchives, fetchQueue, fetchRepoStatus])
 
   if (repoStatus && !repoStatus.initialized) {
     return (
